@@ -38,6 +38,7 @@ import { getSession } from '@/lib/session';
 import type { ActionResult } from '@/server/action-result';
 import { loadActor } from '@/server/actors';
 import { hashManifest, toDbBlockId } from '@/server/block-identity';
+import { loadRevisionDoc } from '@/server/revision-doc';
 
 /** 业务可预期失败：事务内抛出触发回滚，边界处转成 {ok:false} 中文文案。 */
 class ActionError extends Error {}
@@ -618,5 +619,191 @@ export async function requestPublish(rawDocId: string): Promise<ActionResult> {
     return { ok: true, data: null };
   } catch (err) {
     return toFailure(err, '申请发布失败，请稍后重试');
+  }
+}
+
+/**
+ * 回滚草稿到某历史修订（架构 §5「回退 = 创建指回旧树的新修订，历史不删」）。
+ * 在草稿分支上创建一个 kind='rollback' 新修订，其树 = 目标修订的树（内容被还原），
+ * 旧修订与中间修订全部保留——这是「全历史可直观追溯」的一等操作，不是删除。
+ * 鉴权同提交（can('doc.edit_direct')：作者经所有权特例、编辑经角色线）。
+ * 回滚后若文章已发布，线上版本不动；作者需重新申请发布才会让还原内容上线。
+ */
+export async function restoreRevision(
+  rawDocId: string,
+  rawTargetRevisionId: string,
+): Promise<ActionResult<{ seq: number }>> {
+  const actor = await requireActor();
+  if (!actor) {
+    return fail('请先登录');
+  }
+  if (
+    !uuidSchema.safeParse(rawDocId).success ||
+    !uuidSchema.safeParse(rawTargetRevisionId).success
+  ) {
+    return fail('参数非法');
+  }
+  const docRow = await findDoc(rawDocId);
+  if (!docRow) {
+    return fail('文章不存在');
+  }
+  const decision = can(actor, 'doc.edit_direct', {
+    sectionId: docRow.sectionId,
+    doc: toDocCtx(docRow),
+  });
+  if (!decision.allow) {
+    return fail(explainDeny(decision.reason));
+  }
+
+  const db = getDb();
+  try {
+    const seq = await db.transaction(async (tx) => {
+      // 目标修订必须属于本文档（防跨文档回滚）
+      const targetRows = await tx
+        .select({ id: revisions.id, seq: revisions.seq, schemaVersion: revisions.schemaVersion })
+        .from(revisions)
+        .where(and(eq(revisions.id, rawTargetRevisionId), eq(revisions.documentId, rawDocId)))
+        .limit(1);
+      const target = targetRows[0];
+      if (!target) {
+        throw new ActionError('目标修订不存在或不属于本文章');
+      }
+
+      // 目标修订的树（即将成为新修订的树，引用的 blocks/blobs 均已存在）
+      const targetTree = await tx
+        .select({
+          position: revisionBlocks.position,
+          blockId: revisionBlocks.blockId,
+          blobHash: revisionBlocks.blobHash,
+        })
+        .from(revisionBlocks)
+        .where(eq(revisionBlocks.revisionId, rawTargetRevisionId))
+        .orderBy(asc(revisionBlocks.position));
+      const targetEntries: ManifestEntry[] = targetTree.map((r) => ({
+        blockId: r.blockId,
+        hash: r.blobHash,
+      }));
+
+      // 当前草稿头
+      const refRows = await tx
+        .select({ revisionId: documentRefs.revisionId })
+        .from(documentRefs)
+        .where(and(eq(documentRefs.documentId, rawDocId), eq(documentRefs.name, 'draft')))
+        .limit(1);
+      const expectedHead = refRows[0]?.revisionId ?? null;
+      if (expectedHead === null) {
+        throw new ActionError('这篇文章还没有草稿修订，无法回滚');
+      }
+      if (expectedHead === rawTargetRevisionId) {
+        throw new ActionError('目标修订就是当前草稿，无需回滚');
+      }
+
+      const headTree = await tx
+        .select({ blockId: revisionBlocks.blockId, hash: revisionBlocks.blobHash })
+        .from(revisionBlocks)
+        .where(eq(revisionBlocks.revisionId, expectedHead))
+        .orderBy(asc(revisionBlocks.position));
+      const headEntries: ManifestEntry[] = headTree.map((r) => ({
+        blockId: r.blockId,
+        hash: r.hash,
+      }));
+      const headSeqRows = await tx
+        .select({ seq: revisions.seq })
+        .from(revisions)
+        .where(eq(revisions.id, expectedHead))
+        .limit(1);
+      const parentSeq = headSeqRows[0]?.seq ?? 0;
+
+      const changes = diffManifests(headEntries, targetEntries);
+      if (changes.length === 0) {
+        throw new ActionError('目标修订与当前草稿内容一致，无需回滚');
+      }
+
+      const newSeq = parentSeq + 1;
+      const revInserted = await tx
+        .insert(revisions)
+        .values({
+          documentId: rawDocId,
+          seq: newSeq,
+          parentId: expectedHead,
+          authorId: actor.id,
+          committerId: actor.id,
+          kind: 'rollback',
+          message: `回滚到第 ${target.seq} 号修订`,
+          manifestHash: hashManifest(targetEntries),
+          schemaVersion: target.schemaVersion,
+          charsDelta: 0,
+          blocksChanged: changes.length,
+        })
+        .returning({ id: revisions.id });
+      const revisionId = revInserted[0]?.id;
+      if (revisionId === undefined) {
+        throw new ActionError('回滚修订写入失败，请稍后重试');
+      }
+
+      await tx.insert(revisionBlocks).values(
+        targetTree.map((r) => ({
+          revisionId,
+          position: r.position,
+          blockId: r.blockId,
+          blobHash: r.blobHash,
+        })),
+      );
+      await tx.insert(revisionChanges).values(changes.map((c) => toChangeRow(revisionId, c)));
+
+      // CAS 移 draft ref，与提交同一闸门
+      const moved = await tx
+        .update(documentRefs)
+        .set({ revisionId, updatedAt: new Date() })
+        .where(
+          and(
+            eq(documentRefs.documentId, rawDocId),
+            eq(documentRefs.name, 'draft'),
+            eq(documentRefs.revisionId, expectedHead),
+          ),
+        )
+        .returning({ documentId: documentRefs.documentId });
+      if (moved.length === 0) {
+        throw new ActionError('回滚冲突：草稿在你操作期间已被更新，请刷新页面后重试');
+      }
+
+      // 还原作者工作副本到目标内容，并把基底指向新修订（后续编辑基于还原后的内容）
+      const restoredDoc = await loadRevisionDoc(tx, revisionId);
+      const validated = validateDoc(restoredDoc);
+      const nowTs = new Date();
+      await tx
+        .insert(workingCopies)
+        .values({
+          documentId: rawDocId,
+          userId: actor.id,
+          content: validated,
+          baseRevisionId: revisionId,
+          updatedAt: nowTs,
+        })
+        .onConflictDoUpdate({
+          target: [workingCopies.documentId, workingCopies.userId],
+          set: { content: validated, baseRevisionId: revisionId, updatedAt: nowTs },
+        });
+      await tx.update(documents).set({ updatedAt: nowTs }).where(eq(documents.id, rawDocId));
+      await tx.insert(auditLog).values({
+        actorId: actor.id,
+        action: 'doc.rollback',
+        subjectType: 'revision',
+        subjectId: revisionId,
+        sectionId: docRow.sectionId,
+        detail: {
+          documentId: rawDocId,
+          targetRevisionId: rawTargetRevisionId,
+          targetSeq: target.seq,
+        },
+      });
+      return newSeq;
+    });
+    return { ok: true, data: { seq } };
+  } catch (err) {
+    if (isUniqueViolation(err)) {
+      return fail('回滚冲突：草稿在你操作期间已被更新，请刷新页面后重试');
+    }
+    return toFailure(err, '回滚失败，请稍后重试');
   }
 }

@@ -1,12 +1,22 @@
-import { documents, getDb, publishedSnapshots, revisions, user as userTable } from '@harublog/db';
+import {
+  documentRefs,
+  documents,
+  getDb,
+  publishedSnapshots,
+  revisions,
+  user as userTable,
+} from '@harublog/db';
+import { can } from '@harublog/domain';
 import { Badge } from '@harublog/ui';
-import { desc, eq } from 'drizzle-orm';
+import { and, desc, eq } from 'drizzle-orm';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
+import { RestoreButton } from '@/components/restore-button';
 import { revisionKindLabel } from '@/lib/doc-labels';
 import { formatDateTime } from '@/lib/format';
 import { getSession } from '@/lib/session';
+import { loadActor } from '@/server/actors';
 
 export const dynamic = 'force-dynamic';
 
@@ -35,6 +45,9 @@ export default async function HistoryPage({ params }: HistoryPageProps) {
       title: documents.title,
       slug: documents.slug,
       ownerId: documents.ownerId,
+      sectionId: documents.sectionId,
+      editPolicy: documents.editPolicy,
+      status: documents.status,
     })
     .from(documents)
     .where(eq(documents.slug, slug))
@@ -52,12 +65,40 @@ export default async function HistoryPage({ params }: HistoryPageProps) {
   const publishedRevisionId = snapshotRows[0]?.revisionId ?? null;
 
   // 未发布文档的历史只对作者本人可见；已发布文档的全部谱系公开（全历史可直观追溯）
+  const session = await getSession();
   if (publishedRevisionId === null) {
-    const session = await getSession();
     if (!session || session.user.id !== doc.ownerId) {
       notFound();
     }
   }
+
+  // 回滚权：作者经所有权特例、编辑经角色线（与提交同闸 doc.edit_direct）
+  let canRestore = false;
+  if (session) {
+    const actor = await loadActor(session.user.id);
+    canRestore =
+      actor !== null &&
+      can(actor, 'doc.edit_direct', {
+        sectionId: doc.sectionId,
+        doc: {
+          id: doc.id,
+          ownerId: doc.ownerId ?? '',
+          editPolicy: doc.editPolicy as 'suggest_only' | 'open' | 'semi' | 'locked',
+          status: (doc.status === 'pending' ? 'draft' : doc.status) as
+            | 'draft'
+            | 'published'
+            | 'archived',
+        },
+      }).allow;
+  }
+
+  // 当前草稿头：回滚到它本身无意义，按钮不显示
+  const draftRefRows = await db
+    .select({ revisionId: documentRefs.revisionId })
+    .from(documentRefs)
+    .where(and(eq(documentRefs.documentId, doc.id), eq(documentRefs.name, 'draft')))
+    .limit(1);
+  const draftHeadId = draftRefRows[0]?.revisionId ?? null;
 
   const revisionRows = await db
     .select({
@@ -124,16 +165,19 @@ export default async function HistoryPage({ params }: HistoryPageProps) {
             ) : (
               <p className="text-sm text-ink-400">（无修订说明）</p>
             )}
-            {prevSeqOf.has(rev.seq) ? (
-              <p className="text-sm">
+            <div className="flex flex-wrap items-center gap-4 text-sm">
+              {prevSeqOf.has(rev.seq) ? (
                 <Link
                   href={`/a/${doc.slug}/diff?from=${prevSeqOf.get(rev.seq)}&to=${rev.seq}`}
                   className="text-brand-700 hover:text-brand-900"
                 >
                   对比上一版（#{prevSeqOf.get(rev.seq)} → #{rev.seq}）
                 </Link>
-              </p>
-            ) : null}
+              ) : null}
+              {canRestore && rev.id !== draftHeadId ? (
+                <RestoreButton docId={doc.id} revisionId={rev.id} seq={rev.seq} />
+              ) : null}
+            </div>
           </li>
         ))}
       </ol>
