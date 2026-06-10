@@ -1,6 +1,7 @@
 @import "tailwindcss";
 @import "@harublog/ui/styles/tokens.css";
 @import "@harublog/ui/styles/prose-zh.css";
+@import "@harublog/ui/styles/diff.css";
 
 /*
  * 跨包类名必须显式纳入扫描：Tailwind 只自动扫描本应用目录，

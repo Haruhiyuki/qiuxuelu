@@ -74,6 +74,17 @@ export default async function HistoryPage({ params }: HistoryPageProps) {
     .where(eq(revisions.documentId, doc.id))
     .orderBy(desc(revisions.seq));
 
+  // 每个修订的「上一版」= seq 比它小的最近一个（草稿分支 seq 单调）
+  const ascSeqs = revisionRows.map((r) => r.seq).sort((a, b) => a - b);
+  const prevSeqOf = new Map<number, number>();
+  for (let i = 1; i < ascSeqs.length; i++) {
+    const cur = ascSeqs[i];
+    const prev = ascSeqs[i - 1];
+    if (cur !== undefined && prev !== undefined) {
+      prevSeqOf.set(cur, prev);
+    }
+  }
+
   return (
     <div className="mx-auto w-full max-w-3xl px-6 py-10">
       <header className="border-b border-ink-200 pb-6">
@@ -86,7 +97,12 @@ export default async function HistoryPage({ params }: HistoryPageProps) {
           {doc.title} · 修订历史
         </h1>
         <p className="mt-2 text-sm text-ink-500">
-          修订间差异对比视图将在下一阶段（M1）提供，当前仅展示修订脉络。
+          全历史可直观追溯：点击任一修订的「对比上一版」查看块级差异。
+        </p>
+        <p className="mt-3 text-sm">
+          <Link href={`/a/${doc.slug}/diff`} className="text-brand-700 hover:text-brand-900">
+            打开修订对比 →
+          </Link>
         </p>
       </header>
 
@@ -108,6 +124,16 @@ export default async function HistoryPage({ params }: HistoryPageProps) {
             ) : (
               <p className="text-sm text-ink-400">（无修订说明）</p>
             )}
+            {prevSeqOf.has(rev.seq) ? (
+              <p className="text-sm">
+                <Link
+                  href={`/a/${doc.slug}/diff?from=${prevSeqOf.get(rev.seq)}&to=${rev.seq}`}
+                  className="text-brand-700 hover:text-brand-900"
+                >
+                  对比上一版（#{prevSeqOf.get(rev.seq)} → #{rev.seq}）
+                </Link>
+              </p>
+            ) : null}
           </li>
         ))}
       </ol>

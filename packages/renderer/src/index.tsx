@@ -17,6 +17,8 @@ import { extractText, validateDoc } from '@harublog/kernel';
 import type { ReactElement, ReactNode } from 'react';
 import { Fragment } from 'react';
 
+export { RevisionDiffView, type RevisionDiffViewProps } from './revision-diff';
+
 /**
  * UGC 链接安全是红线：只放行 http(s)/mailto 与站内相对路径，
  * javascript:/data:/vbscript: 等可执行 scheme 一律拒绝（拒绝时降级为纯文本，不渲染 <a>）。

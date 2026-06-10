@@ -1,0 +1,102 @@
+/* 修订 diff 视图样式（@harublog/renderer 的 RevisionDiffView 消费）。
+   色彩走设计令牌：新增用青绿(moss)，删除用朱砂(accent)，移动用黛青(brand)。 */
+
+.revision-diff {
+  --diff-ins-bg: color-mix(in srgb, var(--color-moss-500, #4a8a6f) 14%, transparent);
+  --diff-ins-fg: var(--color-moss-700, #2f6b54);
+  --diff-del-bg: color-mix(in srgb, var(--color-accent-500, #b8503d) 12%, transparent);
+  --diff-del-fg: var(--color-accent-700, #8f3c2d);
+  font-family: var(--font-sans);
+  color: var(--color-ink-900);
+}
+
+.revision-diff .diff-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  font-size: 0.8125rem;
+  color: var(--color-ink-500);
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--color-ink-200);
+}
+.revision-diff .diff-stat-ins {
+  color: var(--diff-ins-fg);
+}
+.revision-diff .diff-stat-mod {
+  color: var(--color-brand-700);
+}
+.revision-diff .diff-stat-del {
+  color: var(--diff-del-fg);
+}
+
+.revision-diff .diff-empty {
+  padding: 2rem 0;
+  color: var(--color-ink-500);
+  font-size: 0.875rem;
+}
+
+.revision-diff .diff-blocks {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+
+.revision-diff .diff-block {
+  display: grid;
+  grid-template-columns: 7.5rem minmax(0, 1fr);
+  gap: 1rem;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--color-ink-200);
+  border-radius: var(--radius-sm, 4px);
+  background-color: var(--color-paper-50);
+}
+.revision-diff .diff-block-added {
+  border-left: 3px solid var(--color-moss-500, #4a8a6f);
+}
+.revision-diff .diff-block-removed {
+  border-left: 3px solid var(--color-accent-500, #b8503d);
+}
+.revision-diff .diff-block-modified {
+  border-left: 3px solid var(--color-brand-500, #4a818c);
+}
+.revision-diff .diff-block-moved {
+  border-left: 3px solid var(--color-ochre-500, #b08a3d);
+}
+.revision-diff .diff-block-unchanged {
+  border-left: 3px solid var(--color-ink-200);
+  opacity: 0.7;
+}
+
+.revision-diff .diff-gutter {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.75rem;
+}
+.revision-diff .diff-kind {
+  font-weight: 600;
+  color: var(--color-ink-700);
+}
+.revision-diff .diff-type {
+  color: var(--color-ink-400);
+}
+
+.revision-diff .diff-content {
+  line-height: 1.8;
+  word-break: break-word;
+  white-space: pre-wrap;
+}
+
+.revision-diff .diff-ins {
+  background-color: var(--diff-ins-bg);
+  color: var(--diff-ins-fg);
+  text-decoration: none;
+  border-radius: 2px;
+}
+.revision-diff .diff-del {
+  background-color: var(--diff-del-bg);
+  color: var(--diff-del-fg);
+  text-decoration: line-through;
+  border-radius: 2px;
+}
