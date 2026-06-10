@@ -34,8 +34,11 @@ pnpm install
 cp env.example .env   # 并把 BETTER_AUTH_SECRET 换成 `openssl rand -base64 32` 的输出
 # 4. 建表与种子数据
 pnpm db:migrate && pnpm db:seed
-# 5. 启动
-pnpm dev              # web: http://localhost:3000
+# 5. 启动 web 与 worker（worker 把发布事件同步进 Meilisearch）
+pnpm dev                              # web: http://localhost:3000
+pnpm --filter @harublog/worker start  # 另开一个终端：搜索同步 worker
+# 已有数据时一次性重建搜索索引（索引非真相源，可随时从 PG 重放）：
+pnpm --filter @harublog/worker reindex
 ```
 
 常用命令：
@@ -51,15 +54,23 @@ pnpm build        # 生产构建
 ## 仓库结构
 
 ```
-apps/web            Next.js 应用（读端 + 写端 + 管理后台）
-packages/kernel     ★ 协作内核：规范化哈希 / 块级 diff / 三方合并 / 锚点重映射（纯函数）
+apps/web            Next.js 应用（读端 + 写端 + 管理后台 + 搜索/通知）
+apps/worker         事务性 outbox 消费者：把发布事件同步进 Meilisearch（reindex 可全量重建）
+packages/kernel     ★ 协作内核：规范化哈希 / 块级 diff / 三方合并 / 锚点重映射 / 修订 diff 模型（纯函数）
 packages/db         Drizzle schema 与迁移（PostgreSQL 是唯一真相源）
 packages/domain     鉴权引擎 can()（裁决+义务）/ 信任引擎 / 工作流状态机
-packages/renderer   ProseMirror JSON → RSC/HTML 渲染器（阅读端零编辑器 JS）
-packages/ui         设计系统「纸页与批注」+ 中文排版层 .prose-zh
+packages/renderer   ProseMirror JSON → RSC/HTML 渲染器 + 修订 diff 视图（阅读端零编辑器 JS）
+packages/search     Meilisearch 块级索引映射与同步（中文友好，命中直达段落）
+packages/ui         设计系统「纸页与批注」+ 中文排版层 .prose-zh + diff 样式
 packages/config     全站共享常量
-infra/              docker-compose / 部署配置
+infra/              docker-compose（PostgreSQL + Meilisearch）/ 部署配置
 ```
+
+## 里程碑进度
+
+- **M0 内核与骨架** ✅：协作内核、全量数据模型、双线权限 `can()`、阅读端渲染、认证、Docker。
+- **M1 可发布的博客** ✅：块编辑器与提交、发布审批工作台、**修订 diff 可视化、回滚、文末评论（一层回复+治理隐藏）、站内通知、Meilisearch 块级中文搜索 + worker**。
+- M2 起：行内评论+锚点重映射、信任等级结算、巡查/举报/制裁、编辑建议全流程（见 `docs/02-architecture.md` §8）。
 
 ## 许可
 

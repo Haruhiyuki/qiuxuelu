@@ -22,4 +22,6 @@
 - 治理阈值（信任等级等）一律走 site_settings 配置，不硬编码。
 
 ## 当前阶段
-M0（内核与骨架）。里程碑路线见架构文档 §8；UI 可以糙，内核不能糙。
+M0、M1 已完成（M1：修订 diff / 回滚 / 评论 / 通知 / Meilisearch 块级搜索 + worker）。当前进入 M2（社区底座）。
+里程碑路线见架构文档 §8；UI 可以糙，内核不能糙。
+搜索同步：apps/worker 直接轮询 search_outbox（事务性 outbox 即队列）；pg-boss 留给 M2 真·异步作业（与 ADR-0006 一致）。
