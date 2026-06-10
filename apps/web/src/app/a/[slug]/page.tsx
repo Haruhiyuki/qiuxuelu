@@ -13,6 +13,7 @@ import { and, eq } from 'drizzle-orm';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
+import { CommentSection } from '@/components/comments/comment-section';
 import { formatDate } from '@/lib/format';
 
 // M0 一律请求期动态渲染；ISR + revalidateTag 是 M1 的事
@@ -27,6 +28,7 @@ async function loadArticle(slug: string) {
   const rows = await db
     .select({
       docId: documents.id,
+      sectionId: documents.sectionId,
       slug: documents.slug,
       title: documents.title,
       summary: documents.summary,
@@ -151,6 +153,8 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
             </Link>
           </p>
         </footer>
+
+        <CommentSection docId={article.docId} sectionId={article.sectionId} />
       </article>
 
       {toc.length > 0 ? (
