@@ -10,6 +10,7 @@ import { z } from 'zod';
 import { getSession } from '@/lib/session';
 import type { ActionResult } from '@/server/action-result';
 import { loadActor } from '@/server/actors';
+import { insertNotification } from '@/server/notifications';
 
 function fail(error: string): { ok: false; error: string } {
   return { ok: false, error };
@@ -23,7 +24,14 @@ const RATE_LIMIT_SECONDS = 10;
 async function loadPublishedDoc(docId: string) {
   const db = getDb();
   const rows = await db
-    .select({ id: documents.id, sectionId: documents.sectionId, status: documents.status })
+    .select({
+      id: documents.id,
+      sectionId: documents.sectionId,
+      status: documents.status,
+      ownerId: documents.ownerId,
+      slug: documents.slug,
+      title: documents.title,
+    })
     .from(documents)
     .where(eq(documents.id, docId))
     .limit(1);
@@ -77,12 +85,18 @@ export async function createComment(
 
   // 一层回复：父评论必须是本文同篇的顶层 doc 评论
   let parentId: string | null = null;
+  let parentAuthorId: string | null = null;
   if (rawParentId !== undefined && rawParentId.length > 0) {
     if (!uuidSchema.safeParse(rawParentId).success) {
       return fail('回复目标非法');
     }
     const parentRows = await db
-      .select({ id: comments.id, documentId: comments.documentId, parentId: comments.parentId })
+      .select({
+        id: comments.id,
+        documentId: comments.documentId,
+        parentId: comments.parentId,
+        authorId: comments.authorId,
+      })
       .from(comments)
       .where(eq(comments.id, rawParentId))
       .limit(1);
@@ -91,6 +105,7 @@ export async function createComment(
       return fail('只能回复本文的顶层评论（讨论保持一层）');
     }
     parentId = parent.id;
+    parentAuthorId = parent.authorId;
   }
 
   const preModerate = decision.obligations.some((o) => o.type === 'pre_moderation');
@@ -123,6 +138,27 @@ export async function createComment(
             sectionId: doc.sectionId,
           })
           .onConflictDoNothing();
+      }
+      // 通知（同事务，insertNotification 自动跳过给自己发）
+      const byName = session.user.name;
+      const payload = { docId: rawDocId, slug: doc.slug, title: doc.title, byName };
+      if (parentAuthorId !== null) {
+        // 回复：通知被回复者
+        await insertNotification(tx, {
+          recipientId: parentAuthorId,
+          actorId: actor.id,
+          kind: 'comment_reply',
+          payload,
+        });
+      }
+      // 文章作者：避免与「回复被回复者」重复（作者恰为被回复者时只发一条）
+      if (doc.ownerId !== parentAuthorId) {
+        await insertNotification(tx, {
+          recipientId: doc.ownerId,
+          actorId: actor.id,
+          kind: 'comment_on_doc',
+          payload,
+        });
       }
       return comment.id;
     });

@@ -28,6 +28,7 @@ import { REJECT_REASON_CODES } from '@/lib/review-reasons';
 import { getSession } from '@/lib/session';
 import type { ActionResult } from '@/server/action-result';
 import { loadActor } from '@/server/actors';
+import { insertNotification } from '@/server/notifications';
 import { loadRevisionDoc } from '@/server/revision-doc';
 
 class ActionError extends Error {}
@@ -53,6 +54,8 @@ interface RequestRow {
   status: string;
   sectionId: string;
   revisionAuthorId: string | null;
+  docSlug: string;
+  docTitle: string;
 }
 
 async function findRequest(requestId: string): Promise<RequestRow | undefined> {
@@ -66,6 +69,8 @@ async function findRequest(requestId: string): Promise<RequestRow | undefined> {
       status: publishRequests.status,
       sectionId: documents.sectionId,
       revisionAuthorId: revisions.authorId,
+      docSlug: documents.slug,
+      docTitle: documents.title,
     })
     .from(publishRequests)
     .innerJoin(documents, eq(documents.id, publishRequests.documentId))
@@ -223,6 +228,12 @@ export async function approvePublish(rawRequestId: string): Promise<ActionResult
         sectionId: request.sectionId,
         detail: { documentId: request.documentId, revisionId: request.revisionId },
       });
+      await insertNotification(tx, {
+        recipientId: request.requesterId,
+        actorId: actor.id,
+        kind: 'publish_approved',
+        payload: { docId: request.documentId, slug: request.docSlug, title: request.docTitle },
+      });
     });
     return { ok: true, data: null };
   } catch (err) {
@@ -339,6 +350,17 @@ export async function rejectPublish(
         subjectId: request.id,
         sectionId: request.sectionId,
         detail: { documentId: request.documentId, reasonCode: reasonParsed.data },
+      });
+      await insertNotification(tx, {
+        recipientId: request.requesterId,
+        actorId: actor.id,
+        kind: 'publish_rejected',
+        payload: {
+          docId: request.documentId,
+          slug: request.docSlug,
+          title: request.docTitle,
+          reasonCode: reasonParsed.data,
+        },
       });
     });
     return { ok: true, data: null };

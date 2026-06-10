@@ -1,16 +1,20 @@
 import { SITE_NAME } from '@harublog/config';
+import { getDb } from '@harublog/db';
 import Link from 'next/link';
 import { getSession } from '@/lib/session';
 import { hasPublishGrant, loadActor } from '@/server/actors';
+import { countUnread } from '@/server/notifications';
 import { SignOutButton } from './sign-out-button';
 
 export async function SiteHeader() {
   const session = await getSession();
   // admin 入口仅对持发布权角色可见（权限显隐；服务端页面仍有 403 守卫）
   let showReview = false;
+  let unread = 0;
   if (session) {
     const actor = await loadActor(session.user.id);
     showReview = actor !== null && hasPublishGrant(actor);
+    unread = await countUnread(getDb(), session.user.id);
   }
 
   return (
@@ -44,6 +48,17 @@ export async function SiteHeader() {
         <div className="flex items-center gap-4 text-sm">
           {session ? (
             <>
+              <Link
+                href="/notifications"
+                className="relative text-ink-600 transition-colors hover:text-brand-700"
+              >
+                通知
+                {unread > 0 ? (
+                  <span className="ml-1 inline-flex min-w-[1.25rem] justify-center rounded-full bg-accent-600 px-1.5 py-0.5 text-xs font-medium text-paper-50">
+                    {unread > 99 ? '99+' : unread}
+                  </span>
+                ) : null}
+              </Link>
               <span className="font-medium text-ink-800">{session.user.name}</span>
               <SignOutButton />
             </>
