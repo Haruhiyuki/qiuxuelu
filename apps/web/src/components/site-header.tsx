@@ -45,6 +45,15 @@ export async function SiteHeader() {
             ) : null}
           </nav>
         </div>
+        <form method="get" action="/search" className="hidden sm:block">
+          <input
+            type="search"
+            name="q"
+            placeholder="搜索…"
+            aria-label="搜索"
+            className="h-8 w-40 rounded-sm border border-ink-200 bg-paper-100 px-3 text-sm text-ink-800 placeholder:text-ink-400 focus-visible:border-brand-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-200"
+          />
+        </form>
         <div className="flex items-center gap-4 text-sm">
           {session ? (
             <>

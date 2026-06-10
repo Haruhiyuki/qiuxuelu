@@ -10,6 +10,7 @@ const nextConfig: NextConfig = {
     '@harublog/domain',
     '@harublog/kernel',
     '@harublog/renderer',
+    '@harublog/search',
     '@harublog/ui',
   ],
 };

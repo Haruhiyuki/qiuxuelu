@@ -19,14 +19,19 @@ services:
       timeout: 3s
       retries: 10
 
-  # M1 上线搜索时启用（块粒度中文索引，可随时从 PG 全量重建）
-  # meilisearch:
-  #   image: getmeili/meilisearch:v1.41
-  #   container_name: harublog-meilisearch
-  #   environment:
-  #     MEILI_MASTER_KEY: dev-master-key
-  #     MEILI_ENV: development
-  #   ports:
-  #     - '7700:7700'
-  #   volumes:
-  #     - ../.docker-data/meilisearch:/meili_data
+  # 块粒度中文搜索索引（charabia 内置 jieba 分词）；非真相源，可随时从 PG 全量重建（worker reindex）
+  meilisearch:
+    image: getmeili/meilisearch:v1.41
+    container_name: harublog-meilisearch
+    environment:
+      MEILI_MASTER_KEY: dev-master-key
+      MEILI_ENV: development
+    ports:
+      - '7700:7700'
+    volumes:
+      - ../.docker-data/meilisearch:/meili_data
+    healthcheck:
+      test: ['CMD', 'sh', '-c', 'curl -fsS http://localhost:7700/health || wget -qO- http://localhost:7700/health']
+      interval: 5s
+      timeout: 3s
+      retries: 10

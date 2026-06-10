@@ -1,0 +1,22 @@
+{
+  "name": "@harublog/worker",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "start": "tsx src/index.ts",
+    "reindex": "tsx src/reindex.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@harublog/db": "workspace:*",
+    "@harublog/search": "workspace:*",
+    "drizzle-orm": "catalog:"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "tsx": "catalog:",
+    "typescript": "catalog:"
+  }
+}

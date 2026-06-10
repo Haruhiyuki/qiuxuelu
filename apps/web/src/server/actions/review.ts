@@ -12,6 +12,7 @@ import {
   reviewActions,
   reviewItems,
   revisions,
+  searchOutbox,
 } from '@harublog/db';
 import type { PublishRequestStatus } from '@harublog/domain';
 import {
@@ -234,6 +235,10 @@ export async function approvePublish(rawRequestId: string): Promise<ActionResult
         kind: 'publish_approved',
         payload: { docId: request.documentId, slug: request.docSlug, title: request.docTitle },
       });
+      // 事务性 outbox：与发布同事务写入，worker 异步消费推送 Meilisearch（索引可全量重建）
+      await tx
+        .insert(searchOutbox)
+        .values({ topic: 'doc.published', payload: { docId: request.documentId } });
     });
     return { ok: true, data: null };
   } catch (err) {
