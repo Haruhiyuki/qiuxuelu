@@ -1,0 +1,22 @@
+@import "tailwindcss";
+@import "@harublog/ui/styles/tokens.css";
+@import "@harublog/ui/styles/prose-zh.css";
+
+/*
+ * 跨包类名必须显式纳入扫描：Tailwind 只自动扫描本应用目录，
+ * ui / renderer 包里的工具类漏扫会整包丢样式。路径相对本文件。
+ */
+@source "../../../../packages/ui/src";
+@source "../../../../packages/renderer/src";
+
+@layer base {
+  body {
+    background-color: var(--color-paper-100);
+    color: var(--color-ink-900);
+    font-family: var(--font-sans);
+  }
+
+  ::selection {
+    background-color: var(--color-brand-100);
+  }
+}

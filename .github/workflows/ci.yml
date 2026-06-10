@@ -1,0 +1,43 @@
+# CI：质量门禁——风格、依赖边界、类型、单测、构建缺一不可
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: 安装依赖
+        run: pnpm install --frozen-lockfile
+
+      - name: 风格检查（Biome）
+        run: pnpm lint
+
+      - name: 依赖方向铁律
+        run: pnpm boundaries
+
+      - name: 类型检查
+        run: pnpm typecheck
+
+      - name: 单元测试（内核合并矩阵等）
+        run: pnpm test
+
+      - name: 构建（无数据库环境必须可构建）
+        run: pnpm build
+        env:
+          DATABASE_URL: postgres://ci:ci@localhost:5432/ci
+          BETTER_AUTH_SECRET: ci-only-secret-not-used-in-prod
+          BETTER_AUTH_URL: http://localhost:3000

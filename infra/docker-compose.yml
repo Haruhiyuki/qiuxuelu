@@ -11,7 +11,8 @@ services:
     ports:
       - '5432:5432'
     volumes:
-      - ../.docker-data/postgres:/var/lib/postgresql/data
+      # PG18 镜像要求挂载点在 /var/lib/postgresql（数据在其子目录），便于 pg_upgrade --link
+      - ../.docker-data/pg18:/var/lib/postgresql
     healthcheck:
       test: ['CMD-SHELL', 'pg_isready -U harublog']
       interval: 5s

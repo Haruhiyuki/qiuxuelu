@@ -1,0 +1,83 @@
+/*
+ * 设计令牌（「纸页与批注」设计语言）——Tailwind v4 @theme。
+ * 用法：在 app 全局样式中 `@import 'tailwindcss';` 之后 `@import '@harublog/ui/styles/tokens.css';`，
+ * Tailwind 会据此生成 bg-paper-50 / text-ink-900 / outline-brand-600 等工具类并把变量发射到 :root。
+ *
+ * 红线（架构 §7）：--font-serif 仅声明本机字体栈，绝不引入 webfont 文件；
+ * 站名/标题若需衬线 webfont，由 app 层用子集化字体（<30KB）另行处理，与本文件无关。
+ */
+@theme {
+  /* 纸面：暖白底色阶。100 为页面基底，200/300 用于代码底、表头、hover 等浅层次 */
+  --color-paper-50: #fdfcfa;
+  --color-paper-100: #faf8f3;
+  --color-paper-200: #f3f0e8;
+  --color-paper-300: #eae5da;
+
+  /* 墨色：低段（100-300）兼任暖灰中性阶（边框/分隔线），中段次要文字，高段正文暖黑 */
+  --color-ink-50: #f4f2ee;
+  --color-ink-100: #e9e6e0;
+  --color-ink-200: #d8d4cc;
+  --color-ink-300: #bbb6ac;
+  --color-ink-400: #948f86;
+  --color-ink-500: #6f6b64;
+  --color-ink-600: #4f4d49;
+  --color-ink-700: #3a3a3b;
+  --color-ink-800: #2e3033;
+  --color-ink-900: #26282b;
+  --color-ink-950: #1b1d1f;
+
+  /* 主色「黛青」：导航/链接/主按钮。基准 600 = #33616b */
+  --color-brand-50: #f0f5f6;
+  --color-brand-100: #dde9eb;
+  --color-brand-200: #bfd5d9;
+  --color-brand-300: #97b9c0;
+  --color-brand-400: #6c99a3;
+  --color-brand-500: #4b7b87;
+  --color-brand-600: #33616b;
+  --color-brand-700: #2b515a;
+  --color-brand-800: #244149;
+  --color-brand-900: #1d343b;
+
+  /* 强调色「朱砂」：仅批注/建议/警示，克制使用。基准 600 = #b8503d */
+  --color-accent-50: #fbf2f0;
+  --color-accent-100: #f5dfda;
+  --color-accent-200: #eac2b9;
+  --color-accent-300: #dc9d90;
+  --color-accent-400: #cc7663;
+  --color-accent-500: #c05e48;
+  --color-accent-600: #b8503d;
+  --color-accent-700: #9a4030;
+  --color-accent-800: #7b3326;
+  --color-accent-900: #61281e;
+
+  /* 功能色：青绿（callout-tip）与赭黄（callout-warn / mark），只给必需档位 */
+  --color-moss-50: #f0f5f1;
+  --color-moss-100: #dce9df;
+  --color-moss-200: #c2d8c8;
+  --color-moss-600: #3e7155;
+  --color-moss-700: #335d46;
+  --color-moss-800: #294a38;
+  --color-moss-900: #203a2c;
+
+  --color-ochre-50: #faf4e7;
+  --color-ochre-100: #f3e6c8;
+  --color-ochre-200: #e8d2a0;
+  --color-ochre-600: #a0742e;
+  --color-ochre-700: #855f24;
+  --color-ochre-800: #6a4c1e;
+  --color-ochre-900: #533c18;
+
+  /* 字体栈：正文零字体下载（架构红线 §7），全部走系统字体 */
+  --font-serif: "Noto Serif SC", "Source Han Serif SC", "Songti SC", SimSun, Georgia, serif;
+  --font-sans:
+    system-ui, -apple-system, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei",
+    "Noto Sans CJK SC", "Segoe UI", Arial, sans-serif;
+  --font-mono:
+    ui-monospace, "SF Mono", Menlo, Consolas, "Liberation Mono", "Microsoft YaHei", monospace;
+
+  /* 圆角：刻意压小（书页感而非 app 感） */
+  --radius-xs: 2px;
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+}

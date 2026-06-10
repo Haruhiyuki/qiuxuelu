@@ -1,0 +1,284 @@
+/*
+ * .prose-zh —— 中文长文排版层（规格 = 架构 §7）。
+ * 依赖 tokens.css 先行加载（变量由 Tailwind @theme 发射到 :root）。
+ * 深色模式（M1）只需重定义下方 --prose-* 局部变量块，排版规则本身不动。
+ */
+.prose-zh {
+  --prose-body: var(--color-ink-800);
+  --prose-heading: var(--color-ink-900);
+  --prose-muted: var(--color-ink-500);
+  --prose-marker: var(--color-ink-400);
+  --prose-border: var(--color-ink-200);
+  --prose-bg-soft: var(--color-paper-200);
+  --prose-link: var(--color-brand-700);
+  --prose-link-hover: var(--color-brand-900);
+  --prose-link-underline: var(--color-brand-300);
+  --prose-anchor: var(--color-brand-400);
+  --prose-quote-border: var(--color-brand-600);
+  --prose-mark-bg: var(--color-ochre-100);
+  --prose-selection: var(--color-brand-100);
+
+  max-width: 38em;
+  color: var(--prose-body);
+  font-family: var(--font-sans);
+  line-height: 1.9;
+  text-align: justify;
+  /* inter-ideograph：CJK 间均匀分配空隙，避免西文单词间出现大空洞 */
+  text-justify: inter-ideograph;
+  /* 避头尾：禁止行首句末点号等 */
+  line-break: strict;
+  word-break: normal;
+  overflow-wrap: break-word;
+}
+
+/* 渐进增强：中西文混排自动加间隙 / CJK 标点挤压 / 行末标点悬挂。不支持的引擎静默跳过 */
+@supports (text-autospace: normal) {
+  .prose-zh {
+    text-autospace: normal;
+  }
+}
+@supports (text-spacing-trim: space-first) {
+  .prose-zh {
+    text-spacing-trim: space-first;
+  }
+}
+@supports (hanging-punctuation: allow-end) {
+  .prose-zh {
+    hanging-punctuation: allow-end;
+  }
+}
+
+.prose-zh > :first-child {
+  margin-top: 0;
+}
+
+/* 段落：不缩进，段间距分隔 */
+.prose-zh p {
+  margin: 0 0 1.25em;
+  text-indent: 0;
+}
+
+/* ---- 标题：衬线 + 上 2em 下 0.75em 的节奏 ---- */
+.prose-zh h2,
+.prose-zh h3,
+.prose-zh h4 {
+  margin: 2em 0 0.75em;
+  color: var(--prose-heading);
+  font-family: var(--font-serif);
+  font-weight: 600;
+  line-height: 1.45;
+  letter-spacing: 0.02em;
+  text-align: start;
+}
+.prose-zh h2 {
+  font-size: 1.5em;
+}
+.prose-zh h3 {
+  font-size: 1.25em;
+}
+.prose-zh h4 {
+  font-size: 1.0625em;
+}
+
+/* 块锚点（renderer 在每块 section 内输出）：默认隐形，悬停所在块或键盘聚焦时浮现 */
+.prose-zh .block-anchor {
+  margin-left: 0.35em;
+  color: var(--prose-anchor);
+  text-decoration: none;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+.prose-zh :hover > .block-anchor,
+.prose-zh .block-anchor:focus-visible {
+  opacity: 1;
+}
+
+/* ---- 链接 ---- */
+.prose-zh a {
+  color: var(--prose-link);
+  text-decoration: underline;
+  text-decoration-color: var(--prose-link-underline);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.2em;
+}
+.prose-zh a:hover {
+  color: var(--prose-link-hover);
+  text-decoration-color: currentColor;
+}
+
+.prose-zh strong {
+  color: var(--prose-heading);
+  font-weight: 600;
+}
+
+/* ---- 列表 ---- */
+.prose-zh ul,
+.prose-zh ol {
+  margin: 0 0 1.25em;
+  padding-left: 1.4em;
+}
+.prose-zh li {
+  margin: 0.375em 0;
+}
+.prose-zh li::marker {
+  color: var(--prose-marker);
+}
+.prose-zh li > ul,
+.prose-zh li > ol,
+.prose-zh li > p {
+  margin-bottom: 0;
+}
+
+/* ---- 引用 ---- */
+.prose-zh blockquote {
+  margin: 1.5em 0;
+  padding: 0.75em 1.25em;
+  border-left: 3px solid var(--prose-quote-border);
+  background: var(--prose-bg-soft);
+  color: var(--color-ink-600);
+}
+.prose-zh blockquote > :last-child {
+  margin-bottom: 0;
+}
+
+/* ---- 代码 ---- */
+.prose-zh code {
+  padding: 0.15em 0.4em;
+  border-radius: var(--radius-xs);
+  background: var(--prose-bg-soft);
+  font-family: var(--font-mono);
+  font-size: 0.875em;
+  /* 行内代码不参与避头尾的强约束，否则长 token 会撑破行宽 */
+  line-break: auto;
+}
+.prose-zh pre {
+  margin: 1.5em 0;
+  padding: 1em 1.25em;
+  border-radius: var(--radius-sm);
+  background: var(--prose-bg-soft);
+  font-family: var(--font-mono);
+  font-size: 0.875em;
+  line-height: 1.7;
+  text-align: start;
+  overflow-x: auto;
+}
+.prose-zh pre code {
+  padding: 0;
+  border-radius: 0;
+  background: transparent;
+  font-size: 1em;
+}
+
+/* ---- 高亮（mark 节点）：淡赭黄底 ---- */
+.prose-zh mark {
+  padding: 0.05em 0.15em;
+  background: var(--prose-mark-bg);
+  color: inherit;
+}
+
+/* ---- 图与图注 ---- */
+.prose-zh figure {
+  margin: 2em auto;
+  text-align: center;
+}
+.prose-zh img {
+  max-width: 100%;
+  height: auto;
+  margin-inline: auto;
+  border-radius: var(--radius-sm);
+}
+.prose-zh figcaption {
+  margin-top: 0.5em;
+  color: var(--prose-muted);
+  font-size: 0.875em;
+  line-height: 1.7;
+  text-align: center;
+}
+
+/* ---- 表格 ---- */
+.prose-zh table {
+  width: 100%;
+  margin: 1.5em 0;
+  border-collapse: collapse;
+  font-size: 0.9375em;
+  line-height: 1.7;
+}
+.prose-zh th,
+.prose-zh td {
+  padding: 0.5em 0.75em;
+  border: 1px solid var(--prose-border);
+  text-align: start;
+}
+.prose-zh th {
+  background: var(--prose-bg-soft);
+  color: var(--prose-heading);
+  font-weight: 600;
+}
+
+/* ---- 分隔线 ---- */
+.prose-zh hr {
+  margin: 2.5em auto;
+  border: 0;
+  border-top: 1px solid var(--prose-border);
+}
+
+/* ---- callout（PM schema 顶层节点之一）：左边框 + 浅底，四变体 ---- */
+.prose-zh .callout {
+  margin: 1.5em 0;
+  padding: 0.75em 1.25em;
+  border-left: 3px solid var(--color-brand-600);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  background: var(--color-brand-50);
+}
+.prose-zh .callout > :last-child {
+  margin-bottom: 0;
+}
+.prose-zh .callout-info {
+  border-left-color: var(--color-brand-600);
+  background: var(--color-brand-50);
+}
+.prose-zh .callout-tip {
+  border-left-color: var(--color-moss-600);
+  background: var(--color-moss-50);
+}
+.prose-zh .callout-warn {
+  border-left-color: var(--color-ochre-600);
+  background: var(--color-ochre-50);
+}
+.prose-zh .callout-danger {
+  border-left-color: var(--color-accent-600);
+  background: var(--color-accent-50);
+}
+
+/* ---- 数学块：M0 渲染器以等宽源码居中展示（KaTeX 等接入后此类只剩占位语义） ---- */
+.prose-zh .math-block {
+  margin: 1.5em 0;
+  font-family: var(--font-mono);
+  font-size: 0.9375em;
+  text-align: center;
+  overflow-x: auto;
+}
+
+/* ---- 渲染失败占位（renderer 对未知节点/坏数据的兜底输出） ---- */
+.prose-zh .figure-blocked {
+  border: 1px dashed var(--prose-border, #d8d3c8);
+  padding: 0.75em 1em;
+  font-size: 0.875em;
+  color: var(--prose-muted, #8a857a);
+  text-align: center;
+}
+
+.prose-zh .render-error {
+  margin: 1.5em 0;
+  padding: 0.75em 1em;
+  border: 1px solid var(--color-accent-300);
+  border-radius: var(--radius-sm);
+  background: var(--color-accent-50);
+  color: var(--color-accent-800);
+  font-size: 0.875em;
+  text-align: start;
+}
+
+.prose-zh ::selection {
+  background: var(--prose-selection);
+}
