@@ -1,0 +1,36 @@
+# 依赖
+node_modules/
+.pnpm-store/
+
+# 构建产物
+.next/
+out/
+dist/
+build/
+.turbo/
+*.tsbuildinfo
+
+# 环境变量（密钥绝不入库；模板见根目录 env.example）
+.env
+.env.*
+
+# 日志与缓存
+*.log
+.cache/
+.eslintcache
+
+# 操作系统 / 编辑器
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
+
+# 测试产物
+coverage/
+playwright-report/
+test-results/
+
+# 本地数据库数据卷
+.docker-data/

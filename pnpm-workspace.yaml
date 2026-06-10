@@ -1,0 +1,33 @@
+# 工作空间布局与依赖版本目录（catalog：全仓库同一依赖只声明一次版本）
+packages:
+  - apps/*
+  - packages/*
+
+catalog:
+  typescript: ~5.9.3
+  zod: ^4.4.3
+  react: 19.2.7
+  react-dom: 19.2.7
+  next: 16.2.9
+  "@types/react": ^19.2.17
+  "@types/react-dom": ^19.2.3
+  "@types/node": ^25.9.2
+  drizzle-orm: ^0.45.2
+  drizzle-kit: ^0.31.10
+  drizzle-zod: ^0.8.3
+  better-auth: ^1.6.15
+  postgres: ^3.4.9
+  pg-boss: ^12.18.2
+  tailwindcss: ^4.3.0
+  "@tailwindcss/postcss": ^4.3.0
+  vitest: ^4.1.8
+  tsx: ^4.22.4
+  "@tiptap/core": ^3.26.0
+  "@tiptap/react": ^3.26.0
+  "@tiptap/starter-kit": ^3.26.0
+  "@tiptap/pm": ^3.26.0
+  "@noble/hashes": ^2.2.0
+  clsx: ^2.1.1
+  tailwind-merge: ^3.6.0
+  lucide-react: ^1.17.0
+  nanoid: ^5.1.11

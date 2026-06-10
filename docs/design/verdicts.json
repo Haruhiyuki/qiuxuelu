@@ -1,0 +1,162 @@
+[
+  {
+    "scores": [
+      {
+        "proposal": "A",
+        "evolvability": 9,
+        "dataModel": 9,
+        "pragmatism": 7,
+        "product": 8,
+        "governance": 7,
+        "total": 40,
+        "comment": "git 语义最忠实的一案：建议=真实修订分支（parent 链回 base），完整保留建议自身的往返迭代史，这是唯一不与「全部历史可直观追溯」冲突的建议模型；document_refs 把发布/草稿/建议统一成 ref 移动，审批对象干净；revision/blob 双 schema_version 与 canon 规范化模块是三案中唯一正面回应「五年后 ProseMirror schema 演进」的设计；kernel 纯函数零 IO + 依赖方向铁律为长期演进与未来拆分打了最硬的底。弱点：manifest 用 jsonb 整存丧失外键完整性，靠物化的 revision_changes 补查询效率，存在双份事实需事务纪律维持一致；建议分支提交与主线混在同一 revisions 表，按 (document_id, created_at) 列历史会混入分支提交；锚点重映射声称用 Step mapping，但持久层是快照制并不存 Step，叙述自相矛盾；documents 表甚至没有 title 字段。M0 六周纯内核有产品空转风险。版本核验有水分：Meilisearch 1.38、Tailwind 4.1 与调研报告（1.41、4.3）不符。治理线完整可用但 can() 仅返回布尔，缺「允许但进巡查」的义务语义与保护级梯度。"
+      },
+      {
+        "proposal": "B",
+        "evolvability": 7,
+        "dataModel": 8,
+        "pragmatism": 9,
+        "product": 9,
+        "governance": 6,
+        "total": 39,
+        "comment": "工程务实性与产品体验双冠：三处刻意裁剪（扁平 tree、单父提交+merged_suggestion_id、diff-on-submit 而非实时 track-changes）每一刀都砍在 ProseMirror 世界公认的深坑上；revision_blocks 规范化 tree + published_snapshot 物化读路径是教科书级写读分离，seq 单调序号、author/committer 双署名（建议人保留内容署名）、DEFERRABLE FK 处理循环引用，全是老练细节；阅读端是三案最强——正文零字体下载策略、slug_history 301、修订页 noindex、Shiki/KaTeX SSR、行内评论存活率作为 M1 验收红线。弱点恰在评委最看重处：建议 ops 在「要求修改」后整体重算，建议自身迭代史丢失，对审计与信任飞轮（按建议演化追溯）是实质损伤；blob/revision 无 schema_version，五年期内容格式迁移要靠事后补列回填；治理最薄——TL0 连评论都不能发将加剧冷启动，无巡查队列、无保护级梯度，collab_mode 二值开关过粗；搜索初期仅文章级索引，主动放弃了段落直达这一长文站的体验差异点。"
+      },
+      {
+        "proposal": "C",
+        "evolvability": 8,
+        "dataModel": 9,
+        "pragmatism": 7,
+        "product": 7,
+        "governance": 10,
+        "total": 41,
+        "comment": "治理模型断档领先：can() 返回「裁决+义务」而非布尔，把『允许但进巡查/限速/先审』统一进鉴权层，这是把 MediaWiki 巡查、Discourse 信任、SO 队列三套实践真正缝合成一个抽象的关键洞见；保护级四档梯度、租约式认领、结构化理由码、举报权重与命中率闭环、角色任期制、拒因转晋升引导，全部落到表结构而非口号；『晋升给能力、任命给权力』的红线划分是双线权限的最准确表述。数据模型查询效率三案最优：block_revisions 自带 parent 链使块级历史与 O(1) blame 成为一等查询，触发器强制不可变，全外键完整性，且唯一一个为 tree 行膨胀预留了可离线重放的 delta 迁移路径——反死角意识最强。弱点：建议同为 ops 制且『作者更新 ops』丢迭代史；无 schema_version；UNIQUE(block_id, content_hash) 放弃了跨块全局去重；治理机器（五类队列、举报权重、制裁）在社区存在之前就全量建设，M1-M2 合计 18 周对 1-3 人偏重；正文用 Noto Serif SC webfont 对 UGC 动态内容是首屏隐患；Drizzle『RC 已在 beta』表述混乱，但锁 0.45 稳定线反而是最保守稳健的选择。"
+      }
+    ],
+    "best": "A",
+    "grafts": [
+      "出自 C：can() 由布尔改为「裁决+义务」（Decision + obligations：enqueue_patrol / rate_limit / pre_moderation），把「允许但进巡查队列」纳入统一鉴权层，并把鉴权拒因转化为晋升引导文案",
+      "出自 C：文档保护级四档梯度（open/semi/editors/locked）+「事前审批→事后巡查」按信任等级递进，替代 A 单一 locked 标志；同时引入统一审校队列基建（租约式认领 claim_expires_at、结构化理由码、翻案率/举报命中率统计）",
+      "出自 C：将 A 的 jsonb manifest 规范化为窄表 tree（doc_revision_blocks 式），换取外键完整性与索引查询；并吸收 block_revisions.parent_id 块内修订链实现 O(1) blame；保留 C 预留的 delta 编码离线迁移路径思想",
+      "出自 B：articles.published_snapshot 物化读路径（发布事务内同步重建），文章页 O(1) 单行读，避免 A 读路径每次拼 manifest + 批量取 blob",
+      "出自 B：doc_revisions.seq 文章内单调序号 + author/committer 双署名（合并建议时 author=建议人、committer=审校者），署名直接喂信任体系",
+      "出自 B：阅读端细节整体移植——正文零字体下载（系统栈，仅标题 cn-font-split 子集）、slug_history 301、修订/建议页 noindex、Shiki/KaTeX SSR；以及 eslint-plugin-boundaries 把模块依赖铁律从『自觉』变为 lint 强制"
+    ],
+    "risks": [
+      "块分裂/合并的谱系字段（derived_from / merged_into）三案均未落库：调研报告1明确指出这是『历史必须可直观追溯』的必做项，段落重构时块级历史链会静默断裂，事后补录不可能",
+      "canon 规范化序列化本身无版本号：一旦规范化规则或哈希算法演进，新旧 hash 不可比，去重与 manifest_hash 比对全部失真；三案都没有 canon_version 与重哈希迁移策略",
+      "ProseMirror schema 演进下的历史回放：仅 A 存了 schema_version，但三案都未回答『五年后旧 schema 修订如何渲染、如何与新修订做 diff』——需要 schema 迁移函数链或多版本渲染器，这是最典型的迁移死角",
+      "不可变 append-only 历史与删除权/合规 redaction 的根本冲突：未成年人个人信息、被遗忘权请求、监管删除令都要求从历史中物理移除内容，MediaWiki 有 revision suppression 先例，三案（含调研报告）全部缺位——内容寻址+全历史模型若不预设 redaction 通道，将是无法迁移补救的死角",
+      "锚点批量重定位的成本与一致性窗口无人量化：热门长文每次修订触发全部行内评论/建议锚点重映射（worker 异步），积压期间读者看到的是错位锚点；B 给了存活率验收线但无机制保证，A/C 连 SLA 都未提",
+      "审核人力冷启动是真瓶颈：1-3 人既开发又审核，发布前置审批可能直接卡死内容供给；三案都把希望寄托在『信任等级分流』上，但社区冷启动期恰恰没有高信任用户，治理参数如何随规模调参无实验方案",
+      "中文 UGC 合规（ICP 备案、实名、内容安全值守）三案均声明出范围或仅预留，但它决定部署区位、敏感词流程与先审后发的法定形态，是长期公益运营的最大非技术阻塞点"
+    ],
+    "summary": "C 总分微高（治理满分），但按本评委权重（可演进性+数据模型）判 A 综合最优：建议=真实分支保留完整迭代史、refs 统一发布语义、schema_version+canon 模块是唯一直面五年期演进的设计，kernel 纯函数包为长期迭代打底。落地时必须做三件嫁接：用 C 的规范化 tree 表替换 jsonb manifest 并引入裁决+义务鉴权与队列基建；用 B 的 snapshot 读路径与排版/SEO 细节。共同盲区——块分裂谱系、canon 版本化、不可变历史与 redaction/合规的冲突——需在 M0 前补设计。"
+  },
+  {
+    "scores": [
+      {
+        "proposal": "A",
+        "evolvability": 9,
+        "dataModel": 9,
+        "pragmatism": 7,
+        "product": 8,
+        "governance": 8,
+        "total": 41,
+        "comment": "把系统本质识别为「带审校工作流的版本化内容数据库」，是三案中问题定义最准的一份。kernel 纯函数零依赖包＋依赖方向铁律＋suggestion=真实修订分支，让并发变基、建议合并、协作 checkpoint 三条路径复用同一个合并引擎——这是真正降低长期维护成本的架构级简化；refs 双指针、CAS 三道冲突防线、working_copies 防修订垃圾都很干净。manifest 用 jsonb 整存牺牲了外键完整性、与 revision_changes 存在双写一致性负担，是模型上唯一的扣分点。务实性短板明确：M0 六周纯内核无可演示产品，对公益志愿者士气有风险；Valkey+BullMQ 第一天就上偏重；全文完全没有对象存储/图片管线与可观测方案（figure 块存哪里？）；治理层比 C 薄（无巡查义务、无队列租约/理由码）。Meilisearch 1.38、Tailwind 4.1 版本号比调研报告2（1.41/4.3）略旧，属小瑕疵。不上 tRPC、直接调领域服务的决定符合小团队直觉。"
+      },
+      {
+        "proposal": "B",
+        "evolvability": 8,
+        "dataModel": 8,
+        "pragmatism": 8,
+        "product": 9,
+        "governance": 7,
+        "total": 40,
+        "comment": "工程判断力最好的一份：diff-on-submit 明确绕开 ProseMirror track-changes 这个著名深坑、扁平 tree＋单父提交＋published_snapshot 物化三处裁剪都切在刀刃上，「用 20% 成本覆盖 95% 产品价值」是 1-3 人团队该有的姿态；revision_blocks 规范化存储比 A 的 jsonb manifest 有更强的关系完整性。读端是三案最强：Tiptap Static Renderer 复用而非自研渲染器、字体零下载策略（全量中文 webfont 是首屏毒药的判断正确）、修订页 noindex、slug_history 301、评论 SSR，细节密度无人能及；M0 即交付可用产品，节奏对志愿者项目最友好。致命短板在治理线：能力阶梯整体上移一级（评论要 TL1、建议要 TL3、协作要 TL4），与调研报告1的映射建议相悖，冷启动期会扼杀参与；无巡查队列、举报权重、认领租约等机制。且服务面最大（MinIO+GlitchTip+Valkey+Meili+tRPC 全家桶），运维面是三案之最。collab_mode 作者自主开关是被低估的产品正确决策——经验类个人文章不该默认任人直改。"
+      },
+      {
+        "proposal": "C",
+        "evolvability": 8,
+        "dataModel": 8,
+        "pragmatism": 7,
+        "product": 7,
+        "governance": 9,
+        "total": 39,
+        "comment": "治理建模教科书级：can() 返回「裁决＋义务」统一了「允许但进巡查/限速/预审」、角色专属红线能力（晋升给能力、任命给权力）、TL3 滚动窗口回落＋TL4 仅手动、队列 15 分钟租约＋结构化理由码＋举报命中率反馈闭环、链式哈希审计——全部是 Discourse/MediaWiki/SO 验证过的机制，与调研报告1贴合度最高。依赖姿态也最克制：pg-boss 把队列落在 PG、M0-M2 不引入 Redis，Drizzle 锁 0.45 稳定线而非 RC，单机 5 容器是三案最轻运维面。但两个问题：其一，对 1-3 人团队，五类审核队列＋申诉＋翻案统计＋透明度报告在社区只有几十个用户时是明显的过度建设，治理机器的建造成本吃掉了最长的时间线（M2 前 24 周）；其二，数据模型有实际缺陷——UNIQUE(block_id, content_hash) 与 block_revisions.parent_id 修订链在「内容改回旧值」场景互相矛盾（撤销又恢复时旧行被复用，但其 parent_id 已固定，块级历史链会错乱）。读端着墨最少，正文自托管宋体 webfont 相比 B 的零下载策略偏重。protection 默认 semi 意味着 TL3 可直改他人经验文章，缺少 B 那样的作者自主开关。"
+      }
+    ],
+    "best": "A",
+    "grafts": [
+      "出自 C：用 pg-boss 替代 A 的 Valkey+BullMQ，M0-M2 队列落在 Postgres、不引入 Redis 系组件，实时协作上线再加 Valkey 仅做 presence——砍掉一个常驻服务，是对 1-3 人团队最实质的运维减负。",
+      "出自 C：can() 从布尔升级为「裁决＋义务」（允许但 enqueue_patrol/限速/预审），并确立角色专属红线能力（publish/protect/suspend/role.* 永不经信任线授予）；拒因直接渲染为晋升引导文案（「再获 3 次建议合入即可解锁」）。",
+      "出自 C：审核队列的租约式认领（15 分钟过期回池）＋拒稿必填结构化理由码＋审稿人不得审自己提交的 DB 级约束；文档保护级别 open/semi/editors/locked 与角色任命 expires_at 任期制。",
+      "出自 B：collab_mode 作者自主开关（suggest_only/open_collab）——经验/心得类个人叙事文章默认只收建议，直接协作编辑须作者显式开放，这比 A 的全局 TL3 解锁更符合产品语境。",
+      "出自 B：补齐 A 完全缺失的媒体与可观测故事——MinIO(S3) 图片附件管线＋next/image AVIF 出图，Pino+OTel+GlitchTip 自托管错误追踪。",
+      "出自 B：published_snapshot 物化读路径（发布/合并事务内同步重建），文章页 O(1) 单行读，作为 ISR 失效后冷启动的兜底；以及 Tiptap Static Renderer 作为 renderer 包底座，减少自研渲染代码。",
+      "出自 B：读端细节包——字体零下载策略（正文系统栈、仅标题子集化 <30KB）、修订/建议页 noindex 防内容重复、slug_history 301、评论首屏 SSR；以及 eslint-plugin-boundaries 把 A 的「依赖方向铁律」从自觉变成 lint 强制。"
+    ],
+    "risks": [
+      "审核人力冷启动无运营预案：三案都把发布前置审批，但都没回答第一年只有 1-3 名志愿者时队列由谁清空——缺少值守轮换、SLA、积压熔断（如积压超阈值自动放宽 autoreview）的具体机制，工具最全的 C 也只是让瓶颈「可见」而非「可解」。",
+      "内容合规只被点名未被解决：ICP 备案、未成年人保护、实名/敏感词值守、部署区位（境内 vs 境外）三案均列为「非技术决策」一笔带过，但对面向中国学生的 UGC 平台这是存亡前提，应在动工前拍板并反向约束架构（如审核流水线必须支持先审后发的全量覆盖）。",
+      "blockId 完整性的边界情况无完整设计：调研报告1明确指出块分裂/合并是历史断裂高危点，三案对复制粘贴查重、split 时 ID 归属、merge 时 derived_from 溯源都只有一句话，缺少服务端不变式校验、修复算法与测试清单——这恰是「历史可直观追溯」需求最脆弱的一环。",
+      "Yjs 协作会话与法定历史的署名张力：实时协作期间的细粒度贡献在 checkpoint 粒度下被归并署名，「谁写了哪句」在协作会话内不可追溯，与需求4存在未解决的冲突，也会污染信任等级的贡献度量。",
+      "信任等级反作弊缺失：阅读时长造假、互赞团伙、用小号刷建议采纳率等对抗行为三案均未设防，而信任线直接解锁编辑权，刷分即提权是治理体系的最大攻击面。",
+      "全员选择 Meilisearch 而未认真评估调研报告2首选的 PGroonga（少维护一个服务、数据不出库），且无人给出大数据量下索引全量重建时长与期间降级体验的量化预案；单机 VPS 全栈的异地容灾（机器丢失、运维断档）仅 A 给出 RTO/RPO 指标，B/C 基本空白。"
+    ],
+    "summary": "三案共享同一现代栈（Next16/Tiptap3/Drizzle/PG/Meili/Better Auth），与调研报告2吻合，分歧在重心。A 以协作内核为第一公民，数据模型与模块边界最经得起长期演进，一个合并引擎服务三条路径是真正的架构级简化；B 工程取舍最克制、读端最精致，但治理线最薄且能力阶梯过严伤冷启动；C 治理最完备、依赖姿态最轻（pg-boss 免 Redis），但治理机器对早期社区过度建设，且块修订链与去重约束存在模型矛盾。综合判 A 胜：本项目不可返工的地基是修订/建议/合并引擎，A 对其投入最严谨，其余短板（媒体存储、队列选型、治理细节、读端打磨）均可低成本从 B/C 嫁接。"
+  },
+  {
+    "scores": [
+      {
+        "proposal": "A",
+        "evolvability": 9,
+        "dataModel": 9,
+        "pragmatism": 7,
+        "product": 9,
+        "governance": 8,
+        "total": 42,
+        "comment": "最忠实落地调研结论的方案：refs 双指针（draft/published）精确复刻 FlaggedRevs，「建议=真实修订分支、补丁=派生物」与正式编辑共用内核，是三案中唯一保留完整往返历史与 merge 双亲的模型；revisions 记录 schema_version 是唯一考虑「多年后旧修订仍可渲染」的提案，长期演进性最佳。产品侧块级搜索直达段落、百度主动推送、「作者 TL2 即可审自己文章的建议」这一条最贴近 Google Docs 的自然协作流，也最省志愿者审稿人力。短板：治理运营层偏薄——无巡查队列、举报权重、认领租约、理由码，发布后更新全走审批+TL4 直通的二元设计在冷启动期最易积压；M0 六周纯内核对 1-3 人团队是重注；Meilisearch/Tailwind 版本号有滞后小错。"
+      },
+      {
+        "proposal": "B",
+        "evolvability": 8,
+        "dataModel": 8,
+        "pragmatism": 9,
+        "product": 8,
+        "governance": 6,
+        "total": 39,
+        "comment": "工程克制最佳：扁平 tree、单父提交、diff-on-submit 三处裁剪论证充分，published_snapshot 物化读路径、字体零下载策略（全量中文 webfont 是首屏毒药的判断完全正确）、评论首屏 SSR、slug 301、修订页 noindex 等阅读端细节是三案中最考究的。但治理线有致命校准错误：评论要 TL1、行内评论 TL2、编辑建议 TL3（需已发布文章或 5 条精选评论）、协作编辑 TL4 管理员确认——整条能力阶梯比调研报告 1 的建议映射整体上移一级，新用户能建文章却不能评论，贡献漏斗过陡，冷启动期建议管道会饿死，恰恰违背我最看重的「能真正运转」。建议迭代时 ops 重算也丢失了往返历史。搜索初期仅文章级索引，丢掉段落直达这一长文站体验差异点。"
+      },
+      {
+        "proposal": "C",
+        "evolvability": 8,
+        "dataModel": 8,
+        "pragmatism": 7,
+        "product": 8,
+        "governance": 10,
+        "total": 41,
+        "comment": "治理模型断层领先：can() 返回「裁决+义务」把『允许但进巡查队列/限速』统一进鉴权层，文档保护级（open/semi/editors/locked）实现事前审批→事后巡查的梯度，队列租约 15 分钟回池、结构化理由码、翻案率与举报命中率闭环、TL3 滚动回落、角色任期制、拒因转晋升引导——这是唯一把 Discourse/MediaWiki/SO 实践真正落成表结构和状态机的提案，最能回答『审批流程能否转起来』。pg-boss 省掉 Redis 也很务实。但有两处伤贡献者体验：作者无权合并自己文章的建议（合入权收口在 TL4/editor），既反 Google Docs 直觉又把工作量压回最稀缺的志愿者；正文用衬线 webfont 按字频子集化对 UGC 动态内容偏激进。34 周才交付建议+巡查全量，治理机制在无用户的冷启动期有过剩之嫌；块内修订链在 rollback/merge 场景与文档链可能脱节，去重仅限块内。"
+      }
+    ],
+    "best": "A",
+    "grafts": [
+      "出自提案 C：can() 返回「允许 + 义务」的裁决模式（enqueue_patrol / rate_limit / pre_moderation），把『允许但进巡查队列』统一进鉴权层，并把鉴权拒因转化为晋升引导文案（『再获得 3 次建议合入即可解锁直接编辑』）",
+      "出自提案 C：文档保护级 open/semi/editors/locked + edit_patrol 巡查队列，为 A 的『发布后更新全走审批』补上事前审批→事后巡查的梯度，缓解志愿审稿瓶颈",
+      "出自提案 C：统一审校队列基建——15 分钟认领租约过期回池、结构化理由码（拒稿必填）、翻案率与举报命中率统计、举报权重随 TL 上升的反滥用闭环",
+      "出自提案 C：role_assignments 的 expires_at 任期制与信任等级锁定/手动覆盖；M0–M2 用 pg-boss 替代 Valkey+BullMQ，推迟 Redis 系依赖到实时协作期",
+      "出自提案 B：articles.published_snapshot 发布版全文物化，文章页渲染 O(1) 单行读，与 A 的 manifest 拼装互补",
+      "出自提案 B：字体零下载策略（正文系统栈、仅站名/H1 子集化思源宋体 <30KB）及 SEO 细节：slug_history 301、修订/建议页 noindex、评论首屏 SSR 可索引",
+      "出自提案 B：eslint-plugin-boundaries 把『kernel ← db ← domain ← apps』依赖铁律变成 lint 强制而非自觉"
+    ],
+    "risks": [
+      "块分裂/合并的血缘断链：调研报告 1 明确要求 split 记 derived_from、merge 记被并入块 ID，三案都只在编辑器层口头处理，数据库层均无血缘字段，段落重构后『这一段的历史』会悄然断裂",
+      "审稿人力冷启动：三案都把希望寄托在『信任分流+队列工具』，但没有任何一案回答第一年没有 TL3/TL4 用户、志愿审稿人从哪来、如何激励——工具完备不等于有人用，A 的全量前置审批在此期最易积压劝退作者",
+      "信任阈值冷启动校准：都声明『参数可配置』，但无冷启动期初始参数与调参依据；早期数据稀疏时 TL3 滚动窗口指标几乎无人达标，能力阶梯可能整体卡死",
+      "面向未成年人的合规缺口：三案均把内容合规列为『不在本文档范围』，但项目核心受众含初中生，未成年人个人信息保护、家长同意、敏感内容值守的要求远高于一般 UGC，先审后发只覆盖其中一小部分",
+      "Yjs 实时层与提交制修订的缝合细节：三案都只有『CRDT 是会话态、修订是真相』的原则声明，协作会话期间行内评论锚点与未决建议基底如何随 checkpoint 漂移均无方案",
+      "移动端编辑与冲突解决 UI：中文学生用户大量来自手机，建议模式、三栏变基、逐块裁决这类界面在小屏上的可用性三案几乎未着墨，B 也仅到 M3 才『打磨』",
+      "领域词典运营无主：Meilisearch charabia 自定义词典能力弱是三案共同承认的天花板，同义词表被称作『运营资产』，但谁来持续维护『强基计划/3+1+2』类新黑话没有流程设计"
+    ],
+    "summary": "A 以 42 分胜出：refs 双指针+建议即分支的修订模型最正确、schema 版本化最具长期性、块级搜索直达段落与『作者自审建议』最贴合读者与贡献者真实体验。C（41 分）的治理层是三案中唯一真正可运转的设计，应整体嫁接其『裁决+义务』鉴权、保护级梯度与队列租约/理由码体系；B（39 分）工程裁剪与阅读端细节最务实，但信任阶梯整体上移一级导致贡献漏斗过陡，属可吸收细节而不可采纳骨架。最终方案 = A 的内核 + C 的治理运营层 + B 的读端打磨；遗留最大风险是块血缘断链与审稿人力冷启动。"
+  }
+]

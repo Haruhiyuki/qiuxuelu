@@ -1,0 +1,26 @@
+{
+  "name": "@harublog/domain",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./authz": "./src/authz/index.ts",
+    "./trust": "./src/trust/index.ts",
+    "./workflows": "./src/workflows/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@harublog/db": "workspace:*",
+    "@harublog/kernel": "workspace:*",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}

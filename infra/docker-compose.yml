@@ -1,0 +1,31 @@
+# 本地开发基础设施：在仓库根目录执行
+#   docker compose -f infra/docker-compose.yml up -d
+services:
+  postgres:
+    image: postgres:18-alpine
+    container_name: harublog-postgres
+    environment:
+      POSTGRES_USER: harublog
+      POSTGRES_PASSWORD: harublog
+      POSTGRES_DB: harublog
+    ports:
+      - '5432:5432'
+    volumes:
+      - ../.docker-data/postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U harublog']
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # M1 上线搜索时启用（块粒度中文索引，可随时从 PG 全量重建）
+  # meilisearch:
+  #   image: getmeili/meilisearch:v1.41
+  #   container_name: harublog-meilisearch
+  #   environment:
+  #     MEILI_MASTER_KEY: dev-master-key
+  #     MEILI_ENV: development
+  #   ports:
+  #     - '7700:7700'
+  #   volumes:
+  #     - ../.docker-data/meilisearch:/meili_data
