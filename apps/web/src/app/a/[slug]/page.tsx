@@ -5,6 +5,7 @@ import {
   documents,
   documentTags,
   getDb,
+  media as mediaTable,
   publishedSnapshots,
   revisions,
   sections,
@@ -13,10 +14,10 @@ import {
 } from '@harublog/db';
 import { can } from '@harublog/domain';
 import { extractText, validateDoc } from '@harublog/kernel';
-import type { TocEntry } from '@harublog/renderer';
-import { ArticleRenderer, extractToc } from '@harublog/renderer';
+import type { ImageMetaMap, TocEntry } from '@harublog/renderer';
+import { ArticleRenderer, extractToc, mediaHashFromSrc } from '@harublog/renderer';
 import { Badge } from '@harublog/ui';
-import { and, asc, eq } from 'drizzle-orm';
+import { and, asc, eq, inArray } from 'drizzle-orm';
 import type { Metadata } from 'next';
 import { unstable_cache } from 'next/cache';
 import Link from 'next/link';
@@ -138,10 +139,11 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
   // 已发布正文按 revisionId 缓存读取（不可变）
   const content = await loadPublishedContent(article.revisionId);
 
-  // 目录、阅读时长、代码高亮均从已校验文档派生；校验失败时正文交给 ArticleRenderer 的容错占位
+  // 目录、阅读时长、代码高亮、图片尺寸均从已校验文档派生；校验失败时正文交给 ArticleRenderer 的容错占位
   let toc: TocEntry[] = [];
   let readingMinutes = 1;
   let codeHighlights: Awaited<ReturnType<typeof highlightDoc>> | undefined;
+  const imageHashes: string[] = [];
   try {
     const validated = validateDoc(content);
     toc = extractToc(validated);
@@ -149,8 +151,30 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
     readingMinutes = Math.max(1, Math.round([...extractText(validated)].length / 400));
     // 高亮按 revisionId 缓存（内容不可变 → 高亮结果永久可缓存，省去每次重算）
     codeHighlights = await highlightDoc(validated, article.revisionId);
+    for (const node of validated.content) {
+      if (node.type === 'figure') {
+        const h = mediaHashFromSrc(node.attrs.src);
+        if (h !== null) {
+          imageHashes.push(h);
+        }
+      }
+    }
   } catch {
     toc = [];
+  }
+
+  // 图片固有尺寸（防布局抖动 + srcset 不放大）：从 media 表查
+  let imageMeta: ImageMetaMap | undefined;
+  if (imageHashes.length > 0) {
+    const metaRows = await getDb()
+      .select({ hash: mediaTable.hash, width: mediaTable.width, height: mediaTable.height })
+      .from(mediaTable)
+      .where(inArray(mediaTable.hash, imageHashes));
+    imageMeta = new Map(
+      metaRows
+        .filter((r) => r.width !== null && r.height !== null)
+        .map((r) => [r.hash, { width: r.width as number, height: r.height as number }]),
+    );
   }
 
   // 行内批注（kind='inline'，含锚点状态），与文章正文同页展示
@@ -333,6 +357,7 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
             doc={content}
             codeHighlights={codeHighlights}
             mathRenderer={renderMath}
+            imageMeta={imageMeta}
           />
           <CodeCopy />
         </div>

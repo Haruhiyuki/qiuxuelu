@@ -16,6 +16,8 @@ function fail(error: string): { ok: false; error: string } {
 }
 
 const ALLOWED_INPUT = new Set(['jpeg', 'png', 'webp', 'gif']);
+// 响应式派生宽度（与 /api/media 白名单、渲染器 srcset 一致）
+const RESPONSIVE_WIDTHS = [400, 800, 1600];
 const MAX_BYTES = Number(process.env.MEDIA_MAX_BYTES ?? 10 * 1024 * 1024);
 
 export interface UploadedMedia {
@@ -70,8 +72,28 @@ export async function uploadMedia(formData: FormData): Promise<ActionResult<Uplo
   const hash = createHash('sha256').update(out).digest('hex');
   const key = `media/${hash}`;
 
+  // 响应式派生图：预生成 < 原宽的档位（400/800/1600）webp，存为 <hash>_w<width>.webp，供 /api/media 直接出图。
+  const variants: { width: number; body: Buffer }[] = [];
+  try {
+    for (const w of RESPONSIVE_WIDTHS) {
+      if (w < width) {
+        const v = await sharp(input, { animated: true })
+          .rotate()
+          .resize({ width: w, withoutEnlargement: true })
+          .webp({ quality: 80 })
+          .toBuffer();
+        variants.push({ width: w, body: v });
+      }
+    }
+  } catch {
+    // 派生失败不影响主图上传；缺档时 /api/media 自动回退原图
+  }
+
   try {
     await putObject(key, out, 'image/webp');
+    for (const v of variants) {
+      await putObject(`media/${hash}_w${v.width}.webp`, v.body, 'image/webp');
+    }
     const db = getDb();
     await db
       .insert(media)

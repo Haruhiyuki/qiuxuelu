@@ -140,6 +140,40 @@ describe('ArticleRenderer XSS 红线', () => {
     expect(html).toContain('说明');
   });
 
+  it('提供 imageMeta 时输出 srcset/sizes/width/height（响应式 + 防抖动）', () => {
+    const hash = 'a'.repeat(64);
+    const doc = {
+      type: 'doc',
+      content: [{ type: 'figure', attrs: { blockId: 'f1', src: `/api/media/${hash}`, alt: '图' } }],
+    } as DocJson;
+    const html = renderToStaticMarkup(
+      <ArticleRenderer
+        doc={doc}
+        siteOrigin="https://harublog.test"
+        imageMeta={new Map([[hash, { width: 1000, height: 800 }]])}
+      />,
+    );
+    expect(html).toContain('width="1000"');
+    expect(html).toContain('height="800"');
+    expect(html).toContain('sizes=');
+    // 只取 < 固有宽度的档（400/800），不放大；并含原图档
+    expect(html).toContain(`/api/media/${hash}?w=400 400w`);
+    expect(html).toContain(`/api/media/${hash}?w=800 800w`);
+    expect(html).toContain(`/api/media/${hash} 1000w`);
+    expect(html).not.toContain('1600w');
+  });
+
+  it('无 imageMeta 时降级为简单 <img>（无 srcset）', () => {
+    const hash = 'b'.repeat(64);
+    const doc = {
+      type: 'doc',
+      content: [{ type: 'figure', attrs: { blockId: 'f1', src: `/api/media/${hash}`, alt: '图' } }],
+    } as DocJson;
+    const html = render(doc, 'https://harublog.test');
+    expect(html).toContain('<img');
+    expect(html).not.toContain('srcset');
+  });
+
   it('外部图源被屏蔽（不出 <img>，防 IP 追踪）', () => {
     const doc = {
       type: 'doc',
