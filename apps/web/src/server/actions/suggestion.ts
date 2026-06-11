@@ -651,7 +651,8 @@ export async function mergeSuggestion(
     .limit(1);
   const sg = sgRows[0];
   if (!sg) return fail('建议不存在');
-  if (!['open', 'under_review', 'changes_requested'].includes(sg.status)) {
+  // outdated 也可合入（即三栏变基后落盘）
+  if (!['open', 'under_review', 'changes_requested', 'outdated'].includes(sg.status)) {
     return fail('该建议已结案，无法合入');
   }
   const decision = can(actor, 'suggestion.merge', {
@@ -688,7 +689,10 @@ export async function mergeSuggestion(
       const merge = threeWayMerge(baseEntries, oursEntries, theirsEntries);
       const unresolved = merge.conflicts.filter((c) => resolutions[c.blockId] === undefined);
       if (unresolved.length > 0) {
-        // 存在未裁决冲突：不写入，回传冲突清单供 UI 逐块裁决（步骤④）
+        // 存在未裁决冲突：不写入内容，把建议标记为 outdated（提示需逐块裁决/变基），回传冲突清单
+        if (sg.status !== 'outdated') {
+          await tx.update(suggestions).set({ status: 'outdated' }).where(eq(suggestions.id, rawId));
+        }
         return {
           merged: false,
           conflicts: merge.conflicts.map((c) => ({

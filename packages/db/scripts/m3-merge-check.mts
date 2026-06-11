@@ -17,7 +17,9 @@ async function entriesOf(revisionId: string): Promise<ManifestEntry[]> {
 }
 
 async function main(): Promise<void> {
-  const sg = (await db.select().from(suggestions).where(eq(suggestions.status, 'open')).limit(1))[0];
+  const sg = (
+    await db.select().from(suggestions).where(eq(suggestions.status, 'open')).limit(1)
+  )[0];
   if (!sg) throw new Error('没有 open 状态的建议，先跑 m3-suggestion-fixture');
 
   const oursHead = (
