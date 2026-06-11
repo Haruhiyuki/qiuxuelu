@@ -10,6 +10,7 @@ import {
   documentRefs,
   documents,
   getDb,
+  hashManifest,
   publishedSnapshots,
   reviewItems,
   revisionBlocks,
@@ -17,6 +18,7 @@ import {
   revisions,
   searchOutbox,
   suggestions,
+  toDbBlockId,
 } from '@harublog/db';
 import {
   can,
@@ -42,7 +44,6 @@ import { REJECT_REASON_CODES } from '@/lib/review-reasons';
 import { getSession } from '@/lib/session';
 import type { ActionResult } from '@/server/action-result';
 import { loadActor } from '@/server/actors';
-import { hashManifest, toDbBlockId } from '@/server/block-identity';
 import { insertNotification } from '@/server/notifications';
 import { loadRevisionDoc } from '@/server/revision-doc';
 import { emitTrustEvent, recomputeTrust } from '@/server/trust';

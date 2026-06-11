@@ -13,6 +13,7 @@
     "@harublog/config": "workspace:*",
     "@harublog/db": "workspace:*",
     "@harublog/domain": "workspace:*",
+    "@harublog/editor": "workspace:*",
     "@harublog/kernel": "workspace:*",
     "@harublog/renderer": "workspace:*",
     "@harublog/search": "workspace:*",

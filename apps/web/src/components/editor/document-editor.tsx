@@ -1,5 +1,6 @@
 'use client';
 
+import { BlockId, kernelToTiptap, tiptapToKernel } from '@harublog/editor';
 import type { DocJson } from '@harublog/kernel';
 import { Alert, Badge, Button, Label, Textarea } from '@harublog/ui';
 import type { Editor } from '@tiptap/react';
@@ -9,8 +10,6 @@ import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { docStatusLabel } from '@/lib/doc-labels';
 import { commitRevision, requestPublish, saveWorkingCopy } from '@/server/actions/document';
-import { BlockId } from './block-id';
-import { kernelToTiptap, tiptapToKernel } from './normalize';
 import { EditorToolbar } from './toolbar';
 
 type SaveState = 'idle' | 'dirty' | 'saving' | 'saved' | 'error';

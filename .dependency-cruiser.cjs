@@ -31,6 +31,13 @@ module.exports = {
       to: { path: '^(packages/(db|domain|editor|search)|apps/)' },
     },
     {
+      name: 'editor-only-kernel',
+      comment: 'editor 是 Tiptap 扩展集，内部只依赖 kernel',
+      severity: 'error',
+      from: { path: '^packages/editor' },
+      to: { path: '^(packages/(db|domain|renderer|search|ui)|apps/)' },
+    },
+    {
       name: 'ui-is-leaf',
       comment: 'ui 是纯设计系统，不得依赖业务包',
       severity: 'error',

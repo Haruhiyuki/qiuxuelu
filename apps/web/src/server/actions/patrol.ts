@@ -7,6 +7,7 @@ import {
   documentRefs,
   documents,
   getDb,
+  hashManifest,
   publishedSnapshots,
   reviewActions,
   reviewItems,
@@ -21,7 +22,6 @@ import { z } from 'zod';
 import { getSession } from '@/lib/session';
 import type { ActionResult } from '@/server/action-result';
 import { loadActor } from '@/server/actors';
-import { hashManifest } from '@/server/block-identity';
 import { insertNotification } from '@/server/notifications';
 import { loadRevisionDoc } from '@/server/revision-doc';
 import { emitTrustEvent, recomputeTrust } from '@/server/trust';

@@ -8,6 +8,7 @@ const nextConfig: NextConfig = {
     '@harublog/config',
     '@harublog/db',
     '@harublog/domain',
+    '@harublog/editor',
     '@harublog/kernel',
     '@harublog/renderer',
     '@harublog/search',

@@ -10,6 +10,7 @@ import {
   documentRefs,
   documents,
   getDb,
+  hashManifest,
   publishedSnapshots,
   publishRequests,
   reviewItems,
@@ -18,6 +19,7 @@ import {
   revisions,
   searchOutbox,
   sections,
+  toDbBlockId,
   workingCopies,
 } from '@harublog/db';
 import type { DocCtx } from '@harublog/domain';
@@ -39,7 +41,6 @@ import { docStatusLabel } from '@/lib/doc-labels';
 import { getSession } from '@/lib/session';
 import type { ActionResult } from '@/server/action-result';
 import { loadActor } from '@/server/actors';
-import { hashManifest, toDbBlockId } from '@/server/block-identity';
 import { insertNotification } from '@/server/notifications';
 import { loadRevisionDoc } from '@/server/revision-doc';
 

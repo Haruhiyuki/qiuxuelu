@@ -1,5 +1,6 @@
 'use client';
 
+import { BlockId, kernelToTiptap, tiptapToKernel } from '@harublog/editor';
 // 协作直编已发布文章的编辑器：从发布内容载入，单次「发布修改」即时生效（进巡查队列）。
 // 复用与 DocumentEditor 相同的 Tiptap 内核与 normalize；不走 working_copy / 审批。
 import type { DocJson } from '@harublog/kernel';
@@ -10,8 +11,6 @@ import { useRouter } from 'next/navigation';
 import { useMemo, useState } from 'react';
 import { directEditPublished } from '@/server/actions/document';
 import { createSuggestion } from '@/server/actions/suggestion';
-import { BlockId } from './block-id';
-import { kernelToTiptap, tiptapToKernel } from './normalize';
 import { EditorToolbar } from './toolbar';
 
 export interface CollabEditorProps {
