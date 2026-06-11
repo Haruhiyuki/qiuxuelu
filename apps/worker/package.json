@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@harublog/db": "workspace:*",
+    "@harublog/kernel": "workspace:*",
     "@harublog/search": "workspace:*",
     "drizzle-orm": "catalog:"
   },

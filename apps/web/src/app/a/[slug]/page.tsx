@@ -1,4 +1,6 @@
 import {
+  commentAnchors,
+  comments,
   documents,
   getDb,
   publishedSnapshots,
@@ -9,12 +11,14 @@ import {
 import { extractText, validateDoc } from '@harublog/kernel';
 import type { TocEntry } from '@harublog/renderer';
 import { ArticleRenderer, extractToc } from '@harublog/renderer';
-import { and, eq } from 'drizzle-orm';
+import { and, asc, eq } from 'drizzle-orm';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { CommentSection } from '@/components/comments/comment-section';
-import { formatDate } from '@/lib/format';
+import { InlineComments, type InlineCommentView } from '@/components/comments/inline-comments';
+import { formatDate, formatDateTime } from '@/lib/format';
+import { getSession } from '@/lib/session';
 
 // M0 一律请求期动态渲染；ISR + revalidateTag 是 M1 的事
 export const dynamic = 'force-dynamic';
@@ -97,6 +101,43 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
     toc = [];
   }
 
+  // 行内批注（kind='inline'，含锚点状态），与文章正文同页展示
+  const db = getDb();
+  const session = await getSession();
+  const inlineRows = await db
+    .select({
+      id: comments.id,
+      blockId: commentAnchors.blockId,
+      quotedText: commentAnchors.quotedText,
+      state: commentAnchors.state,
+      body: comments.body,
+      createdAt: comments.createdAt,
+      authorName: userTable.name,
+    })
+    .from(comments)
+    .innerJoin(commentAnchors, eq(commentAnchors.commentId, comments.id))
+    .leftJoin(userTable, eq(userTable.id, comments.authorId))
+    .where(
+      and(
+        eq(comments.documentId, article.docId),
+        eq(comments.kind, 'inline'),
+        eq(comments.status, 'visible'),
+      ),
+    )
+    .orderBy(asc(comments.createdAt));
+  const inlineComments: InlineCommentView[] = inlineRows.map((r) => ({
+    id: r.id,
+    blockId: r.blockId,
+    quotedText: r.quotedText,
+    text:
+      typeof r.body === 'object' && r.body !== null && 'text' in r.body
+        ? String((r.body as { text: unknown }).text)
+        : '',
+    authorName: r.authorName ?? '佚名',
+    state: r.state as InlineCommentView['state'],
+    createdAtLabel: formatDateTime(r.createdAt),
+  }));
+
   return (
     <div className="mx-auto w-full max-w-6xl px-6 py-10 lg:grid lg:grid-cols-[minmax(0,1fr)_220px] lg:gap-12">
       <article>
@@ -153,6 +194,12 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
             </Link>
           </p>
         </footer>
+
+        <InlineComments
+          docId={article.docId}
+          canComment={session !== null}
+          comments={inlineComments}
+        />
 
         <CommentSection docId={article.docId} sectionId={article.sectionId} />
       </article>

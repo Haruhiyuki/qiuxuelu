@@ -3,7 +3,17 @@
 // 文末评论（kind='doc'，一层回复）。纪律：一律经 domain can('comment.create') 取裁决+义务；
 // 义务落地：pre_moderation → 入 first_post 巡查队列（M1 采事后巡查，不前置 hold，降低冷启动摩擦）；
 // rate_limit → 最小间隔限速。治理隐藏走 can('comment.moderate') 并写审计。
-import { auditLog, comments, documents, getDb, reviewItems } from '@harublog/db';
+import {
+  auditLog,
+  blocks,
+  commentAnchors,
+  comments,
+  documentRefs,
+  documents,
+  getDb,
+  reviewItems,
+  revisionBlocks,
+} from '@harublog/db';
 import { can, explainDeny } from '@harublog/domain';
 import { and, eq, gt } from 'drizzle-orm';
 import { z } from 'zod';
@@ -232,5 +242,132 @@ export async function hideComment(rawCommentId: string, rawReason: string): Prom
     return { ok: true, data: null };
   } catch {
     return fail('隐藏评论失败，请稍后重试');
+  }
+}
+
+// ── 行内评论（kind='inline'，锚定到块内文本范围，架构 §3.4）──────────────────────
+
+const anchorSchema = z.object({
+  blockId: z.uuid(),
+  startOffset: z.number().int().min(0),
+  endOffset: z.number().int().min(1),
+  quotedText: z.string().trim().min(1, '请先选中要批注的文字').max(500, '选区过长'),
+  prefix: z.string().max(64).optional(),
+  suffix: z.string().max(64).optional(),
+});
+
+export async function createInlineComment(
+  rawDocId: string,
+  rawAnchor: unknown,
+  rawBody: string,
+): Promise<ActionResult<{ commentId: string }>> {
+  const session = await getSession();
+  if (!session) {
+    return fail('请先登录后再批注');
+  }
+  const actor = await loadActor(session.user.id);
+  if (!actor) {
+    return fail('账号状态异常，请重新登录');
+  }
+  if (!uuidSchema.safeParse(rawDocId).success) {
+    return fail('文档参数非法');
+  }
+  const anchor = anchorSchema.safeParse(rawAnchor);
+  if (!anchor.success) {
+    return fail(anchor.error.issues[0]?.message ?? '锚点参数非法');
+  }
+  if (anchor.data.endOffset <= anchor.data.startOffset) {
+    return fail('选区为空');
+  }
+  const body = bodySchema.safeParse(rawBody);
+  if (!body.success) {
+    return fail(body.error.issues[0]?.message ?? '批注内容校验失败');
+  }
+
+  const doc = await loadPublishedDoc(rawDocId);
+  if (doc?.status !== 'published') {
+    return fail('只能对已发布的文章添加行内批注');
+  }
+
+  // 行内评论是 TL1 能力（与文末评论的 comment.create 分开）
+  const decision = can(actor, 'comment.inline.create', { sectionId: doc.sectionId });
+  if (!decision.allow) {
+    return fail(explainDeny(decision.reason));
+  }
+
+  const db = getDb();
+
+  // 锚定块必须属于本文、为段落/标题（纯文本偏移口径一致），且存在于当前发布修订
+  const blockRows = await db
+    .select({ id: blocks.id, type: blocks.type })
+    .from(blocks)
+    .where(and(eq(blocks.id, anchor.data.blockId), eq(blocks.documentId, rawDocId)))
+    .limit(1);
+  const block = blockRows[0];
+  // 仅段落：其渲染 DOM 的 textContent 严格等于纯文本偏移口径（标题含锚链「#」会污染偏移）
+  if (block?.type !== 'paragraph') {
+    return fail('目前只能在正文段落上添加行内批注');
+  }
+  const refRows = await db
+    .select({ revisionId: documentRefs.revisionId })
+    .from(documentRefs)
+    .where(and(eq(documentRefs.documentId, rawDocId), eq(documentRefs.name, 'published')))
+    .limit(1);
+  const publishedRevisionId = refRows[0]?.revisionId;
+  if (publishedRevisionId === undefined) {
+    return fail('文章尚未发布');
+  }
+  const inRev = await db
+    .select({ blockId: revisionBlocks.blockId })
+    .from(revisionBlocks)
+    .where(
+      and(
+        eq(revisionBlocks.revisionId, publishedRevisionId),
+        eq(revisionBlocks.blockId, anchor.data.blockId),
+      ),
+    )
+    .limit(1);
+  if (inRev.length === 0) {
+    return fail('该段落不在当前发布版本中，无法批注');
+  }
+
+  try {
+    const commentId = await db.transaction(async (tx) => {
+      const inserted = await tx
+        .insert(comments)
+        .values({
+          documentId: rawDocId,
+          authorId: actor.id,
+          kind: 'inline',
+          body: { text: body.data },
+          status: 'visible',
+        })
+        .returning({ id: comments.id });
+      const comment = inserted[0];
+      if (!comment) {
+        throw new Error('insert failed');
+      }
+      await tx.insert(commentAnchors).values({
+        commentId: comment.id,
+        blockId: anchor.data.blockId,
+        revisionId: publishedRevisionId,
+        startOffset: anchor.data.startOffset,
+        endOffset: anchor.data.endOffset,
+        quotedText: anchor.data.quotedText,
+        prefix: anchor.data.prefix,
+        suffix: anchor.data.suffix,
+        state: 'live',
+      });
+      await insertNotification(tx, {
+        recipientId: doc.ownerId,
+        actorId: actor.id,
+        kind: 'comment_on_doc',
+        payload: { docId: rawDocId, slug: doc.slug, title: doc.title, byName: session.user.name },
+      });
+      return comment.id;
+    });
+    return { ok: true, data: { commentId } };
+  } catch {
+    return fail('行内批注提交失败，请稍后重试');
   }
 }

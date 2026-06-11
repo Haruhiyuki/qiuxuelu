@@ -198,6 +198,9 @@ importers:
       '@harublog/db':
         specifier: workspace:*
         version: link:../../packages/db
+      '@harublog/kernel':
+        specifier: workspace:*
+        version: link:../../packages/kernel
       '@harublog/search':
         specifier: workspace:*
         version: link:../../packages/search
