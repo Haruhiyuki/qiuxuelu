@@ -100,9 +100,12 @@ export default async function EditDocumentPage({ params }: EditPageProps) {
 
   return (
     <div className="mx-auto w-full max-w-4xl px-6 py-8">
-      <p className="mb-4 text-sm text-ink-500">
+      <p className="mb-4 flex items-center gap-4 text-sm text-ink-500">
         <Link href="/write" className="hover:text-brand-700">
           ← 我的写作
+        </Link>
+        <Link href={`/write/${doc.id}/collab`} className="text-brand-700 hover:text-brand-900">
+          实时协作编辑 →
         </Link>
       </p>
       <DocumentEditor
