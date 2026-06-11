@@ -13,12 +13,14 @@ import { can } from '@harublog/domain';
 import { extractText, validateDoc } from '@harublog/kernel';
 import type { TocEntry } from '@harublog/renderer';
 import { ArticleRenderer, extractToc } from '@harublog/renderer';
+import { Badge } from '@harublog/ui';
 import { and, asc, eq } from 'drizzle-orm';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { CommentSection } from '@/components/comments/comment-section';
 import { InlineComments, type InlineCommentView } from '@/components/comments/inline-comments';
+import { ModerationBar } from '@/components/moderation-bar';
 import { ReadingProgress } from '@/components/reading-progress';
 import { JsonLd } from '@/components/seo/json-ld';
 import { formatDate, formatDateTime } from '@/lib/format';
@@ -41,6 +43,7 @@ async function loadArticle(slug: string) {
       sectionId: documents.sectionId,
       ownerId: documents.ownerId,
       editPolicy: documents.editPolicy,
+      featured: documents.featured,
       slug: documents.slug,
       title: documents.title,
       summary: documents.summary,
@@ -115,13 +118,28 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
   const db = getDb();
   const session = await getSession();
 
-  // 协作入口：非作者时按能力显示「协作编辑」（直编）或「提出编辑建议」（建分支）
+  // 协作入口（非作者）+ 治理控件（板块管理员+，含作者本人若有职务）
   let canCollabEdit = false;
   let canSuggest = false;
-  if (session && session.user.id !== article.ownerId) {
+  let canFeature = false;
+  let canProtect = false;
+  if (session) {
     const actor = await loadActor(session.user.id);
     if (actor !== null) {
-      canCollabEdit = can(actor, 'doc.edit_direct', {
+      if (session.user.id !== article.ownerId) {
+        canCollabEdit = can(actor, 'doc.edit_direct', {
+          sectionId: article.sectionId,
+          doc: {
+            id: article.docId,
+            ownerId: article.ownerId ?? '',
+            editPolicy: article.editPolicy as 'suggest_only' | 'open' | 'semi' | 'locked',
+            status: 'published',
+          },
+        }).allow;
+        canSuggest = can(actor, 'suggestion.create', { sectionId: article.sectionId }).allow;
+      }
+      canFeature = can(actor, 'doc.feature', { sectionId: article.sectionId }).allow;
+      canProtect = can(actor, 'doc.protect', {
         sectionId: article.sectionId,
         doc: {
           id: article.docId,
@@ -130,7 +148,6 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
           status: 'published',
         },
       }).allow;
-      canSuggest = can(actor, 'suggestion.create', { sectionId: article.sectionId }).allow;
     }
   }
   const inlineRows = await db
@@ -246,7 +263,17 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
               内容更新于 {formatDate(article.revisedAt)}
             </time>
             <span>第 {article.seq} 号修订</span>
+            {article.featured ? <Badge variant="brand">精选</Badge> : null}
           </div>
+          {canFeature || canProtect ? (
+            <ModerationBar
+              docId={article.docId}
+              featured={article.featured}
+              editPolicy={article.editPolicy}
+              canFeature={canFeature}
+              canProtect={canProtect}
+            />
+          ) : null}
         </header>
 
         <div className="prose-zh py-8">

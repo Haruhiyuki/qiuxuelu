@@ -14,6 +14,7 @@ export type Capability =
   | 'doc.publish'
   | 'doc.unpublish'
   | 'doc.protect'
+  | 'doc.feature'
   | 'doc.rollback'
   | 'flag.create'
   | 'flag.review'
@@ -54,6 +55,7 @@ const SECTION_MOD_CAPS: readonly Capability[] = [
   'flag.review',
   'doc.unpublish',
   'doc.protect',
+  'doc.feature',
 ];
 
 const ADMIN_CAPS: readonly Capability[] = [
@@ -108,6 +110,7 @@ export const ROLE_ONLY_CAPS: ReadonlySet<Capability> = new Set([
   'doc.publish',
   'doc.unpublish',
   'doc.protect',
+  'doc.feature',
   'user.suspend',
   'user.trust_adjust',
   'role.grant_section',

@@ -1,7 +1,7 @@
 import { SITE_DESCRIPTION } from '@harublog/config';
 import { documents, getDb, publishedSnapshots, sections, user as userTable } from '@harublog/db';
 import { Badge, Card, CardContent, CardHeader, CardTitle, EmptyState } from '@harublog/ui';
-import { asc, desc, eq, isNull } from 'drizzle-orm';
+import { and, asc, desc, eq, isNull } from 'drizzle-orm';
 import { PenLine } from 'lucide-react';
 import Link from 'next/link';
 import { ButtonLink } from '@/components/button-link';
@@ -33,6 +33,28 @@ async function fetchLatestPublished() {
     .limit(10);
 }
 
+async function fetchFeatured() {
+  const db = getDb();
+  return db
+    .select({
+      id: documents.id,
+      title: documents.title,
+      slug: documents.slug,
+      summary: documents.summary,
+      publishedAt: publishedSnapshots.publishedAt,
+      authorName: userTable.name,
+      sectionName: sections.name,
+      sectionSlug: sections.slug,
+    })
+    .from(documents)
+    .innerJoin(publishedSnapshots, eq(publishedSnapshots.documentId, documents.id))
+    .innerJoin(sections, eq(sections.id, documents.sectionId))
+    .leftJoin(userTable, eq(userTable.id, documents.ownerId))
+    .where(and(eq(documents.status, 'published'), eq(documents.featured, true)))
+    .orderBy(desc(publishedSnapshots.publishedAt))
+    .limit(6);
+}
+
 async function fetchTopSections() {
   const db = getDb();
   return db
@@ -43,7 +65,11 @@ async function fetchTopSections() {
 }
 
 export default async function HomePage() {
-  const [latest, topSections] = await Promise.all([fetchLatestPublished(), fetchTopSections()]);
+  const [latest, featured, topSections] = await Promise.all([
+    fetchLatestPublished(),
+    fetchFeatured(),
+    fetchTopSections(),
+  ]);
 
   return (
     <div className="mx-auto w-full max-w-5xl px-6">
@@ -62,6 +88,18 @@ export default async function HomePage() {
           </ButtonLink>
         </div>
       </section>
+
+      {/* 精选 */}
+      {featured.length > 0 ? (
+        <section className="border-b border-ink-200 py-12">
+          <h2 className="font-serif text-xl font-semibold text-ink-900">精选</h2>
+          <div className="mt-2">
+            <DocumentList
+              items={featured.map((row) => ({ ...row, authorName: row.authorName ?? null }))}
+            />
+          </div>
+        </section>
+      ) : null}
 
       {/* 最新发布 */}
       <section className="py-12">

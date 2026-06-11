@@ -4,6 +4,7 @@
 import { sql } from 'drizzle-orm';
 import type { AnyPgColumn } from 'drizzle-orm/pg-core';
 import {
+  boolean,
   check,
   index,
   integer,
@@ -31,6 +32,8 @@ export const documents = pgTable(
     ownerId: text('owner_id').references(() => user.id),
     status: text('status').notNull().default('draft'),
     editPolicy: text('edit_policy').notNull().default('suggest_only'),
+    // 精选/置顶（板块管理员+ 设置）：首页与板块页优先展示
+    featured: boolean('featured').notNull().default(false),
     // ProseMirror schema 版本：旧文档渲染/对比时按迁移函数链升级
     schemaVersion: integer('schema_version').notNull(),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
