@@ -1,8 +1,10 @@
 'use server';
 
-// 协作 token 签发动作：授权判定（owner / editor+ 角色 / TL4）在此完成，token 交客户端连 collab 网关。
-// 架构 §6.3：实时协作仅对草稿态、且仅对作者与 TL4/editor 开放。
+// 协作 token 签发动作：授权统一走 can()（红线：一切权限判断走唯一鉴权入口），token 交客户端连 collab 网关。
+// 架构 §6.3：实时协作即对草稿做直接编辑（产 collab_checkpoint 修订），故鉴权能力 = doc.edit_direct——
+// 这样制裁一票否决（no_edit/suspend）、账号停用、edit_policy 楼层全部自动生效，不再有自定义旁路。
 import { documents, getDb } from '@harublog/db';
+import { can, type DocCtx, explainDeny } from '@harublog/domain';
 import { eq } from 'drizzle-orm';
 import { getSession } from '@/lib/session';
 import type { ActionResult } from '@/server/action-result';
@@ -14,26 +16,6 @@ function fail(error: string): { ok: false; error: string } {
 }
 
 const TOKEN_TTL_MS = 60 * 60 * 1000; // 1 小时
-
-/** 实时协作授权：作者本人 / 板块编辑+ 角色 / TL4 共建者。 */
-function mayRealtimeEdit(
-  actor: { id: string; trustLevel: number; roles: { role: string; sectionId: string | null }[] },
-  ownerId: string | null,
-  sectionId: string,
-): boolean {
-  if (ownerId !== null && actor.id === ownerId) {
-    return true;
-  }
-  if (actor.trustLevel >= 4) {
-    return true;
-  }
-  return actor.roles.some((r) => {
-    if (r.role === 'admin' || r.role === 'superadmin') {
-      return true;
-    }
-    return (r.role === 'editor' || r.role === 'section_mod') && r.sectionId === sectionId;
-  });
-}
 
 export async function issueCollabToken(rawDocId: string): Promise<ActionResult<{ token: string }>> {
   const secret = process.env.COLLAB_SECRET ?? '';
@@ -56,6 +38,7 @@ export async function issueCollabToken(rawDocId: string): Promise<ActionResult<{
       ownerId: documents.ownerId,
       sectionId: documents.sectionId,
       status: documents.status,
+      editPolicy: documents.editPolicy,
     })
     .from(documents)
     .where(eq(documents.id, rawDocId))
@@ -64,8 +47,19 @@ export async function issueCollabToken(rawDocId: string): Promise<ActionResult<{
   if (!doc) {
     return fail('文章不存在');
   }
-  if (!mayRealtimeEdit(actor, doc.ownerId, doc.sectionId)) {
-    return fail('实时协作目前仅对作者、板块编辑与 TL4 共建者开放');
+
+  // 唯一鉴权入口：doc.edit_direct（含制裁/停用/edit_policy/所有权/角色/信任全套判定）
+  const decision = can(actor, 'doc.edit_direct', {
+    sectionId: doc.sectionId,
+    doc: {
+      id: doc.id,
+      ownerId: doc.ownerId ?? '',
+      editPolicy: doc.editPolicy as DocCtx['editPolicy'],
+      status: doc.status as DocCtx['status'],
+    },
+  });
+  if (!decision.allow) {
+    return fail(explainDeny(decision.reason));
   }
 
   const token = signCollabToken(
