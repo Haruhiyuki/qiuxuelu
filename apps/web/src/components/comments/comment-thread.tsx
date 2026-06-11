@@ -6,6 +6,7 @@ import { useState } from 'react';
 import { FlagButton } from '@/components/flag-button';
 import { hideComment } from '@/server/actions/comment';
 import { CommentForm } from './comment-form';
+import { MentionText } from './mention-text';
 
 export interface CommentView {
   id: string;
@@ -81,7 +82,9 @@ function CommentBody({
         {canModerate ? <HideButton commentId={view.id} /> : null}
         {canFlag ? <FlagButton subjectType="comment" subjectId={view.id} /> : null}
       </div>
-      <p className="mt-1 whitespace-pre-wrap text-sm leading-relaxed text-ink-700">{view.text}</p>
+      <p className="mt-1 whitespace-pre-wrap text-sm leading-relaxed text-ink-700">
+        <MentionText text={view.text} />
+      </p>
     </div>
   );
 }

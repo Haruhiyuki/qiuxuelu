@@ -2,10 +2,12 @@
 
 // 行内批注岛（阅读端唯一的客户端交互）：选中段落文字 → 浮动「批注」按钮 → 锚定提交；
 // 同时渲染已有行内批注面板。锚点偏移以段落 DOM 的 textContent 为口径（= kernel extractText）。
-import { Button, Textarea } from '@harublog/ui';
+import { Button } from '@harublog/ui';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { createInlineComment } from '@/server/actions/comment';
+import { MentionText } from './mention-text';
+import { MentionTextarea } from './mention-textarea';
 
 export interface InlineCommentView {
   id: string;
@@ -209,11 +211,11 @@ export function InlineComments({
           <p className="mb-2 border-ink-200 border-l-2 pl-2 text-sm text-ink-500">
             {pending.quotedText.slice(0, 60)}
           </p>
-          <Textarea
+          <MentionTextarea
             value={text}
-            onChange={(e) => setText(e.target.value)}
+            onChange={setText}
             rows={3}
-            placeholder="写下针对这段文字的批注…"
+            placeholder="写下针对这段文字的批注…（用 @ 提及他人）"
             disabled={busy}
           />
           {error !== null ? <p className="mt-1 text-accent-700 text-sm">{error}</p> : null}
@@ -264,7 +266,7 @@ export function InlineComments({
                   <span className="ml-2 text-accent-600 text-xs">{STATE_LABEL[c.state]}</span>
                 ) : null}
                 <p className="mt-1 whitespace-pre-wrap text-ink-700 text-sm leading-relaxed">
-                  {c.text}
+                  <MentionText text={c.text} />
                 </p>
                 <p className="mt-0.5 text-ink-400 text-xs">
                   {c.authorName} · {c.createdAtLabel}

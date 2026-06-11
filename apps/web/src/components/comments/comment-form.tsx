@@ -1,9 +1,10 @@
 'use client';
 
-import { Button, Textarea } from '@harublog/ui';
+import { Button } from '@harublog/ui';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { createComment } from '@/server/actions/comment';
+import { MentionTextarea } from './mention-textarea';
 
 export interface CommentFormProps {
   docId: string;
@@ -40,10 +41,10 @@ export function CommentForm({ docId, parentId, placeholder, compact, onDone }: C
 
   return (
     <div className="flex flex-col gap-2">
-      <Textarea
+      <MentionTextarea
         value={text}
-        onChange={(e) => setText(e.target.value)}
-        placeholder={placeholder ?? '写下你的看法或补充…'}
+        onChange={setText}
+        placeholder={placeholder ?? '写下你的看法或补充…（用 @ 提及他人）'}
         rows={compact ? 2 : 3}
         disabled={pending}
       />
