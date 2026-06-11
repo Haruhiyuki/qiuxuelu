@@ -21,3 +21,32 @@
     background-color: var(--color-brand-100);
   }
 }
+
+/* 行内批注在正文里的高亮：底部赭黄实线 + 淡底，点击跳到右侧批注（JS 注入的 <mark.comment-mark>）。 */
+mark.comment-mark {
+  background-color: var(--color-ochre-50);
+  box-shadow: inset 0 -0.12em 0 var(--color-ochre-600);
+  color: inherit;
+  cursor: pointer;
+  border-radius: 2px;
+  transition: background-color 0.15s ease;
+}
+
+mark.comment-mark:hover {
+  background-color: var(--color-ochre-100);
+}
+
+/* 列表↔正文互相定位时的闪烁提示 */
+.flash-target {
+  animation: comment-flash 1.2s ease;
+}
+
+@keyframes comment-flash {
+  0%,
+  100% {
+    background-color: transparent;
+  }
+  20% {
+    background-color: var(--color-ochre-100);
+  }
+}

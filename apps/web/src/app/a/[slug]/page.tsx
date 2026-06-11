@@ -157,6 +157,8 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
       id: comments.id,
       blockId: commentAnchors.blockId,
       quotedText: commentAnchors.quotedText,
+      startOffset: commentAnchors.startOffset,
+      endOffset: commentAnchors.endOffset,
       state: commentAnchors.state,
       body: comments.body,
       createdAt: comments.createdAt,
@@ -177,6 +179,8 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
     id: r.id,
     blockId: r.blockId,
     quotedText: r.quotedText,
+    startOffset: r.startOffset ?? 0,
+    endOffset: r.endOffset ?? 0,
     text:
       typeof r.body === 'object' && r.body !== null && 'text' in r.body
         ? String((r.body as { text: unknown }).text)

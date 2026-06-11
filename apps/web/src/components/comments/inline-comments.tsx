@@ -11,6 +11,8 @@ export interface InlineCommentView {
   id: string;
   blockId: string;
   quotedText: string;
+  startOffset: number;
+  endOffset: number;
   text: string;
   authorName: string;
   state: 'live' | 'remapped' | 'orphaned';
@@ -103,6 +105,54 @@ export function InlineComments({
     document.addEventListener('mouseup', captureSelection);
     return () => document.removeEventListener('mouseup', captureSelection);
   }, [captureSelection]);
+
+  // 正文内高亮：把每条（未失锚的）批注的字符区间在对应段落里包成 <mark>，点击跳到右侧批注。
+  // 偏移口径 = 段落 textContent（与 captureSelection / kernel extractText 一致；worker 已在发布时重映射）。
+  useEffect(() => {
+    const onMarkClick = (e: Event) => {
+      const id = (e.currentTarget as HTMLElement).dataset.commentId;
+      if (id === undefined) {
+        return;
+      }
+      const item = document.getElementById(`inline-comment-${id}`);
+      if (item !== null) {
+        item.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        flash(item);
+      }
+    };
+    const created: HTMLElement[] = [];
+    for (const c of comments) {
+      if (c.state === 'orphaned' || c.quotedText.length === 0) {
+        continue;
+      }
+      const block = document.getElementById(`b-${c.blockId}`);
+      if (block === null) {
+        continue;
+      }
+      for (const mark of highlightQuote(block, c.quotedText, c.startOffset, c.id)) {
+        mark.addEventListener('click', onMarkClick);
+        created.push(mark);
+      }
+    }
+    return () => {
+      for (const mark of created) {
+        mark.removeEventListener('click', onMarkClick);
+        unwrapMark(mark);
+      }
+    };
+  }, [comments]);
+
+  // 列表 → 正文：点批注引文，滚到正文里那段高亮并闪一下。
+  function scrollToAnchor(c: InlineCommentView) {
+    const mark = document.querySelector<HTMLElement>(
+      `mark.comment-mark[data-comment-id="${c.id}"]`,
+    );
+    const target = mark ?? document.getElementById(`b-${c.blockId}`);
+    if (target !== null) {
+      target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      flash(target);
+    }
+  }
 
   async function submit() {
     if (pending === null || text.trim().length === 0) {
@@ -198,13 +248,18 @@ export function InlineComments({
         ) : (
           <ul className="mt-4 flex flex-col gap-4">
             {comments.map((c) => (
-              <li key={c.id} className="border-ink-100 border-l-2 pl-3">
-                <a
-                  href={`#b-${c.blockId}`}
-                  className="text-ink-500 text-sm italic hover:text-brand-700"
+              <li
+                key={c.id}
+                id={`inline-comment-${c.id}`}
+                className="scroll-mt-24 border-ink-100 border-l-2 pl-3"
+              >
+                <button
+                  type="button"
+                  onClick={() => scrollToAnchor(c)}
+                  className="text-left text-ink-500 text-sm italic hover:text-brand-700"
                 >
                   「{c.quotedText.slice(0, 50)}」
-                </a>
+                </button>
                 {c.state !== 'live' ? (
                   <span className="ml-2 text-accent-600 text-xs">{STATE_LABEL[c.state]}</span>
                 ) : null}
@@ -221,6 +276,104 @@ export function InlineComments({
       </section>
     </>
   );
+}
+
+/**
+ * 在块元素内高亮引文：以引文字符串为准在块 textContent 里定位（多处出现时取最接近 startHint 的），
+ * 再把命中的 [start, end) 区间包成 <mark.comment-mark>。
+ * 之所以按引文搜索而非直接用存储偏移：DOM textContent 与 kernel extractText 的口径可能有细微差异
+ * （装饰性节点等），引文搜索对此免疫，offset 仅作多处出现时的消歧提示。引文找不到则不高亮（列表仍在）。
+ */
+function highlightQuote(
+  block: HTMLElement,
+  quotedText: string,
+  startHint: number,
+  commentId: string,
+): HTMLElement[] {
+  const fullText = block.textContent ?? '';
+  let idx = -1;
+  let bestDist = Number.POSITIVE_INFINITY;
+  let from = 0;
+  while (true) {
+    const at = fullText.indexOf(quotedText, from);
+    if (at === -1) {
+      break;
+    }
+    const dist = Math.abs(at - startHint);
+    if (dist < bestDist) {
+      bestDist = dist;
+      idx = at;
+    }
+    from = at + 1;
+  }
+  if (idx === -1) {
+    return [];
+  }
+  return wrapRange(block, idx, idx + quotedText.length, commentId);
+}
+
+/**
+ * 把块内 [start, end) 字符区间（以 textContent 为口径）包成 <mark.comment-mark>。
+ * 区间可能横跨多个文本节点（如含链接/加粗），逐文本节点切分各自包裹；倒序处理避免偏移失效。
+ */
+function wrapRange(
+  block: HTMLElement,
+  start: number,
+  end: number,
+  commentId: string,
+): HTMLElement[] {
+  const walker = document.createTreeWalker(block, NodeFilter.SHOW_TEXT);
+  const segments: { node: Text; from: number; to: number }[] = [];
+  let pos = 0;
+  let node = walker.nextNode() as Text | null;
+  while (node !== null) {
+    const len = node.data.length;
+    const from = Math.max(start, pos);
+    const to = Math.min(end, pos + len);
+    if (from < to) {
+      segments.push({ node, from: from - pos, to: to - pos });
+    }
+    pos += len;
+    if (pos >= end) {
+      break;
+    }
+    node = walker.nextNode() as Text | null;
+  }
+  const marks: HTMLElement[] = [];
+  for (const seg of segments.reverse()) {
+    const range = document.createRange();
+    range.setStart(seg.node, seg.from);
+    range.setEnd(seg.node, seg.to);
+    const mark = document.createElement('mark');
+    mark.className = 'comment-mark';
+    mark.dataset.commentId = commentId;
+    try {
+      range.surroundContents(mark);
+      marks.push(mark);
+    } catch {
+      // 区间跨元素边界等异常：跳过该段，宁可不高亮也不破坏 DOM
+    }
+  }
+  return marks;
+}
+
+/** 还原一个高亮 mark：把内容移回父节点并合并相邻文本节点。 */
+function unwrapMark(mark: HTMLElement): void {
+  const parent = mark.parentNode;
+  if (parent === null) {
+    return;
+  }
+  while (mark.firstChild !== null) {
+    parent.insertBefore(mark.firstChild, mark);
+  }
+  parent.removeChild(mark);
+  parent.normalize();
+}
+
+/** 短暂闪烁目标元素，提示定位落点。 */
+function flash(el: HTMLElement): void {
+  el.classList.add('flash-target');
+  window.setTimeout(() => el.classList.remove('flash-target'), 1200);
 }
 
 /** 找到选区所在的段落块元素（section[id^="b-"][data-block-type="paragraph"]），跨块/非段落返回 null。 */
