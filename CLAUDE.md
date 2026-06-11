@@ -22,6 +22,9 @@
 - 治理阈值（信任等级等）一律走 site_settings 配置，不硬编码。
 
 ## 当前阶段
-M0、M1 已完成（M1：修订 diff / 回滚 / 评论 / 通知 / Meilisearch 块级搜索 + worker）。当前进入 M2（社区底座）。
+M0、M1、M2 已完成。当前进入 M3（编辑建议与审校：建议分支、三方合并 + 冲突裁决 UI、审校队列、信任联动）。
+- M1：修订 diff / 回滚 / 评论 / 通知 / Meilisearch 块级搜索 + worker。
+- M2：行内评论 + 锚点重映射、信任结算（可重放）、协作直编 + 巡查队列、举报与制裁、管理后台、审计查看。
 里程碑路线见架构文档 §8；UI 可以糙，内核不能糙。
-搜索同步：apps/worker 直接轮询 search_outbox（事务性 outbox 即队列）；pg-boss 留给 M2 真·异步作业（与 ADR-0006 一致）。
+搜索/锚点同步：apps/worker 轮询 search_outbox（doc.published 触发 Meilisearch 同步 + 行内锚点重映射）；pg-boss 仍留给后续真·异步作业。
+信任结算：apps/web/server/trust.ts 的 recomputeTrust 从源表派生（可重放）；TL4 仅人工授予（setTrustLevel 锁定）。
