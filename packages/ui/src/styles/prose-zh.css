@@ -298,13 +298,19 @@
   background: var(--color-accent-50);
 }
 
-/* ---- 数学块：M0 渲染器以等宽源码居中展示（KaTeX 等接入后此类只剩占位语义） ---- */
+/* ---- 数学块：KaTeX→MathML（浏览器原生渲染，零字体下载）；缺省降级时仍是居中等宽源码 ---- */
 .prose-zh .math-block {
   margin: 1.5em 0;
-  font-family: var(--font-mono);
-  font-size: 0.9375em;
   text-align: center;
   overflow-x: auto;
+}
+.prose-zh .math-block math {
+  font-size: 1.15em;
+}
+/* 仅在降级（未注入 KaTeX）时是 <pre>：保留等宽源码样式 */
+.prose-zh pre.math-block {
+  font-family: var(--font-mono);
+  font-size: 0.9375em;
 }
 
 /* ---- 渲染失败占位（renderer 对未知节点/坏数据的兜底输出） ---- */

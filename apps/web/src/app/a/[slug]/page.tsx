@@ -28,6 +28,7 @@ import { ReadingProgress } from '@/components/reading-progress';
 import { JsonLd } from '@/components/seo/json-ld';
 import { formatDate, formatDateTime } from '@/lib/format';
 import { highlightDoc } from '@/lib/highlight';
+import { renderMath } from '@/lib/math';
 import { getSession } from '@/lib/session';
 import { SITE_URL } from '@/lib/site-url';
 import { loadActor } from '@/server/actors';
@@ -295,7 +296,11 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
         </header>
 
         <div className="prose-zh py-8">
-          <ArticleRenderer doc={article.content} codeHighlights={codeHighlights} />
+          <ArticleRenderer
+            doc={article.content}
+            codeHighlights={codeHighlights}
+            mathRenderer={renderMath}
+          />
           <CodeCopy />
         </div>
 
