@@ -1,7 +1,7 @@
 import { documents, getDb, publishedSnapshots, revisions } from '@harublog/db';
 import { buildRevisionDiff } from '@harublog/kernel';
 import { RevisionDiffView } from '@harublog/renderer';
-import { desc, eq } from 'drizzle-orm';
+import { and, desc, eq, isNull } from 'drizzle-orm';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
@@ -66,7 +66,8 @@ export default async function DiffPage({ params, searchParams }: DiffPageProps) 
   const revRows = await db
     .select({ id: revisions.id, seq: revisions.seq, message: revisions.message })
     .from(revisions)
-    .where(eq(revisions.documentId, doc.id))
+    // 只对比主线修订；建议分支不进对比选择器（ADR-0004）
+    .where(and(eq(revisions.documentId, doc.id), isNull(revisions.suggestionId)))
     .orderBy(desc(revisions.seq));
   if (revRows.length < 2) {
     return (

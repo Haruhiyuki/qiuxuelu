@@ -9,7 +9,11 @@ export type NotificationKind =
   | 'publish_approved'
   | 'publish_rejected'
   | 'doc_edited'
-  | 'patrol_reverted';
+  | 'patrol_reverted'
+  | 'suggestion_received'
+  | 'suggestion_merged'
+  | 'suggestion_rejected'
+  | 'suggestion_changes';
 
 type TxLike = Pick<Database, 'insert'>;
 type ReadLike = Pick<Database, 'select'>;

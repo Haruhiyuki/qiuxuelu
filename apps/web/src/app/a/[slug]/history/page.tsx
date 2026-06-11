@@ -8,7 +8,7 @@ import {
 } from '@harublog/db';
 import { can } from '@harublog/domain';
 import { Badge } from '@harublog/ui';
-import { and, desc, eq } from 'drizzle-orm';
+import { and, desc, eq, isNull } from 'drizzle-orm';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
@@ -112,7 +112,8 @@ export default async function HistoryPage({ params }: HistoryPageProps) {
     })
     .from(revisions)
     .leftJoin(userTable, eq(userTable.id, revisions.authorId))
-    .where(eq(revisions.documentId, doc.id))
+    // 只列主线修订；建议分支（suggestion_id 非空）不进主线历史（ADR-0004）
+    .where(and(eq(revisions.documentId, doc.id), isNull(revisions.suggestionId)))
     .orderBy(desc(revisions.seq));
 
   // 每个修订的「上一版」= seq 比它小的最近一个（草稿分支 seq 单调）

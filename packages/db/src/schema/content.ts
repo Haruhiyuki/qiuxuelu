@@ -84,6 +84,9 @@ export const revisions = pgTable(
     schemaVersion: integer('schema_version').notNull(),
     charsDelta: integer('chars_delta').notNull().default(0),
     blocksChanged: integer('blocks_changed').notNull().default(0),
+    // 建议分支标记（ADR-0004）：非空表示该修订属于某条建议的分支，不在主线历史中展示；
+    // null = 主线修订（draft/published 线，含 merge_suggestion 合并提交）。
+    suggestionId: uuid('suggestion_id'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
@@ -92,6 +95,7 @@ export const revisions = pgTable(
       'revisions_kind_check',
       sql`${t.kind} in ('edit', 'merge_suggestion', 'rollback', 'collab_checkpoint', 'import')`,
     ),
+    index('revisions_suggestion_id_idx').on(t.suggestionId),
   ],
 );
 

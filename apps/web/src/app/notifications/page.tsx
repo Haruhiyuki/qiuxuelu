@@ -17,6 +17,7 @@ interface PayloadShape {
   title?: string;
   byName?: string;
   reasonCode?: string;
+  suggestionId?: string;
 }
 
 function readPayload(payload: unknown): PayloadShape {
@@ -43,6 +44,26 @@ function describe(kind: string, p: PayloadShape): { text: string; href: string }
       return { text: `有协作者编辑了你的文章《${title}》`, href: `/a/${p.slug ?? ''}/history` };
     case 'patrol_reverted':
       return { text: `你对《${title}》的编辑被巡查回退`, href: `/a/${p.slug ?? ''}/history` };
+    case 'suggestion_received':
+      return {
+        text: `${by} 对你的文章《${title}》提交了编辑建议`,
+        href: `/suggestions/${p.suggestionId ?? ''}`,
+      };
+    case 'suggestion_merged':
+      return {
+        text: `你对《${title}》的编辑建议已被采纳合入`,
+        href: `/suggestions/${p.suggestionId ?? ''}`,
+      };
+    case 'suggestion_rejected':
+      return {
+        text: `你对《${title}》的编辑建议未被采纳`,
+        href: `/suggestions/${p.suggestionId ?? ''}`,
+      };
+    case 'suggestion_changes':
+      return {
+        text: `你对《${title}》的编辑建议被要求修改`,
+        href: `/suggestions/${p.suggestionId ?? ''}`,
+      };
     default:
       return { text: '你有一条新通知', href: '/' };
   }

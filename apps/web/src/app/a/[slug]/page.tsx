@@ -109,13 +109,13 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
   const db = getDb();
   const session = await getSession();
 
-  // 协作编辑入口：非作者、信任/角色达标、文档开放协作（open/semi）时显示
+  // 协作入口：非作者时按能力显示「协作编辑」（直编）或「提出编辑建议」（建分支）
   let canCollabEdit = false;
+  let canSuggest = false;
   if (session && session.user.id !== article.ownerId) {
     const actor = await loadActor(session.user.id);
-    canCollabEdit =
-      actor !== null &&
-      can(actor, 'doc.edit_direct', {
+    if (actor !== null) {
+      canCollabEdit = can(actor, 'doc.edit_direct', {
         sectionId: article.sectionId,
         doc: {
           id: article.docId,
@@ -124,6 +124,8 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
           status: 'published',
         },
       }).allow;
+      canSuggest = can(actor, 'suggestion.create', { sectionId: article.sectionId }).allow;
+    }
   }
   const inlineRows = await db
     .select({
@@ -219,6 +221,14 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
                 className="text-brand-700 hover:text-brand-900"
               >
                 协作编辑这篇文章 →
+              </Link>
+            ) : null}
+            {canSuggest ? (
+              <Link
+                href={`/a/${article.slug}/suggest`}
+                className="text-brand-700 hover:text-brand-900"
+              >
+                提出编辑建议 →
               </Link>
             ) : null}
           </p>
