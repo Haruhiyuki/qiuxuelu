@@ -99,6 +99,12 @@ export async function SiteHeader() {
               >
                 {session.user.name}
               </Link>
+              <Link
+                href="/bookmarks"
+                className="hidden text-ink-600 transition-colors hover:text-brand-700 sm:inline"
+              >
+                收藏
+              </Link>
               <Link href="/account" className="text-ink-600 transition-colors hover:text-brand-700">
                 设置
               </Link>

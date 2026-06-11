@@ -25,6 +25,7 @@ import { CodeCopy } from '@/components/code-copy';
 import { CommentSection } from '@/components/comments/comment-section';
 import { InlineComments, type InlineCommentView } from '@/components/comments/inline-comments';
 import { ModerationBar } from '@/components/moderation-bar';
+import { ReactionBar } from '@/components/reaction-bar';
 import { ReadingProgress } from '@/components/reading-progress';
 import { JsonLd } from '@/components/seo/json-ld';
 import { TocNav } from '@/components/toc-nav';
@@ -34,6 +35,7 @@ import { renderMath } from '@/lib/math';
 import { getSession } from '@/lib/session';
 import { SITE_URL } from '@/lib/site-url';
 import { loadActor } from '@/server/actors';
+import { getReactionState } from '@/server/reactions';
 
 // M0 一律请求期动态渲染；ISR + revalidateTag 是 M1 的事
 export const dynamic = 'force-dynamic';
@@ -231,6 +233,8 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
     .innerJoin(tagsTable, eq(tagsTable.id, documentTags.tagId))
     .where(eq(documentTags.documentId, article.docId));
 
+  const reactions = await getReactionState(db, article.docId, session?.user.id ?? null);
+
   const articleUrl = `${SITE_URL}/a/${article.slug}`;
   const description = buildDescription(article.summary, content);
   const authorLd =
@@ -331,6 +335,16 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
             mathRenderer={renderMath}
           />
           <CodeCopy />
+        </div>
+
+        <div className="border-ink-200 border-t py-6">
+          <ReactionBar
+            docId={article.docId}
+            initialLikeCount={reactions.likeCount}
+            initialLiked={reactions.liked}
+            initialBookmarked={reactions.bookmarked}
+            loggedIn={session !== null}
+          />
         </div>
 
         {docTags.length > 0 ? (
