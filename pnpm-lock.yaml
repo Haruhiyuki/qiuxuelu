@@ -418,6 +418,21 @@ importers:
       '@tiptap/core':
         specifier: 'catalog:'
         version: 3.26.0(@tiptap/pm@3.26.0)
+      '@tiptap/extension-highlight':
+        specifier: 'catalog:'
+        version: 3.26.0(@tiptap/core@3.26.0(@tiptap/pm@3.26.0))
+      '@tiptap/extension-table':
+        specifier: 'catalog:'
+        version: 3.26.0(@tiptap/core@3.26.0(@tiptap/pm@3.26.0))(@tiptap/pm@3.26.0)
+      '@tiptap/extension-table-cell':
+        specifier: 'catalog:'
+        version: 3.26.0(@tiptap/extension-table@3.26.0(@tiptap/core@3.26.0(@tiptap/pm@3.26.0))(@tiptap/pm@3.26.0))
+      '@tiptap/extension-table-header':
+        specifier: 'catalog:'
+        version: 3.26.0(@tiptap/extension-table@3.26.0(@tiptap/core@3.26.0(@tiptap/pm@3.26.0))(@tiptap/pm@3.26.0))
+      '@tiptap/extension-table-row':
+        specifier: 'catalog:'
+        version: 3.26.0(@tiptap/extension-table@3.26.0(@tiptap/core@3.26.0(@tiptap/pm@3.26.0))(@tiptap/pm@3.26.0))
       '@tiptap/pm':
         specifier: 'catalog:'
         version: 3.26.0

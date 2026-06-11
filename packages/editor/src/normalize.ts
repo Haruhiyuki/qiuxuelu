@@ -10,18 +10,19 @@
 // 序列化细节（空 content / 空 marks / 空 attrs 一律省略键、link mark 只保留 href）
 // 正是为保住该不变式与 canonicalize 哈希稳定而定的——改任何一侧前先想清楚另一侧。
 //
-// 已知有损路径（仅 kernel → Tiptap 方向，加载编辑器不支持的旧块时触发）：
-//   figure/table/callout/math_block 降级为纯文本段落（保留 blockId 维持身份）；
-//   highlight mark 被剔除（M0 编辑器未装 highlight 扩展）。
+// 全部 kernel 块型/标记均已在编辑器侧打通（figure/table/callout/math_block/highlight 不再降级）。
+// 唯一有损点：表格 header 单元格归一为普通单元格（kernel table 无 header 概念）。
 import type {
   BlockNode,
+  CalloutNode,
   DocJson,
   InlineNode,
   InnerParagraphNode,
   ListItemNode,
   Mark,
+  TableCellNode,
+  TableRowNode,
 } from '@harublog/kernel';
-import { extractText } from '@harublog/kernel';
 import type { JSONContent } from '@tiptap/core';
 
 const HEADING_LEVELS = new Set([2, 3, 4]);
@@ -47,6 +48,10 @@ function toKernelMarks(marks: JSONContent['marks']): Mark[] {
       case 'strike':
         out.push({ type: 'strikethrough' });
         break;
+      case 'highlight':
+        // 高亮无 attrs（kernel highlight 不带颜色）；丢弃编辑器可能附带的 color
+        out.push({ type: 'highlight' });
+        break;
       case 'link': {
         const href = typeof mark.attrs?.href === 'string' ? mark.attrs.href : '';
         if (href.length > 0) {
@@ -56,7 +61,7 @@ function toKernelMarks(marks: JSONContent['marks']): Mark[] {
         break;
       }
       default:
-        // M0 不支持的 mark（underline/highlight 等）静默剔除
+        // 不支持的 mark（underline 等）静默剔除
         break;
     }
   }
@@ -172,6 +177,49 @@ function toKernelBlock(node: JSONContent): BlockNode | null {
         ? { type: 'figure', attrs: { blockId, src, alt, caption } }
         : { type: 'figure', attrs: { blockId, src, alt } };
     }
+    case 'callout': {
+      const blockId = readBlockId(node);
+      const raw = node.attrs?.variant;
+      const variant = (
+        raw === 'tip' || raw === 'warn' || raw === 'danger' ? raw : 'info'
+      ) as CalloutNode['attrs']['variant'];
+      return {
+        type: 'callout',
+        attrs: { blockId, variant },
+        content: toInnerParagraphs(node.content),
+      };
+    }
+    case 'mathBlock': {
+      const blockId = readBlockId(node);
+      const latex = typeof node.attrs?.latex === 'string' ? node.attrs.latex : '';
+      return { type: 'math_block', attrs: { blockId, latex } };
+    }
+    case 'table': {
+      const blockId = readBlockId(node);
+      const rows: TableRowNode[] = [];
+      for (const row of node.content ?? []) {
+        if (row.type !== 'tableRow') {
+          continue;
+        }
+        const cells: TableCellNode[] = [];
+        for (const cell of row.content ?? []) {
+          if (cell.type !== 'tableCell' && cell.type !== 'tableHeader') {
+            continue;
+          }
+          // kernel table_cell 内容是 inline[]（无 header 概念，header 归一为普通单元格）
+          const inline = (cell.content ?? [])
+            .flatMap(collectParagraphs)
+            .flatMap((p) => toKernelInline(p.content));
+          cells.push(
+            inline.length > 0 ? { type: 'table_cell', content: inline } : { type: 'table_cell' },
+          );
+        }
+        if (cells.length > 0) {
+          rows.push({ type: 'table_row', content: cells });
+        }
+      }
+      return rows.length > 0 ? { type: 'table', attrs: { blockId }, content: rows } : null;
+    }
     default:
       // 不认识的顶层块直接丢弃——配置外的节点编辑器不会产生
       return null;
@@ -209,6 +257,7 @@ function fromKernelMarks(marks: readonly Mark[] | undefined): JSONContent['marks
         out.push({ type: 'link', attrs: { href: mark.attrs.href } });
         break;
       case 'highlight':
+        out.push({ type: 'highlight' });
         break;
       default: {
         const exhausted: never = mark;
@@ -236,6 +285,12 @@ function fromInnerParagraphs(paragraphs: readonly InnerParagraphNode[]): JSONCon
     const content = fromKernelInline(para.content);
     return content.length > 0 ? { type: 'paragraph', content } : { type: 'paragraph' };
   });
+}
+
+/** kernel 单元格（inline[]）→ Tiptap 单元格内容（block+，包一层段落）。 */
+function fromCellParagraphs(inline: readonly InlineNode[] | undefined): JSONContent[] {
+  const content = fromKernelInline(inline);
+  return [content.length > 0 ? { type: 'paragraph', content } : { type: 'paragraph' }];
 }
 
 function fromKernelBlock(node: BlockNode): JSONContent {
@@ -283,16 +338,26 @@ function fromKernelBlock(node: BlockNode): JSONContent {
           caption: node.attrs.caption ?? '',
         },
       };
-    case 'table':
     case 'callout':
-    case 'math_block': {
-      // 有损降级：编辑器尚未装这些块的扩展时，回退为纯文本段落（保留 blockId 维持身份）。
-      // 注：table/callout/math 的编辑器扩展在媒体③接入后此分支不再触发。
-      const text = extractText(node).replaceAll('\n', ' ').trim();
-      return text.length > 0
-        ? { type: 'paragraph', attrs: { blockId }, content: [{ type: 'text', text }] }
-        : { type: 'paragraph', attrs: { blockId } };
-    }
+      return {
+        type: 'callout',
+        attrs: { blockId, variant: node.attrs.variant },
+        content: fromInnerParagraphs(node.content),
+      };
+    case 'math_block':
+      return { type: 'mathBlock', attrs: { blockId, latex: node.attrs.latex } };
+    case 'table':
+      return {
+        type: 'table',
+        attrs: { blockId },
+        content: node.content.map((row) => ({
+          type: 'tableRow',
+          content: row.content.map((cell) => ({
+            type: 'tableCell',
+            content: fromCellParagraphs(cell.content),
+          })),
+        })),
+      };
     default: {
       const exhausted: never = node;
       return exhausted;

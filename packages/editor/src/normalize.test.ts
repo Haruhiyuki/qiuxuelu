@@ -78,6 +78,51 @@ describe('normalize 往返不变式', () => {
     expect(roundTrip(doc)).toEqual(doc);
   });
 
+  it('figure / table / callout / math_block / highlight 全部往返不变', () => {
+    const doc: DocJson = {
+      type: 'doc',
+      content: [
+        {
+          type: 'figure',
+          attrs: { blockId: 'f1', src: '/api/media/abc', alt: '示意图', caption: '图 1' },
+        },
+        { type: 'figure', attrs: { blockId: 'f2', src: '/api/media/def', alt: '' } },
+        {
+          type: 'callout',
+          attrs: { blockId: 'co1', variant: 'warn' },
+          content: [{ type: 'paragraph', content: [{ type: 'text', text: '注意事项' }] }],
+        },
+        { type: 'math_block', attrs: { blockId: 'm1', latex: 'a^2 + b^2 = c^2' } },
+        {
+          type: 'table',
+          attrs: { blockId: 't1' },
+          content: [
+            {
+              type: 'table_row',
+              content: [
+                { type: 'table_cell', content: [{ type: 'text', text: '甲' }] },
+                { type: 'table_cell' },
+              ],
+            },
+            {
+              type: 'table_row',
+              content: [
+                { type: 'table_cell', content: [{ type: 'text', text: '乙' }] },
+                { type: 'table_cell', content: [{ type: 'text', text: '丙' }] },
+              ],
+            },
+          ],
+        },
+        {
+          type: 'paragraph',
+          attrs: { blockId: 'p1' },
+          content: [{ type: 'text', text: '重点', marks: [{ type: 'highlight' }] }],
+        },
+      ],
+    };
+    expect(roundTrip(doc)).toEqual(doc);
+  });
+
   it('link mark 仅保留 href（剥除编辑器附属属性）', () => {
     const doc: DocJson = {
       type: 'doc',
@@ -98,21 +143,37 @@ describe('normalize 往返不变式', () => {
     expect(roundTrip(doc)).toEqual(doc);
   });
 
-  it('kernel→Tiptap：highlight mark 为已知有损路径，往返后被剔除', () => {
-    const doc: DocJson = {
+  it('表格 header 单元格归一为普通单元格（唯一有损点）', () => {
+    const tiptap = {
       type: 'doc',
       content: [
         {
-          type: 'paragraph',
-          attrs: { blockId: 'p1' },
-          content: [{ type: 'text', text: '高亮', marks: [{ type: 'highlight' }] }],
+          type: 'table',
+          attrs: { blockId: 't1' },
+          content: [
+            {
+              type: 'tableRow',
+              content: [
+                {
+                  type: 'tableHeader',
+                  content: [{ type: 'paragraph', content: [{ type: 'text', text: '表头' }] }],
+                },
+              ],
+            },
+          ],
         },
       ],
     };
-    const back = tiptapToKernel(kernelToTiptap(doc));
-    const text = back.content[0]?.type === 'paragraph' ? back.content[0].content?.[0] : undefined;
-    // highlight 被剥除：文本仍在，但不再带 marks
-    expect(text).toEqual({ type: 'text', text: '高亮' });
+    const kernel = tiptapToKernel(tiptap);
+    const table = kernel.content[0];
+    // header 落为普通 table_cell（kernel 无 header 概念），内容保留
+    expect(table?.type).toBe('table');
+    if (table?.type === 'table') {
+      expect(table.content[0]?.content[0]).toEqual({
+        type: 'table_cell',
+        content: [{ type: 'text', text: '表头' }],
+      });
+    }
   });
 
   it('空文档归一为单个空段落（PM doc 要求 min(1) 块）', () => {

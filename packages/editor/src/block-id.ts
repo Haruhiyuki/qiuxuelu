@@ -16,6 +16,9 @@ const TOP_BLOCK_TYPES = [
   'codeBlock',
   'horizontalRule',
   'figure',
+  'table',
+  'callout',
+  'mathBlock',
 ];
 
 /**

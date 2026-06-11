@@ -53,6 +53,7 @@ export function EditorToolbar({ editor }: { editor: Editor }) {
       bold: e.isActive('bold'),
       italic: e.isActive('italic'),
       strike: e.isActive('strike'),
+      highlight: e.isActive('highlight'),
       code: e.isActive('code'),
       link: e.isActive('link'),
       blockquote: e.isActive('blockquote'),
@@ -160,6 +161,13 @@ export function EditorToolbar({ editor }: { editor: Editor }) {
         {'<>'}
       </ToolbarButton>
       <ToolbarButton
+        title="高亮"
+        active={state.highlight}
+        onClick={() => editor.chain().focus().toggleHighlight().run()}
+      >
+        <mark>高</mark>
+      </ToolbarButton>
+      <ToolbarButton
         title={state.link ? '移除链接' : '插入链接'}
         active={state.link}
         onClick={handleLink}
@@ -203,6 +211,42 @@ export function EditorToolbar({ editor }: { editor: Editor }) {
       </ToolbarButton>
       <ToolbarButton title="插入图片" onClick={() => fileInputRef.current?.click()}>
         图片
+      </ToolbarButton>
+      <ToolbarButton
+        title="插入表格（3×3）"
+        onClick={() =>
+          editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: false }).run()
+        }
+      >
+        表格
+      </ToolbarButton>
+      <ToolbarButton
+        title="插入提示框"
+        onClick={() =>
+          editor
+            .chain()
+            .focus()
+            .insertContent({
+              type: 'callout',
+              attrs: { variant: 'info' },
+              content: [{ type: 'paragraph' }],
+            })
+            .run()
+        }
+      >
+        提示框
+      </ToolbarButton>
+      <ToolbarButton
+        title="插入公式"
+        onClick={() =>
+          editor
+            .chain()
+            .focus()
+            .insertContent({ type: 'mathBlock', attrs: { latex: '' } })
+            .run()
+        }
+      >
+        公式
       </ToolbarButton>
       <input
         ref={fileInputRef}

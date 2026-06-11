@@ -13,6 +13,11 @@
   "dependencies": {
     "@harublog/kernel": "workspace:*",
     "@tiptap/core": "catalog:",
+    "@tiptap/extension-highlight": "catalog:",
+    "@tiptap/extension-table": "catalog:",
+    "@tiptap/extension-table-cell": "catalog:",
+    "@tiptap/extension-table-header": "catalog:",
+    "@tiptap/extension-table-row": "catalog:",
     "@tiptap/pm": "catalog:",
     "@tiptap/starter-kit": "catalog:",
     "nanoid": "catalog:"

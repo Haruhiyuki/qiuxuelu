@@ -1,10 +1,17 @@
 // 编辑器扩展集与 schema 的唯一事实源（架构 §6）：web 单人/协作编辑器与 collab 网关共用同一份，
 // 保证 ProseMirror schema 严格一致（否则 Y.Doc ↔ PM JSON 转换会因 schema 不符而坏）。
 import { type Extensions, getSchema } from '@tiptap/core';
+import Highlight from '@tiptap/extension-highlight';
+import { Table } from '@tiptap/extension-table';
+import { TableCell } from '@tiptap/extension-table-cell';
+import { TableHeader } from '@tiptap/extension-table-header';
+import { TableRow } from '@tiptap/extension-table-row';
 import type { Schema } from '@tiptap/pm/model';
 import StarterKit from '@tiptap/starter-kit';
 import { BlockId } from './block-id';
+import { Callout } from './callout';
 import { Figure } from './figure';
+import { MathBlock } from './math-block';
 
 /** y-prosemirror 共享片段名（web 协作编辑器与 collab 网关必须一致）。 */
 export const COLLAB_FRAGMENT = 'default';
@@ -27,7 +34,14 @@ export function buildExtensions(options: BuildExtensionsOptions = {}): Extension
       // 协作模式：交给 Yjs 处理历史，关掉本地 undoRedo 以免与 CRDT 冲突
       ...(options.collaboration ? { undoRedo: false } : {}),
     }),
+    Highlight,
+    Table,
+    TableRow,
+    TableHeader,
+    TableCell,
     Figure,
+    Callout,
+    MathBlock,
     BlockId,
   ];
 }
