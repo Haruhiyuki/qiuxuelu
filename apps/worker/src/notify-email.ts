@@ -16,6 +16,7 @@ const EMAIL_KINDS = [
   'suggestion_merged',
   'suggestion_rejected',
   'suggestion_changes',
+  'new_post',
 ] as const;
 
 const SUBJECTS: Record<string, string> = {
@@ -26,6 +27,7 @@ const SUBJECTS: Record<string, string> = {
   suggestion_merged: '你的编辑建议已被采纳',
   suggestion_rejected: '你的编辑建议未被采纳',
   suggestion_changes: '你的编辑建议被要求修改',
+  new_post: '你订阅的板块有新文章',
 };
 
 interface Payload {
@@ -33,6 +35,8 @@ interface Payload {
   docId?: string;
   title?: string;
   suggestionId?: string;
+  sectionName?: string;
+  unsubToken?: string;
 }
 
 function linkFor(kind: string, p: Payload): string {
@@ -75,12 +79,22 @@ export async function drainNotificationEmails(db: Database): Promise<number> {
   for (const row of rows) {
     try {
       if (row.email_notifications && row.email) {
-        const title = row.payload?.title ?? '';
+        const p = row.payload ?? {};
+        const title = p.title ?? '';
         const subject = SUBJECTS[row.kind] ?? '求学路有新动态';
-        const body = title.length > 0 ? `关于《${title}》：${subject}。` : `${subject}。`;
+        let body: string;
+        if (row.kind === 'new_post') {
+          const sec = p.sectionName ?? '';
+          body = `你订阅的板块${sec ? `《${sec}》` : ''}发布了新文章《${title}》。`;
+          if (p.unsubToken) {
+            body += `\n\n不想再收到此板块更新？一键退订：${APP_URL}/api/unsubscribe?token=${p.unsubToken}`;
+          }
+        } else {
+          body = title.length > 0 ? `关于《${title}》：${subject}。` : `${subject}。`;
+        }
         const mail = basicEmail(subject, body, {
           label: '查看详情',
-          url: linkFor(row.kind, row.payload ?? {}),
+          url: linkFor(row.kind, p),
         });
         await sendEmail({ to: row.email, subject, ...mail });
       }

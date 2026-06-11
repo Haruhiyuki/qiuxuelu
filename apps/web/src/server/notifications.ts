@@ -7,6 +7,7 @@ export type NotificationKind =
   | 'comment_on_doc'
   | 'comment_reply'
   | 'mention'
+  | 'new_post'
   | 'publish_approved'
   | 'publish_rejected'
   | 'doc_edited'

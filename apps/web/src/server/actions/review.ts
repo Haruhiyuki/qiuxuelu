@@ -13,6 +13,8 @@ import {
   reviewItems,
   revisions,
   searchOutbox,
+  sections,
+  subscriptions,
 } from '@harublog/db';
 import type { PublishRequestStatus } from '@harublog/domain';
 import {
@@ -236,6 +238,32 @@ export async function approvePublish(rawRequestId: string): Promise<ActionResult
         kind: 'publish_approved',
         payload: { docId: request.documentId, slug: request.docSlug, title: request.docTitle },
       });
+      // 板块订阅者：发「板块有新文章」通知（in-app + 邮件管线）。actorId=作者 → 订阅者恰为作者会自动跳过。
+      const subs = await tx
+        .select({ userId: subscriptions.userId, token: subscriptions.token })
+        .from(subscriptions)
+        .where(eq(subscriptions.sectionId, request.sectionId));
+      if (subs.length > 0) {
+        const sectionRow = await tx
+          .select({ name: sections.name })
+          .from(sections)
+          .where(eq(sections.id, request.sectionId))
+          .limit(1);
+        const sectionName = sectionRow[0]?.name ?? '';
+        for (const s of subs) {
+          await insertNotification(tx, {
+            recipientId: s.userId,
+            actorId: request.requesterId ?? actor.id,
+            kind: 'new_post',
+            payload: {
+              slug: request.docSlug,
+              title: request.docTitle,
+              sectionName,
+              unsubToken: s.token,
+            },
+          });
+        }
+      }
       // 事务性 outbox：与发布同事务写入，worker 异步消费推送 Meilisearch（索引可全量重建）
       await tx
         .insert(searchOutbox)

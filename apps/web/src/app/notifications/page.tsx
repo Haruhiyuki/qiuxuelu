@@ -38,6 +38,8 @@ function describe(kind: string, p: PayloadShape): { text: string; href: string }
       return { text: `${by} 回复了你在《${title}》下的评论`, href: `/a/${p.slug ?? ''}#comments` };
     case 'mention':
       return { text: `${by} 在《${title}》中提到了你`, href: `/a/${p.slug ?? ''}#comments` };
+    case 'new_post':
+      return { text: `你订阅的板块有新文章《${title}》`, href: `/a/${p.slug ?? ''}` };
     case 'publish_approved':
       return { text: `你的文章《${title}》已通过审批并发布`, href: `/a/${p.slug ?? ''}` };
     case 'publish_rejected':
