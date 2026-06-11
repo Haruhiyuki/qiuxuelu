@@ -1,5 +1,5 @@
 import { getDb, roleGrants, sanctions, user as userTable, userTrust } from '@harublog/db';
-import type { Actor } from '@harublog/domain';
+import type { Actor, Capability } from '@harublog/domain';
 import { assembleActor, ROLE_CAPS } from '@harublog/domain';
 import { and, eq, isNull, lte } from 'drizzle-orm';
 
@@ -101,13 +101,13 @@ export function hasPublishGrant(actor: Actor): boolean {
 }
 
 /**
- * 可行使发布权的板块集合：'all' = 持全局角色；数组 = 板块域角色的授权板块。
- * 审批工作台的列表与预览都必须按它收窄——板块 A 的编辑不得读取板块 B 的待审正文。
+ * 行使某能力的板块作用域：'all' = 持有该能力的全局角色；数组 = 板块域角色覆盖的板块集。
+ * 队列页（审批/举报/巡查）的列表与预览都必须按它收窄，防跨板块越权读取。
  */
-export function publishableSectionIds(actor: Actor): 'all' | string[] {
+export function sectionScopeForCapability(actor: Actor, capability: Capability): 'all' | string[] {
   const ids = new Set<string>();
   for (const grant of actor.roles) {
-    if (!ROLE_CAPS[grant.role].includes('doc.publish')) {
+    if (!ROLE_CAPS[grant.role].includes(capability)) {
       continue;
     }
     if (grant.sectionId === null) {
@@ -116,4 +116,9 @@ export function publishableSectionIds(actor: Actor): 'all' | string[] {
     ids.add(grant.sectionId);
   }
   return [...ids];
+}
+
+/** 可行使发布权的板块集合（审批工作台用）。 */
+export function publishableSectionIds(actor: Actor): 'all' | string[] {
+  return sectionScopeForCapability(actor, 'doc.publish');
 }

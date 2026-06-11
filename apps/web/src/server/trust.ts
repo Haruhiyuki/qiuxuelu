@@ -4,6 +4,7 @@
 import type { Database } from '@harublog/db';
 import {
   comments,
+  flags,
   revisions,
   siteSettings,
   trustEvents,
@@ -72,18 +73,38 @@ export async function computeUserStats(
   const activeDays = await countActiveDays(db, userId);
   const windowStart = new Date(now.getTime() - windowDays * MS_PER_DAY);
   const windowActiveDays = await countActiveDays(db, userId, windowStart);
+  const flagsAccuracy = await computeFlagsAccuracy(db, userId, windowStart);
 
   return {
     accountAgeDays,
     activeDays,
     commentsPosted,
     window: {
+      // suggestionsMerged / mergeRejectRatio 属 M3 建议流程，暂记 0
       suggestionsMerged: 0,
       mergeRejectRatio: 0,
-      flagsAccuracy: 1,
+      flagsAccuracy,
       activeDays: windowActiveDays,
     },
   };
+}
+
+/** 窗口内举报命中率 = upheld / (upheld + dismissed)；无已裁决举报时记 1（不因未举报卡晋升）。 */
+async function computeFlagsAccuracy(
+  db: Pick<Database, 'select'>,
+  userId: string,
+  windowStart: Date,
+): Promise<number> {
+  const rows = await db
+    .select({
+      upheld: sql<number>`count(*) filter (where ${flags.status} = 'upheld')`,
+      resolved: sql<number>`count(*) filter (where ${flags.status} in ('upheld','dismissed'))`,
+    })
+    .from(flags)
+    .where(and(eq(flags.reporterId, userId), gte(flags.createdAt, windowStart)));
+  const upheld = Number(rows[0]?.upheld ?? 0);
+  const resolved = Number(rows[0]?.resolved ?? 0);
+  return resolved === 0 ? 1 : upheld / resolved;
 }
 
 /** 评论日 ∪ 修订日 的去重日历日数（可选起始时间）。 */

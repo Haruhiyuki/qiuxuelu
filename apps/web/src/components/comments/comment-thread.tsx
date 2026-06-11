@@ -2,6 +2,7 @@
 
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
+import { FlagButton } from '@/components/flag-button';
 import { hideComment } from '@/server/actions/comment';
 import { CommentForm } from './comment-form';
 
@@ -49,13 +50,22 @@ function HideButton({ commentId }: { commentId: string }) {
   );
 }
 
-function CommentBody({ view, canModerate }: { view: CommentView; canModerate: boolean }) {
+function CommentBody({
+  view,
+  canModerate,
+  canFlag,
+}: {
+  view: CommentView;
+  canModerate: boolean;
+  canFlag: boolean;
+}) {
   return (
     <div>
       <div className="flex items-center gap-2 text-sm">
         <span className="font-medium text-ink-800">{view.authorName}</span>
         <span className="text-ink-400">{view.createdAtLabel}</span>
         {canModerate ? <HideButton commentId={view.id} /> : null}
+        {canFlag ? <FlagButton subjectType="comment" subjectId={view.id} /> : null}
       </div>
       <p className="mt-1 whitespace-pre-wrap text-sm leading-relaxed text-ink-700">{view.text}</p>
     </div>
@@ -72,7 +82,7 @@ export function CommentThread({
   const [replying, setReplying] = useState(false);
   return (
     <li className="py-5">
-      <CommentBody view={comment} canModerate={canModerate} />
+      <CommentBody view={comment} canModerate={canModerate} canFlag={canReply} />
       <div className="mt-2 flex items-center gap-3 text-xs">
         {canReply ? (
           <button
@@ -99,7 +109,7 @@ export function CommentThread({
         <ul className="mt-4 flex flex-col gap-4 border-l-2 border-ink-100 pl-4">
           {replies.map((reply) => (
             <li key={reply.id}>
-              <CommentBody view={reply} canModerate={canModerate} />
+              <CommentBody view={reply} canModerate={canModerate} canFlag={canReply} />
             </li>
           ))}
         </ul>

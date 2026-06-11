@@ -181,3 +181,34 @@ export const reviewActions = pgTable('review_actions', {
   note: text('note'),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 });
+
+// 举报：每「举报人 × 被举报内容」一行；权重随举报人信任等级（Discourse flag weight）。
+// 多条举报聚合到一个 review_items(queue='flag')；裁决结果回写举报人命中率（喂信任窗口）。
+export const flags = pgTable(
+  'flags',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    // 多态主体：comment（含行内）/ document
+    subjectType: text('subject_type').notNull(),
+    subjectId: text('subject_id').notNull(),
+    reporterId: text('reporter_id')
+      .notNull()
+      .references(() => user.id),
+    reasonCode: text('reason_code').notNull(),
+    note: text('note'),
+    // 举报权重 = f(举报人 TL)，由应用层写入；low-trust 举报权重低
+    weight: integer('weight').notNull().default(1),
+    status: text('status').notNull().default('open'),
+    sectionId: uuid('section_id').references(() => sections.id),
+    resolvedBy: text('resolved_by').references(() => user.id),
+    resolvedAt: timestamp('resolved_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    check('flags_status_check', sql`${t.status} in ('open', 'upheld', 'dismissed')`),
+    // 同一用户对同一内容只能举报一次
+    uniqueIndex('flags_subject_reporter_uq').on(t.subjectType, t.subjectId, t.reporterId),
+    index('flags_subject_idx').on(t.subjectType, t.subjectId),
+    index('flags_reporter_idx').on(t.reporterId),
+  ],
+);

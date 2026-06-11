@@ -15,6 +15,13 @@
       "when": 1781106382321,
       "tag": "0001_strong_fenris",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1781136566326,
+      "tag": "0002_public_azazel",
+      "breakpoints": true
     }
   ]
 }

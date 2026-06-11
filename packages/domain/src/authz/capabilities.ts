@@ -81,7 +81,8 @@ export const SECTION_SCOPED_ROLES: ReadonlySet<Role> = new Set(['editor', 'secti
 // 信任能力按等级记「增量」，与 ADR-0005 的晋升语义（TLn = TL(n-1) + 新解锁）一一对应；
 // TRUST_CAPS 暴露累计视图供判定器使用。
 const TRUST_CAP_INCREMENTS: Record<TrustLevel, readonly Capability[]> = {
-  0: ['content.read', 'doc.create', 'doc.submit'],
+  // flag.create 从 TL0 起即可（举报权重随 TL 上升，低信任举报权重低，架构 §4.2/§5.4）
+  0: ['content.read', 'doc.create', 'doc.submit', 'flag.create'],
   1: ['comment.create', 'comment.inline.create'],
   2: ['suggestion.create'],
   // 实际楼层受文档 edit_policy 限制（open→TL2+，semi→TL3+），见 can.ts
