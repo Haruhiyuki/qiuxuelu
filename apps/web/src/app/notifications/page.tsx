@@ -39,6 +39,10 @@ function describe(kind: string, p: PayloadShape): { text: string; href: string }
         text: `你的文章《${title}》的发布申请被驳回，可修改后重新申请`,
         href: `/write/${p.docId ?? ''}`,
       };
+    case 'doc_edited':
+      return { text: `有协作者编辑了你的文章《${title}》`, href: `/a/${p.slug ?? ''}/history` };
+    case 'patrol_reverted':
+      return { text: `你对《${title}》的编辑被巡查回退`, href: `/a/${p.slug ?? ''}/history` };
     default:
       return { text: '你有一条新通知', href: '/' };
   }

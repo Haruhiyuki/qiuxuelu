@@ -10,11 +10,13 @@ import {
   documentRefs,
   documents,
   getDb,
+  publishedSnapshots,
   publishRequests,
   reviewItems,
   revisionBlocks,
   revisionChanges,
   revisions,
+  searchOutbox,
   sections,
   workingCopies,
 } from '@harublog/db';
@@ -38,6 +40,7 @@ import { getSession } from '@/lib/session';
 import type { ActionResult } from '@/server/action-result';
 import { loadActor } from '@/server/actors';
 import { hashManifest, toDbBlockId } from '@/server/block-identity';
+import { insertNotification } from '@/server/notifications';
 import { loadRevisionDoc } from '@/server/revision-doc';
 
 /** 业务可预期失败：事务内抛出触发回滚，边界处转成 {ok:false} 中文文案。 */
@@ -70,6 +73,8 @@ interface DocRow {
   ownerId: string | null;
   editPolicy: string;
   status: string;
+  slug: string;
+  title: string;
 }
 
 function toDocCtx(row: DocRow): DocCtx {
@@ -99,6 +104,8 @@ async function findDoc(docId: string): Promise<DocRow | undefined> {
       ownerId: documents.ownerId,
       editPolicy: documents.editPolicy,
       status: documents.status,
+      slug: documents.slug,
+      title: documents.title,
     })
     .from(documents)
     .where(eq(documents.id, docId))
@@ -805,5 +812,263 @@ export async function restoreRevision(
       return fail('回滚冲突：草稿在你操作期间已被更新，请刷新页面后重试');
     }
     return toFailure(err, '回滚失败，请稍后重试');
+  }
+}
+
+/**
+ * 协作直接编辑已发布文章（架构 §5 巡查梯度）：TL2 改 open 文档 / TL3 改 semi 文档即时生效，
+ * 进 edit_patrol 巡查队列（事后巡查）。仅非作者走此路径；作者改自己文章仍用草稿+审批流。
+ * 单事务：建新修订（parent=当前发布修订）→ CAS 移 published ref → 重建快照 → 写 search outbox
+ * （触发搜索同步 + 行内锚点重映射）→ 按义务入巡查队列 → 通知作者 → 审计。
+ */
+export async function directEditPublished(
+  rawDocId: string,
+  contentJson: unknown,
+  rawMessage: string,
+): Promise<ActionResult<{ seq: number }>> {
+  const actor = await requireActor();
+  if (!actor) {
+    return fail('请先登录');
+  }
+  if (!uuidSchema.safeParse(rawDocId).success) {
+    return fail('文档参数非法');
+  }
+  const messageParsed = z.string().trim().max(500, '修订说明最长 500 字').safeParse(rawMessage);
+  if (!messageParsed.success) {
+    return fail(messageParsed.error.issues[0]?.message ?? '修订说明校验失败');
+  }
+  const message = messageParsed.data.length > 0 ? messageParsed.data : null;
+
+  const docRow = await findDoc(rawDocId);
+  if (!docRow) {
+    return fail('文章不存在');
+  }
+  if (docRow.status !== 'published') {
+    return fail('只能协作编辑已发布的文章');
+  }
+  if (docRow.ownerId === actor.id) {
+    return fail('作者请通过「写文章」的草稿与发布审批流程修改自己的文章');
+  }
+  const decision = can(actor, 'doc.edit_direct', {
+    sectionId: docRow.sectionId,
+    doc: toDocCtx(docRow),
+  });
+  if (!decision.allow) {
+    return fail(explainDeny(decision.reason));
+  }
+  const needsPatrol = decision.obligations.some((o) => o.type === 'enqueue_patrol');
+
+  let validated: DocJson;
+  try {
+    validated = validateDoc(contentJson);
+  } catch (err) {
+    return fail(err instanceof Error ? err.message : '内容校验失败');
+  }
+
+  const db = getDb();
+  try {
+    const seq = await db.transaction(async (tx) => {
+      const manifest = buildManifest(validated);
+      const dbEntries: ManifestEntry[] = [];
+      const nodeByDbId = new Map<string, BlockNode>();
+      validated.content.forEach((node, i) => {
+        const entry = manifest.entries[i];
+        if (!entry) {
+          return;
+        }
+        const dbId = toDbBlockId(rawDocId, entry.blockId);
+        if (nodeByDbId.has(dbId)) {
+          throw new ActionError(`块身份冲突：${entry.blockId} 映射重复，请刷新页面后重试`);
+        }
+        nodeByDbId.set(dbId, node);
+        dbEntries.push({ blockId: dbId, hash: entry.hash });
+      });
+
+      // 当前发布修订（协作编辑基于发布线，不动作者草稿分支）
+      const refRows = await tx
+        .select({ revisionId: documentRefs.revisionId })
+        .from(documentRefs)
+        .where(and(eq(documentRefs.documentId, rawDocId), eq(documentRefs.name, 'published')))
+        .limit(1);
+      const expectedHead = refRows[0]?.revisionId ?? null;
+      if (expectedHead === null) {
+        throw new ActionError('文章没有发布修订，无法协作编辑');
+      }
+
+      const parentRows = await tx
+        .select({ blockId: revisionBlocks.blockId, hash: revisionBlocks.blobHash })
+        .from(revisionBlocks)
+        .where(eq(revisionBlocks.revisionId, expectedHead))
+        .orderBy(asc(revisionBlocks.position));
+      const parentEntries: ManifestEntry[] = parentRows.map((r) => ({
+        blockId: r.blockId,
+        hash: r.hash,
+      }));
+      const parentHashes = new Set(parentRows.map((r) => r.hash));
+      const maxSeqRows = await tx
+        .select({ maxSeq: sql<number>`coalesce(max(${revisions.seq}), 0)` })
+        .from(revisions)
+        .where(eq(revisions.documentId, rawDocId));
+      const parentSeq = Number(maxSeqRows[0]?.maxSeq ?? 0);
+
+      const changes = diffManifests(parentEntries, dbEntries);
+      if (changes.length === 0) {
+        throw new ActionError('内容与当前发布版本完全一致，无需提交');
+      }
+
+      const textByHash = new Map<string, string>();
+      for (const [hash, node] of manifest.blobs) {
+        textByHash.set(hash, extractText(node));
+      }
+      const blobRows = [...manifest.blobs]
+        .filter(([hash]) => !parentHashes.has(hash))
+        .map(([hash, node]) => ({
+          hash,
+          canonVersion: CANON_VERSION,
+          schemaVersion: SCHEMA_VERSION,
+          content: node,
+          textPlain: textByHash.get(hash) ?? '',
+          sizeBytes: Buffer.byteLength(canonicalize(node), 'utf8'),
+        }));
+      if (blobRows.length > 0) {
+        await tx.insert(blobs).values(blobRows).onConflictDoNothing({ target: blobs.hash });
+      }
+
+      const newSeq = parentSeq + 1;
+      const revInserted = await tx
+        .insert(revisions)
+        .values({
+          documentId: rawDocId,
+          seq: newSeq,
+          parentId: expectedHead,
+          authorId: actor.id,
+          committerId: actor.id,
+          kind: 'edit',
+          message,
+          manifestHash: hashManifest(dbEntries),
+          schemaVersion: SCHEMA_VERSION,
+          blocksChanged: changes.length,
+        })
+        .returning({ id: revisions.id });
+      const revisionId = revInserted[0]?.id;
+      if (revisionId === undefined) {
+        throw new ActionError('修订写入失败，请稍后重试');
+      }
+
+      const addedIds = changes.filter((c) => c.kind === 'add').map((c) => c.blockId);
+      if (addedIds.length > 0) {
+        await tx
+          .insert(blocks)
+          .values(
+            addedIds.map((id) => ({
+              id,
+              documentId: rawDocId,
+              type: nodeByDbId.get(id)?.type ?? 'paragraph',
+              bornRevisionId: revisionId,
+            })),
+          )
+          .onConflictDoNothing({ target: blocks.id });
+      }
+
+      // 跨文档块身份劫持防线（同 commitRevision）
+      if (dbEntries.length > 0) {
+        const owned = await tx
+          .select({ id: blocks.id, documentId: blocks.documentId })
+          .from(blocks)
+          .where(
+            inArray(
+              blocks.id,
+              dbEntries.map((e) => e.blockId),
+            ),
+          );
+        const ownedById = new Map(owned.map((b) => [b.id, b.documentId]));
+        for (const entry of dbEntries) {
+          if (ownedById.get(entry.blockId) !== rawDocId) {
+            throw new ActionError('块身份校验失败：存在不属于本文档的块引用，请刷新页面后重试');
+          }
+        }
+        await tx.insert(revisionBlocks).values(
+          dbEntries.map((entry, position) => ({
+            revisionId,
+            position,
+            blockId: entry.blockId,
+            blobHash: entry.hash,
+          })),
+        );
+      }
+      await tx.insert(revisionChanges).values(changes.map((c) => toChangeRow(revisionId, c)));
+
+      // CAS 移 published ref：协作编辑即时生效
+      const now = new Date();
+      const moved = await tx
+        .update(documentRefs)
+        .set({ revisionId, updatedAt: now })
+        .where(
+          and(
+            eq(documentRefs.documentId, rawDocId),
+            eq(documentRefs.name, 'published'),
+            eq(documentRefs.revisionId, expectedHead),
+          ),
+        )
+        .returning({ documentId: documentRefs.documentId });
+      if (moved.length === 0) {
+        throw new ActionError('编辑冲突：文章在你编辑期间已被更新，请刷新页面后重试');
+      }
+
+      // 重建发布快照（读路径 O(1)）
+      const assembled = await loadRevisionDoc(tx, revisionId);
+      const snapshot = validateDoc(assembled);
+      await tx
+        .update(publishedSnapshots)
+        .set({ revisionId, content: snapshot, publishedAt: now })
+        .where(eq(publishedSnapshots.documentId, rawDocId));
+      await tx.update(documents).set({ updatedAt: now }).where(eq(documents.id, rawDocId));
+
+      // 搜索同步 + 行内锚点重映射（worker 消费）
+      await tx
+        .insert(searchOutbox)
+        .values({ topic: 'doc.published', payload: { docId: rawDocId } });
+
+      // 事后巡查：进 edit_patrol 队列（subject = 本次修订）
+      if (needsPatrol) {
+        await tx
+          .insert(reviewItems)
+          .values({
+            queue: 'edit_patrol',
+            subjectType: 'revision',
+            subjectId: revisionId,
+            sectionId: docRow.sectionId,
+          })
+          .onConflictDoNothing();
+      }
+
+      await insertNotification(tx, {
+        recipientId: docRow.ownerId,
+        actorId: actor.id,
+        kind: 'doc_edited',
+        payload: {
+          docId: rawDocId,
+          slug: docRow.slug,
+          title: docRow.title,
+          revisionId,
+          seq: newSeq,
+        },
+      });
+      await tx.insert(auditLog).values({
+        actorId: actor.id,
+        action: 'doc.collab_edit',
+        subjectType: 'revision',
+        subjectId: revisionId,
+        sectionId: docRow.sectionId,
+        detail: { documentId: rawDocId, seq: newSeq, patrol: needsPatrol },
+      });
+      return newSeq;
+    });
+    return { ok: true, data: { seq } };
+  } catch (err) {
+    if (isUniqueViolation(err)) {
+      return fail('编辑冲突：文章在你编辑期间已被更新，请刷新页面后重试');
+    }
+    return toFailure(err, '协作编辑失败，请稍后重试');
   }
 }

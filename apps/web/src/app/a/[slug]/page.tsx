@@ -8,6 +8,7 @@ import {
   sections,
   user as userTable,
 } from '@harublog/db';
+import { can } from '@harublog/domain';
 import { extractText, validateDoc } from '@harublog/kernel';
 import type { TocEntry } from '@harublog/renderer';
 import { ArticleRenderer, extractToc } from '@harublog/renderer';
@@ -19,6 +20,7 @@ import { CommentSection } from '@/components/comments/comment-section';
 import { InlineComments, type InlineCommentView } from '@/components/comments/inline-comments';
 import { formatDate, formatDateTime } from '@/lib/format';
 import { getSession } from '@/lib/session';
+import { loadActor } from '@/server/actors';
 
 // M0 一律请求期动态渲染；ISR + revalidateTag 是 M1 的事
 export const dynamic = 'force-dynamic';
@@ -33,6 +35,8 @@ async function loadArticle(slug: string) {
     .select({
       docId: documents.id,
       sectionId: documents.sectionId,
+      ownerId: documents.ownerId,
+      editPolicy: documents.editPolicy,
       slug: documents.slug,
       title: documents.title,
       summary: documents.summary,
@@ -104,6 +108,23 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
   // 行内批注（kind='inline'，含锚点状态），与文章正文同页展示
   const db = getDb();
   const session = await getSession();
+
+  // 协作编辑入口：非作者、信任/角色达标、文档开放协作（open/semi）时显示
+  let canCollabEdit = false;
+  if (session && session.user.id !== article.ownerId) {
+    const actor = await loadActor(session.user.id);
+    canCollabEdit =
+      actor !== null &&
+      can(actor, 'doc.edit_direct', {
+        sectionId: article.sectionId,
+        doc: {
+          id: article.docId,
+          ownerId: article.ownerId ?? '',
+          editPolicy: article.editPolicy as 'suggest_only' | 'open' | 'semi' | 'locked',
+          status: 'published',
+        },
+      }).allow;
+  }
   const inlineRows = await db
     .select({
       id: comments.id,
@@ -185,13 +206,21 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
             </a>{' '}
             协议发布：转载请署名并注明出处，演绎版本须以相同协议共享。
           </p>
-          <p className="mt-2">
+          <p className="mt-2 flex flex-wrap gap-4">
             <Link
               href={`/a/${article.slug}/history`}
               className="text-brand-700 hover:text-brand-900"
             >
               查看修订历史 →
             </Link>
+            {canCollabEdit ? (
+              <Link
+                href={`/a/${article.slug}/edit`}
+                className="text-brand-700 hover:text-brand-900"
+              >
+                协作编辑这篇文章 →
+              </Link>
+            ) : null}
           </p>
         </footer>
 

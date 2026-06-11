@@ -7,7 +7,9 @@ export type NotificationKind =
   | 'comment_on_doc'
   | 'comment_reply'
   | 'publish_approved'
-  | 'publish_rejected';
+  | 'publish_rejected'
+  | 'doc_edited'
+  | 'patrol_reverted';
 
 type TxLike = Pick<Database, 'insert'>;
 type ReadLike = Pick<Database, 'select'>;
