@@ -50,6 +50,13 @@
       "when": 1781169839746,
       "tag": "0006_chemical_beyonder",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1781170537431,
+      "tag": "0007_dapper_maestro",
+      "breakpoints": true
     }
   ]
 }

@@ -7,7 +7,9 @@ import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import { z } from 'zod';
 import { DocumentEditor } from '@/components/editor/document-editor';
+import { TagEditor } from '@/components/tag-editor';
 import { getSession } from '@/lib/session';
+import { getDocumentTags } from '@/server/actions/tags';
 import { loadRevisionDoc } from '@/server/revision-doc';
 
 export const dynamic = 'force-dynamic';
@@ -97,6 +99,7 @@ export default async function EditDocumentPage({ params }: EditPageProps) {
     // 坏数据兜底：宁可空白起步也不让编辑页整页崩溃
     initialDoc = EMPTY_DOC;
   }
+  const docTags = await getDocumentTags(doc.id);
 
   return (
     <div className="mx-auto w-full max-w-4xl px-6 py-8">
@@ -116,6 +119,10 @@ export default async function EditDocumentPage({ params }: EditPageProps) {
         headSeq={headSeq}
         initialDoc={initialDoc}
       />
+      <section className="mt-6">
+        <h2 className="mb-2 font-medium font-serif text-ink-800 text-sm">标签</h2>
+        <TagEditor docId={doc.id} initialTags={docTags} />
+      </section>
     </div>
   );
 }

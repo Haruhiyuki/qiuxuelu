@@ -3,10 +3,12 @@ import {
   commentAnchors,
   comments,
   documents,
+  documentTags,
   getDb,
   publishedSnapshots,
   revisions,
   sections,
+  tags as tagsTable,
   user as userTable,
 } from '@harublog/db';
 import { can } from '@harublog/domain';
@@ -184,6 +186,12 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
     createdAtLabel: formatDateTime(r.createdAt),
   }));
 
+  const docTags = await db
+    .select({ name: tagsTable.name })
+    .from(documentTags)
+    .innerJoin(tagsTable, eq(tagsTable.id, documentTags.tagId))
+    .where(eq(documentTags.documentId, article.docId));
+
   const articleUrl = `${SITE_URL}/a/${article.slug}`;
   const description = buildDescription(article.summary, article.content);
   const authorLd =
@@ -279,6 +287,20 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
         <div className="prose-zh py-8">
           <ArticleRenderer doc={article.content} />
         </div>
+
+        {docTags.length > 0 ? (
+          <div className="flex flex-wrap items-center gap-2 pb-6">
+            {docTags.map((t) => (
+              <Link
+                key={t.name}
+                href={`/t/${encodeURIComponent(t.name)}`}
+                className="rounded-sm bg-paper-200 px-2 py-0.5 text-ink-600 text-sm hover:text-brand-700"
+              >
+                #{t.name}
+              </Link>
+            ))}
+          </div>
+        ) : null}
 
         <footer className="border-t border-ink-200 pt-6 text-sm leading-relaxed text-ink-500">
           <p>
