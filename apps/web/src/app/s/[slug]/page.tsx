@@ -26,7 +26,8 @@ export async function generateMetadata({ params }: SectionPageProps): Promise<Me
   const { slug } = await params;
   const section = await findSection(slug);
   if (!section) {
-    return { title: '板块不存在' };
+    // notFound() 在 Next 16 会软返回 200（框架限制）；至少标 noindex
+    return { title: '板块不存在', robots: { index: false } };
   }
   return {
     title: section.name,

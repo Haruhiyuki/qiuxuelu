@@ -55,7 +55,8 @@ export async function generateMetadata({ params }: ProfilePageProps): Promise<Me
   const { id } = await params;
   const profile = await loadProfile(id);
   if (!profile) {
-    return { title: '用户不存在' };
+    // notFound() 在 Next 16 会软返回 200（框架限制）；至少标 noindex，避免「不存在」页被收录
+    return { title: '用户不存在', robots: { index: false } };
   }
   return {
     title: `${profile.name} 的主页`,

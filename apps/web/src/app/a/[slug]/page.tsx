@@ -83,7 +83,8 @@ export async function generateMetadata({ params }: ArticlePageProps): Promise<Me
   const { slug } = await params;
   const article = await loadArticle(slug);
   if (!article) {
-    return { title: '文章不存在' };
+    // notFound() 在 Next 16 会软返回 200（框架限制）；至少标 noindex，避免「不存在」页被搜索引擎收录
+    return { title: '文章不存在', robots: { index: false } };
   }
   const description = buildDescription(article.summary, article.content);
   return {
