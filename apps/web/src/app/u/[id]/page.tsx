@@ -94,11 +94,28 @@ export default async function ProfilePage({ params }: ProfilePageProps) {
   ]);
 
   const trustLevel = profile.trustLevel ?? 0;
+  const mergedCount = Number(mergedRows[0]?.n ?? 0);
   const stats = [
     { label: '已发布文章', value: docs.length },
     { label: '修订贡献', value: Number(revisionRows[0]?.n ?? 0) },
-    { label: '被采纳建议', value: Number(mergedRows[0]?.n ?? 0) },
+    { label: '被采纳建议', value: mergedCount },
   ];
+
+  // 成就徽章：由信任等级与贡献里程碑派生（无需独立表）
+  const badges: string[] = [];
+  if (trustLevel >= 4) {
+    badges.push('🏛 核心共建者');
+  }
+  if (docs.length >= 5) {
+    badges.push('✍ 高产作者');
+  } else if (docs.length >= 1) {
+    badges.push('📄 已发布作者');
+  }
+  if (mergedCount >= 10) {
+    badges.push('🥇 金牌建议者');
+  } else if (mergedCount >= 1) {
+    badges.push('💡 建议被采纳');
+  }
 
   return (
     <div className="mx-auto w-full max-w-3xl px-6 py-10">
@@ -124,6 +141,19 @@ export default async function ProfilePage({ params }: ProfilePageProps) {
           </div>
           {profile.bio ? (
             <p className="mt-2 text-ink-600 text-sm leading-relaxed">{profile.bio}</p>
+          ) : null}
+          {badges.length > 0 ? (
+            <div className="mt-2 flex flex-wrap gap-2">
+              {badges.map((b) => (
+                <span
+                  key={b}
+                  className="rounded-sm bg-paper-200 px-2 py-0.5 text-ink-600 text-xs"
+                  title="成就徽章"
+                >
+                  {b}
+                </span>
+              ))}
+            </div>
           ) : null}
         </div>
       </header>
