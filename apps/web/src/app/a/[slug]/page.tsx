@@ -180,7 +180,16 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
             {article.title}
           </h1>
           <div className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-ink-500">
-            <span className="font-medium text-ink-700">{article.authorName ?? '佚名'}</span>
+            {article.ownerId !== null ? (
+              <Link
+                href={`/u/${article.ownerId}`}
+                className="font-medium text-ink-700 hover:text-brand-700"
+              >
+                {article.authorName ?? '佚名'}
+              </Link>
+            ) : (
+              <span className="font-medium text-ink-700">{article.authorName ?? '佚名'}</span>
+            )}
             <time dateTime={article.publishedAt.toISOString()}>
               发布于 {formatDate(article.publishedAt)}
             </time>

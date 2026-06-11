@@ -65,7 +65,12 @@ export async function SiteHeader() {
                   </span>
                 ) : null}
               </Link>
-              <span className="font-medium text-ink-800">{session.user.name}</span>
+              <Link
+                href={`/u/${session.user.id}`}
+                className="font-medium text-ink-800 transition-colors hover:text-brand-700"
+              >
+                {session.user.name}
+              </Link>
               <SignOutButton />
             </>
           ) : (
