@@ -34,9 +34,10 @@ pnpm install
 cp env.example .env   # 并把 BETTER_AUTH_SECRET 换成 `openssl rand -base64 32` 的输出
 # 4. 建表与种子数据
 pnpm db:migrate && pnpm db:seed
-# 5. 启动 web 与 worker（worker 把发布事件同步进 Meilisearch）
+# 5. 启动 web / worker / collab（各开一个终端）
 pnpm dev                              # web: http://localhost:3000
-pnpm --filter @harublog/worker start  # 另开一个终端：搜索同步 worker
+pnpm --filter @harublog/worker start  # 搜索同步 + 行内锚点重映射
+pnpm --filter @harublog/collab start  # 实时协作网关（Hocuspocus, ws://localhost:3201）
 # 已有数据时一次性重建搜索索引（索引非真相源，可随时从 PG 重放）：
 pnpm --filter @harublog/worker reindex
 ```
@@ -54,11 +55,13 @@ pnpm build        # 生产构建
 ## 仓库结构
 
 ```
-apps/web            Next.js 应用（读端 + 写端 + 管理后台 + 搜索/通知）
-apps/worker         事务性 outbox 消费者：把发布事件同步进 Meilisearch（reindex 可全量重建）
+apps/web            Next.js 应用（读端 + 写端 + 管理后台 + 搜索/通知 + 建议/协作）
+apps/worker         事务性 outbox 消费者：搜索同步 + 行内锚点重映射（reindex 可全量重建）
+apps/collab         Hocuspocus 协作网关：Yjs 草稿态实时协作 + checkpoint 缝合（归档为修订）
 packages/kernel     ★ 协作内核：规范化哈希 / 块级 diff / 三方合并 / 锚点重映射 / 修订 diff 模型（纯函数）
-packages/db         Drizzle schema 与迁移（PostgreSQL 是唯一真相源）
+packages/db         Drizzle schema 与迁移 + 块身份映射（PostgreSQL 是唯一真相源）
 packages/domain     鉴权引擎 can()（裁决+义务）/ 信任引擎 / 工作流状态机
+packages/editor     共享 Tiptap 扩展集 / schema / 块身份插件 / kernel↔Tiptap 归一化（web 与 collab 共用）
 packages/renderer   ProseMirror JSON → RSC/HTML 渲染器 + 修订 diff 视图（阅读端零编辑器 JS）
 packages/search     Meilisearch 块级索引映射与同步（中文友好，命中直达段落）
 packages/ui         设计系统「纸页与批注」+ 中文排版层 .prose-zh + diff 样式
@@ -71,8 +74,9 @@ infra/              docker-compose（PostgreSQL + Meilisearch）/ 部署配置
 - **M0 内核与骨架** ✅：协作内核、全量数据模型、双线权限 `can()`、阅读端渲染、认证、Docker。
 - **M1 可发布的博客** ✅：块编辑器与提交、发布审批工作台、修订 diff 可视化、回滚、文末评论、站内通知、Meilisearch 块级中文搜索 + worker。
 - **M2 社区底座** ✅：行内评论 + 锚点重映射（worker 重映射，存活/重定位/失锚三态）、信任引擎结算（可重放）、协作直编已发布文章 + 巡查队列、举报与制裁、管理后台、审计日志查看。
-- **M3 建议与审校** ✅：**编辑建议=真实修订分支、补丁 diff、审校队列、要求修改/驳回/撤回、三方合并（主线未动→快进、前移→自动变基）、三栏逐块冲突裁决、信任联动（建议被采纳是 TL3 核心指标）**。
-- M4 起：实时协作（Hocuspocus + Yjs，草稿态）、数据导出与规模化（见 `docs/02-architecture.md` §8）。
+- **M3 建议与审校** ✅：编辑建议=真实修订分支、补丁 diff、审校队列、要求修改/驳回/撤回、三方合并（主线未动→快进、前移→自动变基）、三栏逐块冲突裁决、信任联动（建议被采纳是 TL3 核心指标）。
+- **M4 实时协作** ✅：**Hocuspocus + Yjs 草稿态协作（仅作者/编辑/TL4）、在场光标、checkpoint 缝合（Y.Doc 定期归档为 collab_checkpoint 修订，修订是唯一真相，断网重连不丢字）**。
+- M5 起：语义搜索、数据导出（CC 协议开放 dump）、透明度报告、备份演练（见 `docs/02-architecture.md` §8）。
 
 ## 许可
 

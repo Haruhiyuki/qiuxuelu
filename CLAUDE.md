@@ -22,11 +22,13 @@
 - 治理阈值（信任等级等）一律走 site_settings 配置，不硬编码。
 
 ## 当前阶段
-M0、M1、M2、M3 已完成。当前进入 M4（实时协作：Hocuspocus + Yjs 草稿态、checkpoint 缝合、presence）。
+M0–M4 已完成。当前进入 M5（规模化：语义搜索、数据导出 CC dump、透明度报告、备份演练）。
 - M1：修订 diff / 回滚 / 评论 / 通知 / Meilisearch 块级搜索 + worker。
 - M2：行内评论 + 锚点重映射、信任结算（可重放）、协作直编 + 巡查队列、举报与制裁、管理后台、审计查看。
 - M3：编辑建议=真实修订分支、补丁 diff、审校队列、三方合并（快进/自动变基）、三栏冲突裁决、信任联动。
+- M4：apps/collab Hocuspocus 网关 + Yjs 草稿态实时协作 + presence + checkpoint 缝合（Y.Doc→collab_checkpoint 修订）。
 里程碑路线见架构文档 §8；UI 可以糙，内核不能糙。
 搜索/锚点同步：apps/worker 轮询 search_outbox（doc.published 触发 Meilisearch 同步 + 行内锚点重映射）；pg-boss 仍留给后续真·异步作业。
 信任结算：apps/web/server/trust.ts 的 recomputeTrust 从源表派生（可重放）；suggestionsMerged/mergeRejectRatio 已接入窗口（解锁 TL3）；TL4 仅人工授予（setTrustLevel 锁定）。
 建议合并：mergeSuggestion 用 kernel threeWayMerge；建议分支修订带 revisions.suggestion_id（不进主线历史，merge commit 在主线 suggestion_id=null）。
+实时协作：rev 的 seq 是文档全局单调计数（与分支无关），新修订一律 max(seq)+1；collab 网关鉴权用 web 签发的 HMAC token（COLLAB_SECRET 两端一致）；编辑器 schema 唯一事实源在 @harublog/editor。
