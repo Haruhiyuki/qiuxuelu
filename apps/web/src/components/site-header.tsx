@@ -4,6 +4,7 @@ import { Search } from 'lucide-react';
 import Link from 'next/link';
 import { getSession } from '@/lib/session';
 import { hasPublishGrant, loadActor } from '@/server/actors';
+import { hasConsented } from '@/server/consent';
 import { countUnread } from '@/server/notifications';
 import { SignOutButton } from './sign-out-button';
 import { ThemeToggle } from './theme-toggle';
@@ -13,14 +14,27 @@ export async function SiteHeader() {
   // 管理入口仅对持有任一治理角色者可见（权限显隐；各后台页仍有服务端守卫）
   let showAdmin = false;
   let unread = 0;
+  let needConsent = false;
   if (session) {
     const actor = await loadActor(session.user.id);
     showAdmin = actor !== null && (hasPublishGrant(actor) || actor.roles.length > 0);
     unread = await countUnread(getDb(), session.user.id);
+    needConsent = !(await hasConsented(session.user.id));
   }
 
   return (
     <header className="border-b border-ink-200 bg-paper-50">
+      {needConsent ? (
+        <div className="bg-ochre-50 text-center text-ochre-900 text-sm">
+          <div className="mx-auto max-w-5xl px-4 py-2">
+            还差一步：
+            <Link href="/onboarding/consent" className="font-medium underline underline-offset-2">
+              确认内容授权与社区公约
+            </Link>
+            后即可发布、评论与提交建议。
+          </div>
+        </div>
+      ) : null}
       <div className="mx-auto flex h-14 w-full max-w-5xl items-center justify-between gap-3 px-4 sm:px-6">
         <div className="flex items-baseline gap-4 sm:gap-8">
           <Link

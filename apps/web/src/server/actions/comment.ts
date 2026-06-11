@@ -20,6 +20,7 @@ import { z } from 'zod';
 import { getSession } from '@/lib/session';
 import type { ActionResult } from '@/server/action-result';
 import { loadActor } from '@/server/actors';
+import { consentGate } from '@/server/consent';
 import { insertNotification } from '@/server/notifications';
 import { emitTrustEvent, recomputeTrust } from '@/server/trust';
 
@@ -61,6 +62,10 @@ export async function createComment(
   const actor = await loadActor(session.user.id);
   if (!actor) {
     return fail('账号状态异常，请重新登录');
+  }
+  const consentError = await consentGate(actor.id);
+  if (consentError) {
+    return fail(consentError);
   }
   if (!uuidSchema.safeParse(rawDocId).success) {
     return fail('文档参数非法');
@@ -268,6 +273,10 @@ export async function createInlineComment(
   const actor = await loadActor(session.user.id);
   if (!actor) {
     return fail('账号状态异常，请重新登录');
+  }
+  const consentError = await consentGate(actor.id);
+  if (consentError) {
+    return fail(consentError);
   }
   if (!uuidSchema.safeParse(rawDocId).success) {
     return fail('文档参数非法');

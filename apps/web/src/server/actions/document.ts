@@ -41,6 +41,7 @@ import { docStatusLabel } from '@/lib/doc-labels';
 import { getSession } from '@/lib/session';
 import type { ActionResult } from '@/server/action-result';
 import { loadActor } from '@/server/actors';
+import { consentGate } from '@/server/consent';
 import { insertNotification } from '@/server/notifications';
 import { loadRevisionDoc } from '@/server/revision-doc';
 
@@ -174,6 +175,10 @@ export async function createDocument(
   const actor = await requireActor();
   if (!actor) {
     return fail('请先登录');
+  }
+  const consentError = await consentGate(actor.id);
+  if (consentError) {
+    return fail(consentError);
   }
   const title = titleSchema.safeParse(rawTitle);
   if (!title.success) {

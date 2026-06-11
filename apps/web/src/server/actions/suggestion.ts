@@ -44,6 +44,7 @@ import { REJECT_REASON_CODES } from '@/lib/review-reasons';
 import { getSession } from '@/lib/session';
 import type { ActionResult } from '@/server/action-result';
 import { loadActor } from '@/server/actors';
+import { consentGate } from '@/server/consent';
 import { insertNotification } from '@/server/notifications';
 import { loadRevisionDoc } from '@/server/revision-doc';
 import { emitTrustEvent, recomputeTrust } from '@/server/trust';
@@ -115,6 +116,10 @@ export async function createSuggestion(
   const actor = await loadActor(session.user.id);
   if (!actor) {
     return fail('账号状态异常，请重新登录');
+  }
+  const consentError = await consentGate(actor.id);
+  if (consentError) {
+    return fail(consentError);
   }
   if (!uuidSchema.safeParse(rawDocId).success) {
     return fail('文档参数非法');

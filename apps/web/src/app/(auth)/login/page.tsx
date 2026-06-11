@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import type { FormEvent } from 'react';
 import { useState } from 'react';
+import { OAuthButtons } from '@/components/auth/oauth-buttons';
 import { authClient } from '@/lib/auth-client';
 import { translateAuthError } from '@/lib/auth-errors';
 
@@ -47,7 +48,9 @@ export default function LoginPage() {
       <h1 className="font-serif text-2xl font-semibold text-ink-900">登录</h1>
       <p className="mt-2 text-sm text-ink-500">欢迎回来，继续书写或批注。</p>
 
-      <form onSubmit={handleSubmit} noValidate className="mt-8 flex flex-col gap-5">
+      <OAuthButtons />
+
+      <form onSubmit={handleSubmit} noValidate className="mt-5 flex flex-col gap-5">
         {error !== null ? <Alert variant="danger">{error}</Alert> : null}
 
         <div className="flex flex-col gap-1.5">

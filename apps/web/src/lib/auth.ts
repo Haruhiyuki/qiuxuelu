@@ -40,12 +40,24 @@ function buildAuth() {
         await sendEmail({ to: user.email, subject: '验证你的求学路邮箱', ...mail });
       },
     },
+    // GitHub OAuth：配了凭证才启用（env 门控）。OAuth 用户创建时无同意凭证，
+    // 由「后置同意」子流程（/onboarding/consent + 贡献动作守卫）补齐，不破坏 §7 红线。
+    ...(process.env.GITHUB_CLIENT_ID && process.env.GITHUB_CLIENT_SECRET
+      ? {
+          socialProviders: {
+            github: {
+              clientId: process.env.GITHUB_CLIENT_ID,
+              clientSecret: process.env.GITHUB_CLIENT_SECRET,
+            },
+          },
+        }
+      : {}),
     user: {
-      // 注册同意凭证（PRD §7「不可后补的前置决策」）：服务端必填并落库留痕，
-      // 客户端勾选只是体验层——直连 API 的注册同样过不了这道闸。
+      // 同意凭证：邮箱注册由表单提供（input:true）；OAuth 注册缺省、登录后由同意页补齐。
+      // 故 required:false——真正的强制在「后置同意守卫」（贡献前必须已同意），全程留痕。
       additionalFields: {
-        licenseConsentVersion: { type: 'string', required: true, input: true },
-        covenantConsentVersion: { type: 'string', required: true, input: true },
+        licenseConsentVersion: { type: 'string', required: false, input: true },
+        covenantConsentVersion: { type: 'string', required: false, input: true },
       },
     },
     databaseHooks: {
@@ -53,10 +65,14 @@ function buildAuth() {
         create: {
           before: async (user) => {
             const u = user as Record<string, unknown>;
-            if (
-              u.licenseConsentVersion !== LICENSE_CONSENT_VERSION ||
-              u.covenantConsentVersion !== COVENANT_CONSENT_VERSION
-            ) {
+            const lic = u.licenseConsentVersion;
+            const cov = u.covenantConsentVersion;
+            // 邮箱注册显式传了同意版本：必须正确（防直连 API 传旧/错版本绕过）。
+            // OAuth 注册不带这些字段：放行，由后置同意子流程补齐。
+            const provided =
+              (typeof lic === 'string' && lic.length > 0) ||
+              (typeof cov === 'string' && cov.length > 0);
+            if (provided && (lic !== LICENSE_CONSENT_VERSION || cov !== COVENANT_CONSENT_VERSION)) {
               throw new APIError('BAD_REQUEST', {
                 message: '注册必须确认内容授权协议（CC BY-SA 4.0）与社区公约',
               });

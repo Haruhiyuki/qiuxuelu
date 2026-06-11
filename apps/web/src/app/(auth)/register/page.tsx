@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import type { FormEvent } from 'react';
 import { useState } from 'react';
+import { OAuthButtons } from '@/components/auth/oauth-buttons';
 import { authClient } from '@/lib/auth-client';
 import { translateAuthError } from '@/lib/auth-errors';
 import { COVENANT_CONSENT_VERSION, LICENSE_CONSENT_VERSION } from '@/lib/consent';
@@ -73,7 +74,9 @@ export default function RegisterPage() {
       <h1 className="font-serif text-2xl font-semibold text-ink-900">注册</h1>
       <p className="mt-2 text-sm text-ink-500">加入这本可协作的书，把你的求学经验留给后来者。</p>
 
-      <form onSubmit={handleSubmit} noValidate className="mt-8 flex flex-col gap-5">
+      <OAuthButtons />
+
+      <form onSubmit={handleSubmit} noValidate className="mt-5 flex flex-col gap-5">
         {error !== null ? <Alert variant="danger">{error}</Alert> : null}
 
         <div className="flex flex-col gap-1.5">
