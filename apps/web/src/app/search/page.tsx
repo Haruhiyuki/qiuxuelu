@@ -1,4 +1,6 @@
 import { searchBlocks } from '@harublog/search';
+import { EmptyState } from '@harublog/ui';
+import { SearchX } from 'lucide-react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
@@ -82,7 +84,13 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
       ) : failed ? (
         <p className="mt-8 text-sm text-accent-700">搜索服务暂时不可用，请稍后再试。</p>
       ) : groups.length === 0 ? (
-        <p className="mt-8 text-sm text-ink-500">没有找到与「{query}」相关的内容。</p>
+        <div className="mt-8">
+          <EmptyState
+            icon={<SearchX />}
+            title={`没有找到与「${query}」相关的内容`}
+            description="换个关键词，或更宽泛的说法再试试。"
+          />
+        </div>
       ) : (
         <>
           <p className="mt-6 text-sm text-ink-500">约 {total} 个相关段落</p>

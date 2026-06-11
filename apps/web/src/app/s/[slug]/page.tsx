@@ -4,6 +4,7 @@ import { desc, eq } from 'drizzle-orm';
 import { BookOpen } from 'lucide-react';
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
+import { Breadcrumb } from '@/components/breadcrumb';
 import { ButtonLink } from '@/components/button-link';
 import { DocumentList } from '@/components/document-list';
 import { stageLabel } from '@/lib/stage';
@@ -61,8 +62,9 @@ export default async function SectionPage({ params }: SectionPageProps) {
   // 此处以快照存在为准（发布事务内同步重建，见架构 §3.1）
 
   return (
-    <div className="mx-auto w-full max-w-5xl px-6">
-      <header className="border-b border-ink-200 py-12">
+    <div className="mx-auto w-full max-w-5xl px-6 pt-6">
+      <Breadcrumb items={[{ label: '首页', href: '/' }, { label: section.name }]} />
+      <header className="border-b border-ink-200 pb-10">
         <div className="flex items-center gap-3">
           <h1 className="font-serif text-2xl font-semibold text-ink-900 sm:text-3xl">
             {section.name}

@@ -1,7 +1,10 @@
 import { getDb } from '@harublog/db';
+import { EmptyState } from '@harublog/ui';
+import { Bell } from 'lucide-react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
+import { Breadcrumb } from '@/components/breadcrumb';
 import { MarkReadButton } from '@/components/mark-read-button';
 import { formatDateTime } from '@/lib/format';
 import { getSession } from '@/lib/session';
@@ -80,13 +83,18 @@ export default async function NotificationsPage() {
 
   return (
     <div className="mx-auto w-full max-w-3xl px-6 py-10">
+      <Breadcrumb items={[{ label: '首页', href: '/' }, { label: '通知' }]} />
       <header className="flex items-center justify-between border-b border-ink-200 pb-6">
         <h1 className="font-serif text-2xl font-semibold text-ink-900">通知</h1>
         {hasUnread ? <MarkReadButton /> : null}
       </header>
 
       {rows.length === 0 ? (
-        <p className="py-10 text-sm text-ink-500">还没有通知。</p>
+        <EmptyState
+          icon={<Bell />}
+          title="还没有通知"
+          description="当有人评论、审校你的内容，或你的建议有进展时，会在这里看到。"
+        />
       ) : (
         <ul className="divide-y divide-ink-100">
           {rows.map((row) => {
