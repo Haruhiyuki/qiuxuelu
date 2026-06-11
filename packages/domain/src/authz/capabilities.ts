@@ -10,6 +10,7 @@ export type Capability =
   | 'doc.create'
   | 'doc.submit'
   | 'doc.edit_direct'
+  | 'media.upload'
   | 'doc.publish'
   | 'doc.unpublish'
   | 'doc.protect'
@@ -40,6 +41,7 @@ const EDITOR_CAPS: readonly Capability[] = [
   'doc.create',
   'doc.submit',
   'doc.edit_direct',
+  'media.upload',
   'doc.publish',
   'doc.rollback',
   'flag.create',
@@ -83,7 +85,8 @@ export const SECTION_SCOPED_ROLES: ReadonlySet<Role> = new Set(['editor', 'secti
 const TRUST_CAP_INCREMENTS: Record<TrustLevel, readonly Capability[]> = {
   // flag.create 从 TL0 起即可（举报权重随 TL 上升，低信任举报权重低，架构 §4.2/§5.4）
   0: ['content.read', 'doc.create', 'doc.submit', 'flag.create'],
-  1: ['comment.create', 'comment.inline.create'],
+  // media.upload 从 TL1 起（图片是垃圾/滥用向量，挡住全新 TL0 账号）
+  1: ['comment.create', 'comment.inline.create', 'media.upload'],
   2: ['suggestion.create'],
   // 实际楼层受文档 edit_policy 限制（open→TL2+，semi→TL3+），见 can.ts
   3: ['doc.edit_direct'],

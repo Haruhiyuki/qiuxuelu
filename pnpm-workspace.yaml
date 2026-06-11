@@ -35,6 +35,16 @@ catalog:
   "@tiptap/react": ^3.26.0
   "@tiptap/starter-kit": ^3.26.0
   "@tiptap/pm": ^3.26.0
+  "@tiptap/suggestion": ^3.26.0
+  "@tiptap/extension-table": ^3.26.0
+  "@tiptap/extension-table-row": ^3.26.0
+  "@tiptap/extension-table-cell": ^3.26.0
+  "@tiptap/extension-table-header": ^3.26.0
+  "@tiptap/extension-highlight": ^3.26.0
+  "@tiptap/extension-placeholder": ^3.26.0
+  "@tiptap/extension-bubble-menu": ^3.26.0
+  "@aws-sdk/client-s3": ^3.1066.0
+  sharp: ^0.35.0
   "@noble/hashes": ^2.2.0
   clsx: ^2.1.1
   tailwind-merge: ^3.6.0

@@ -21,7 +21,13 @@ import type {
 const SANCTION_BLOCKS: Record<SanctionKind, ReadonlySet<Capability> | 'all_but_read'> = {
   silence: new Set<Capability>(['comment.create', 'comment.inline.create']),
   no_suggest: new Set<Capability>(['suggestion.create']),
-  no_edit: new Set<Capability>(['doc.create', 'doc.submit', 'doc.edit_direct', 'suggestion.merge']),
+  no_edit: new Set<Capability>([
+    'doc.create',
+    'doc.submit',
+    'doc.edit_direct',
+    'suggestion.merge',
+    'media.upload',
+  ]),
   suspend: 'all_but_read',
 };
 

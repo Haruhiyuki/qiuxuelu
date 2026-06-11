@@ -12,6 +12,7 @@ const CAP_LABELS: Record<Capability, string> = {
   'doc.create': '创建文章',
   'doc.submit': '提交审批',
   'doc.edit_direct': '直接编辑',
+  'media.upload': '上传图片',
   'doc.publish': '发布文章',
   'doc.unpublish': '下线文章',
   'doc.protect': '设置保护级',
