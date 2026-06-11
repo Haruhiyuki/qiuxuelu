@@ -17,6 +17,8 @@ export type { InputProps } from './input';
 export { Input } from './input';
 export type { LabelProps } from './label';
 export { Label } from './label';
+export type { PromptOptions } from './prompt-dialog';
+export { usePrompt } from './prompt-dialog';
 export type { SeparatorProps } from './separator';
 export { Separator } from './separator';
 export type { SkeletonProps } from './skeleton';

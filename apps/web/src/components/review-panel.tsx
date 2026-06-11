@@ -1,6 +1,6 @@
 'use client';
 
-import { Alert, Button, Label, Textarea } from '@harublog/ui';
+import { Alert, Button, Label, Textarea, useConfirm } from '@harublog/ui';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { REJECT_REASON_CODES, REJECT_REASON_LABELS } from '@/lib/review-reasons';
@@ -19,9 +19,15 @@ export function ReviewPanel({ requestId, selfReview }: ReviewPanelProps) {
   const [note, setNote] = useState('');
   const [pending, setPending] = useState(false);
   const [message, setMessage] = useState<{ kind: 'info' | 'danger'; text: string } | null>(null);
+  const { confirm, confirmDialog } = useConfirm();
 
   async function handleApprove() {
-    if (!window.confirm('确认通过审批？该修订将立即发布并公开可见。')) {
+    const ok = await confirm({
+      title: '通过并发布？',
+      description: '该修订将立即发布并对所有读者公开可见。',
+      confirmLabel: '通过并发布',
+    });
+    if (!ok) {
       return;
     }
     setPending(true);
@@ -60,12 +66,13 @@ export function ReviewPanel({ requestId, selfReview }: ReviewPanelProps) {
 
   return (
     <div className="flex flex-col gap-3">
+      {confirmDialog}
       {message !== null ? (
         <Alert variant={message.kind === 'info' ? 'info' : 'danger'}>{message.text}</Alert>
       ) : null}
       <div className="flex items-center gap-3">
-        <Button onClick={handleApprove} disabled={pending}>
-          {pending ? '处理中…' : '通过并发布'}
+        <Button onClick={handleApprove} loading={pending}>
+          通过并发布
         </Button>
         <Button variant="danger" onClick={() => setRejectOpen((open) => !open)} disabled={pending}>
           驳回…

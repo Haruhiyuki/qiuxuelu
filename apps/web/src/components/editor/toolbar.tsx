@@ -1,6 +1,6 @@
 'use client';
 
-import { cn } from '@harublog/ui';
+import { cn, usePrompt, useToast } from '@harublog/ui';
 import type { Editor } from '@tiptap/react';
 import { useEditorState } from '@tiptap/react';
 import { type ReactNode, useRef } from 'react';
@@ -66,11 +66,13 @@ export function EditorToolbar({ editor }: { editor: Editor }) {
   });
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const { prompt, promptDialog } = usePrompt();
+  const toast = useToast();
 
   async function handleImagePick(file: File) {
     const uploaded = await uploadImageFile(file);
     if (uploaded === null) {
-      window.alert('图片上传失败，请重试');
+      toast('图片上传失败，请重试', 'error');
       return;
     }
     editor
@@ -80,21 +82,27 @@ export function EditorToolbar({ editor }: { editor: Editor }) {
       .run();
   }
 
-  function handleLink() {
+  async function handleLink() {
     if (state.link) {
       editor.chain().focus().unsetLink().run();
       return;
     }
-    const href = window.prompt('链接地址（支持 https:// 或站内路径）');
-    if (href === null || href.trim().length === 0) {
+    const href = await prompt({
+      title: '插入链接',
+      label: '链接地址',
+      placeholder: 'https:// 或 /站内路径',
+      confirmLabel: '插入',
+      required: true,
+    });
+    if (href === null || href.length === 0) {
       return;
     }
     // 与 renderer 的 URL 安全门一致：可执行 scheme 在编辑入口就挡掉
-    if (!/^(https?:\/\/|mailto:|\/|#)/i.test(href.trim())) {
-      window.alert('仅支持 http(s)、mailto 或站内路径链接');
+    if (!/^(https?:\/\/|mailto:|\/|#)/i.test(href)) {
+      toast('仅支持 http(s)、mailto 或站内路径链接', 'error');
       return;
     }
-    editor.chain().focus().extendMarkRange('link').setLink({ href: href.trim() }).run();
+    editor.chain().focus().extendMarkRange('link').setLink({ href }).run();
   }
 
   return (
@@ -103,6 +111,7 @@ export function EditorToolbar({ editor }: { editor: Editor }) {
       aria-label="编辑工具栏"
       className="sticky top-0 z-10 flex flex-wrap items-center gap-0.5 border-b border-ink-200 bg-paper-50 px-2 py-1.5"
     >
+      {promptDialog}
       <ToolbarButton
         title="正文段落"
         active={state.paragraph}

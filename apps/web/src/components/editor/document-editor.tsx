@@ -2,7 +2,7 @@
 
 import { kernelToTiptap, tiptapToKernel } from '@harublog/editor';
 import type { DocJson } from '@harublog/kernel';
-import { Alert, Badge, Button, Label, Textarea } from '@harublog/ui';
+import { Alert, Badge, Button, Label, Textarea, useConfirm } from '@harublog/ui';
 import type { Editor } from '@tiptap/react';
 import { EditorContent, useEditor } from '@tiptap/react';
 import { useRouter } from 'next/navigation';
@@ -51,6 +51,7 @@ export function DocumentEditor(props: DocumentEditorProps) {
   const [actionPending, setActionPending] = useState(false);
   const [notice, setNotice] = useState<{ kind: 'info' | 'danger'; text: string } | null>(null);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const { confirm, confirmDialog } = useConfirm();
 
   const initialContent = useMemo(() => kernelToTiptap(props.initialDoc), [props.initialDoc]);
 
@@ -149,7 +150,12 @@ export function DocumentEditor(props: DocumentEditorProps) {
   }
 
   async function handleRequestPublish() {
-    if (!window.confirm('确认申请发布？提交后将进入审校队列，期间无法再次申请。')) {
+    const ok = await confirm({
+      title: '申请发布？',
+      description: '提交后将进入审校队列，期间无法再次申请。',
+      confirmLabel: '申请发布',
+    });
+    if (!ok) {
       return;
     }
     setActionPending(true);
@@ -173,6 +179,7 @@ export function DocumentEditor(props: DocumentEditorProps) {
 
   return (
     <div className="flex flex-col gap-4">
+      {confirmDialog}
       <header className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
           <h1 className="font-serif text-xl font-semibold text-ink-900">{props.title}</h1>

@@ -1,5 +1,6 @@
 'use client';
 
+import { useConfirm } from '@harublog/ui';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { REJECT_REASON_CODES, REJECT_REASON_LABELS } from '@/lib/review-reasons';
@@ -32,6 +33,7 @@ export function SuggestionActions({
   const [changesOpen, setChangesOpen] = useState(false);
   const [reason, setReason] = useState('');
   const [note, setNote] = useState('');
+  const { confirm, confirmDialog } = useConfirm();
 
   if (!ACTIVE.has(status)) {
     return null;
@@ -52,11 +54,12 @@ export function SuggestionActions({
   const reviewerCanAct = canReview && !isAuthor && status !== 'outdated';
 
   async function handleMerge() {
-    if (
-      !window.confirm(
-        '确认采纳并合入这份建议？将三方合并后更新正文（主线未动则快进、已前移则自动变基）。',
-      )
-    ) {
+    const ok = await confirm({
+      title: '采纳并合入这份建议？',
+      description: '将三方合并后更新正文（主线未动则快进、已前移则自动变基）。',
+      confirmLabel: '采纳合入',
+    });
+    if (!ok) {
       return;
     }
     setBusy(true);
@@ -75,6 +78,7 @@ export function SuggestionActions({
 
   return (
     <div className="mt-6 flex flex-col gap-3 border-ink-200 border-t pt-6">
+      {confirmDialog}
       {msg !== null ? <p className="text-accent-700 text-sm">{msg}</p> : null}
 
       <div className="flex flex-wrap items-center gap-3">

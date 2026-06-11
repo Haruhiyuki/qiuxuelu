@@ -1,5 +1,6 @@
 'use client';
 
+import { usePrompt, useToast } from '@harublog/ui';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { FlagButton } from '@/components/flag-button';
@@ -24,29 +25,42 @@ export interface CommentThreadProps {
 function HideButton({ commentId }: { commentId: string }) {
   const router = useRouter();
   const [pending, setPending] = useState(false);
+  const { prompt, promptDialog } = usePrompt();
+  const toast = useToast();
   async function handleHide() {
-    const reason = window.prompt('隐藏该评论的理由（将记入审计）：');
-    if (reason === null || reason.trim().length === 0) {
+    const reason = await prompt({
+      title: '隐藏该评论',
+      label: '隐藏理由（将记入审计）',
+      placeholder: '例如：含人身攻击',
+      multiline: true,
+      required: true,
+      confirmLabel: '隐藏',
+    });
+    if (reason === null || reason.length === 0) {
       return;
     }
     setPending(true);
     const result = await hideComment(commentId, reason);
     if (result.ok) {
+      toast('评论已隐藏', 'success');
       router.refresh();
     } else {
-      window.alert(result.error);
+      toast(result.error, 'error');
       setPending(false);
     }
   }
   return (
-    <button
-      type="button"
-      onClick={handleHide}
-      disabled={pending}
-      className="text-xs text-ink-400 hover:text-accent-700 disabled:opacity-50"
-    >
-      {pending ? '处理中…' : '隐藏'}
-    </button>
+    <>
+      {promptDialog}
+      <button
+        type="button"
+        onClick={handleHide}
+        disabled={pending}
+        className="text-xs text-ink-400 hover:text-accent-700 disabled:opacity-50"
+      >
+        {pending ? '处理中…' : '隐藏'}
+      </button>
+    </>
   );
 }
 

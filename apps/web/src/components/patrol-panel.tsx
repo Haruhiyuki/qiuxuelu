@@ -1,5 +1,6 @@
 'use client';
 
+import { useConfirm, useToast } from '@harublog/ui';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { patrolApprove, patrolRevert } from '@/server/actions/patrol';
@@ -7,35 +8,44 @@ import { patrolApprove, patrolRevert } from '@/server/actions/patrol';
 export function PatrolPanel({ revisionId }: { revisionId: string }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
-  const [msg, setMsg] = useState<string | null>(null);
+  const { confirm, confirmDialog } = useConfirm();
+  const toast = useToast();
 
   async function approve() {
     setBusy(true);
-    setMsg(null);
     const r = await patrolApprove(revisionId);
-    if (r.ok) router.refresh();
-    else {
-      setMsg(r.error);
+    if (r.ok) {
+      toast('已标记为已巡查', 'success');
+      router.refresh();
+    } else {
+      toast(r.error, 'error');
       setBusy(false);
     }
   }
   async function revert() {
-    if (!window.confirm('确认回退这次协作编辑？将创建一个还原到改前内容的新修订（历史保留）。')) {
+    const ok = await confirm({
+      title: '回退这次协作编辑？',
+      description: '将创建一个还原到改前内容的新修订（历史保留）。',
+      confirmLabel: '回退',
+      danger: true,
+    });
+    if (!ok) {
       return;
     }
     setBusy(true);
-    setMsg(null);
     const r = await patrolRevert(revisionId);
-    if (r.ok) router.refresh();
-    else {
-      setMsg(r.error);
+    if (r.ok) {
+      toast('已回退该编辑', 'success');
+      router.refresh();
+    } else {
+      toast(r.error, 'error');
       setBusy(false);
     }
   }
 
   return (
     <div className="mt-2 flex flex-col gap-2">
-      {msg !== null ? <p className="text-accent-700 text-sm">{msg}</p> : null}
+      {confirmDialog}
       <div className="flex items-center gap-3">
         <button
           type="button"

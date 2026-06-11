@@ -1,5 +1,6 @@
 'use client';
 
+import { useToast } from '@harublog/ui';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { FLAG_REASON_CODES, FLAG_REASON_LABELS } from '@/lib/flag-reasons';
@@ -17,6 +18,7 @@ export function FlagButton({ subjectType, subjectId }: FlagButtonProps) {
   const [note, setNote] = useState('');
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
+  const toast = useToast();
 
   async function submit() {
     if (reason === '') {
@@ -32,7 +34,7 @@ export function FlagButton({ subjectType, subjectId }: FlagButtonProps) {
       setNote('');
       setMsg(null);
       router.refresh();
-      window.alert('已提交举报，管理员会尽快处理。感谢你维护社区。');
+      toast('已提交举报，管理员会尽快处理。感谢你维护社区。', 'success');
     } else {
       setMsg(result.error);
     }

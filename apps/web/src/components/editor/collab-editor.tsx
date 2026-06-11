@@ -4,7 +4,7 @@ import { kernelToTiptap, tiptapToKernel } from '@harublog/editor';
 // 协作直编已发布文章的编辑器：从发布内容载入，单次「发布修改」即时生效（进巡查队列）。
 // 复用与 DocumentEditor 相同的 Tiptap 内核与 normalize；不走 working_copy / 审批。
 import type { DocJson } from '@harublog/kernel';
-import { Alert, Button, Label, Textarea } from '@harublog/ui';
+import { Alert, Button, Label, Textarea, useConfirm } from '@harublog/ui';
 import { EditorContent, useEditor } from '@tiptap/react';
 import { useRouter } from 'next/navigation';
 import { useMemo, useState } from 'react';
@@ -57,6 +57,7 @@ export function CollabEditor({
   const [message, setMessage] = useState('');
   const [pending, setPending] = useState(false);
   const [notice, setNotice] = useState<{ kind: 'info' | 'danger'; text: string } | null>(null);
+  const { confirm, confirmDialog } = useConfirm();
 
   const initialContent = useMemo(() => kernelToTiptap(initialDoc), [initialDoc]);
 
@@ -78,7 +79,13 @@ export function CollabEditor({
     if (!editor) {
       return;
     }
-    if (!window.confirm(copy.confirm)) {
+    if (
+      !(await confirm({
+        title: copy.heading,
+        description: copy.confirm,
+        confirmLabel: copy.submit,
+      }))
+    ) {
       return;
     }
     setPending(true);
@@ -104,6 +111,7 @@ export function CollabEditor({
 
   return (
     <div className="flex flex-col gap-4">
+      {confirmDialog}
       <header className="flex items-center gap-3">
         <h1 className="font-semibold font-serif text-ink-900 text-xl">
           {copy.heading}：{title}
