@@ -3,14 +3,17 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 import { Breadcrumb } from '@/components/breadcrumb';
+import { Pagination } from '@/components/pagination';
 
 export const dynamic = 'force-dynamic';
 
 export const metadata: Metadata = { title: '搜索', robots: { index: false } };
 
 interface SearchPageProps {
-  searchParams: Promise<{ q?: string }>;
+  searchParams: Promise<{ q?: string; page?: string }>;
 }
+
+const PAGE_SIZE = 20;
 
 interface DocGroup {
   docId: string;
@@ -21,15 +24,19 @@ interface DocGroup {
 }
 
 export default async function SearchPage({ searchParams }: SearchPageProps) {
-  const { q } = await searchParams;
+  const { q, page: pageParam } = await searchParams;
   const query = (q ?? '').trim();
+  const page = Math.max(1, Number(pageParam) || 1);
 
   let groups: DocGroup[] = [];
   let total = 0;
   let failed = false;
   if (query.length > 0) {
     try {
-      const result = await searchBlocks(query);
+      const result = await searchBlocks(query, {
+        limit: PAGE_SIZE,
+        offset: (page - 1) * PAGE_SIZE,
+      });
       total = result.estimatedTotal;
       const byDoc = new Map<string, DocGroup>();
       for (const hit of result.hits) {
@@ -79,35 +86,47 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
       ) : (
         <>
           <p className="mt-6 text-sm text-ink-500">约 {total} 个相关段落</p>
-          <ul className="mt-4 flex flex-col gap-6">
-            {groups.map((g) => (
-              <li key={g.docId} className="border-b border-ink-100 pb-6">
-                <p className="text-xs text-ink-400">{g.sectionName}</p>
-                <Link
-                  href={`/a/${g.slug}`}
-                  className="font-serif text-lg font-semibold text-ink-900 hover:text-brand-700"
-                >
-                  {g.title}
-                </Link>
-                <ul className="mt-2 flex flex-col gap-2">
-                  {g.hits.map((h) => (
-                    <li key={h.blockId}>
-                      <Link
-                        href={`/a/${g.slug}#b-${h.blockId}`}
-                        className="block rounded-sm px-3 py-2 text-sm leading-relaxed text-ink-600 hover:bg-paper-200"
-                      >
-                        {/* 高亮片段来自 Meilisearch，仅含受控 <mark> 包裹（无用户可注入的 HTML） */}
-                        <SearchSnippet html={h.snippet} />
-                      </Link>
-                    </li>
-                  ))}
-                </ul>
-              </li>
-            ))}
-          </ul>
+          <SearchResults groups={groups} />
+          <Pagination
+            page={page}
+            hasNext={total > page * PAGE_SIZE}
+            basePath="/search"
+            params={{ q: query }}
+          />
         </>
       )}
     </div>
+  );
+}
+
+function SearchResults({ groups }: { groups: DocGroup[] }) {
+  return (
+    <ul className="mt-4 flex flex-col gap-6">
+      {groups.map((g) => (
+        <li key={g.docId} className="border-b border-ink-100 pb-6">
+          <p className="text-xs text-ink-400">{g.sectionName}</p>
+          <Link
+            href={`/a/${g.slug}`}
+            className="font-serif text-lg font-semibold text-ink-900 hover:text-brand-700"
+          >
+            {g.title}
+          </Link>
+          <ul className="mt-2 flex flex-col gap-2">
+            {g.hits.map((h) => (
+              <li key={h.blockId}>
+                <Link
+                  href={`/a/${g.slug}#b-${h.blockId}`}
+                  className="block rounded-sm px-3 py-2 text-sm leading-relaxed text-ink-600 hover:bg-paper-200"
+                >
+                  {/* 高亮片段来自 Meilisearch，仅含受控 <mark> 包裹（无用户可注入的 HTML） */}
+                  <SearchSnippet html={h.snippet} />
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </li>
+      ))}
+    </ul>
   );
 }
 

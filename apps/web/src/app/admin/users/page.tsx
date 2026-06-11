@@ -9,12 +9,15 @@ import {
   type SanctionView,
   UserAdminPanel,
 } from '@/components/admin/user-admin-panel';
+import { Pagination } from '@/components/pagination';
 import { ROLE_LABELS, type StaffRole } from '@/lib/roles';
 import { getSession } from '@/lib/session';
 import { loadActor } from '@/server/actors';
 
 export const dynamic = 'force-dynamic';
 export const metadata: Metadata = { title: '用户管理', robots: { index: false } };
+
+const PAGE_SIZE = 50;
 
 function Forbidden() {
   return (
@@ -30,11 +33,17 @@ function Forbidden() {
   );
 }
 
-export default async function UsersAdminPage() {
+export default async function UsersAdminPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ page?: string }>;
+}) {
   const session = await getSession();
   if (!session) {
     redirect('/login');
   }
+  const { page: pageParam } = await searchParams;
+  const page = Math.max(1, Number(pageParam) || 1);
   const actor = await loadActor(session.user.id);
   if (actor === null) {
     return <Forbidden />;
@@ -61,7 +70,10 @@ export default async function UsersAdminPage() {
     .from(userTable)
     .leftJoin(userTrust, eq(userTrust.userId, userTable.id))
     .orderBy(desc(userTable.createdAt))
-    .limit(50);
+    .limit(PAGE_SIZE + 1)
+    .offset((page - 1) * PAGE_SIZE);
+  const hasNext = users.length > PAGE_SIZE;
+  const pageUsers = users.slice(0, PAGE_SIZE);
 
   const grantRows = await db
     .select({
@@ -108,17 +120,12 @@ export default async function UsersAdminPage() {
   return (
     <div className="mx-auto w-full max-w-4xl px-6 py-10">
       <header className="border-ink-200 border-b pb-6">
-        <p className="text-ink-500 text-sm">
-          <Link href="/admin" className="hover:text-brand-700">
-            ← 管理后台
-          </Link>
-        </p>
-        <h1 className="mt-2 font-semibold font-serif text-2xl text-ink-900">用户管理</h1>
-        <p className="mt-2 text-ink-500 text-sm">最近 50 名用户 · 角色任命、制裁、信任等级</p>
+        <h1 className="font-semibold font-serif text-2xl text-ink-900">用户管理</h1>
+        <p className="mt-2 text-ink-500 text-sm">角色任命、制裁、信任等级（按注册时间倒序分页）</p>
       </header>
 
       <ul className="mt-4 flex flex-col gap-4">
-        {users.map((u) => (
+        {pageUsers.map((u) => (
           <li key={u.id} className="rounded-sm border border-ink-200 bg-paper-50 p-4">
             <div className="flex flex-wrap items-center gap-2 text-sm">
               <span className="font-medium text-ink-900">{u.name}</span>
@@ -148,6 +155,7 @@ export default async function UsersAdminPage() {
           </li>
         ))}
       </ul>
+      <Pagination page={page} hasNext={hasNext} basePath="/admin/users" />
     </div>
   );
 }

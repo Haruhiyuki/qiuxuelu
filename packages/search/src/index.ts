@@ -123,6 +123,8 @@ export interface SearchResult {
 
 export interface SearchOptions {
   limit?: number;
+  /** 翻页偏移（块命中级）。 */
+  offset?: number;
   /** 语义占比 0–1（仅在配置了 embedder 时生效）；0=纯关键词、1=纯语义，默认 0.5 混合。 */
   semanticRatio?: number;
 }
@@ -140,6 +142,7 @@ export async function searchBlocks(
   const limit = options.limit ?? 30;
   const params: Record<string, unknown> = {
     limit,
+    offset: options.offset ?? 0,
     attributesToHighlight: ['text'],
     highlightPreTag: '<mark>',
     highlightPostTag: '</mark>',

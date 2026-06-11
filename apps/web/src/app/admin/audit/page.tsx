@@ -3,9 +3,12 @@ import { desc, eq } from 'drizzle-orm';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
+import { Pagination } from '@/components/pagination';
 import { formatDateTime } from '@/lib/format';
 import { getSession } from '@/lib/session';
 import { loadActor } from '@/server/actors';
+
+const PAGE_SIZE = 50;
 
 export const dynamic = 'force-dynamic';
 export const metadata: Metadata = { title: '审计日志', robots: { index: false } };
@@ -33,11 +36,17 @@ const ACTION_LABELS: Record<string, string> = {
   'patrol.revert': '巡查回退',
 };
 
-export default async function AuditPage() {
+export default async function AuditPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ page?: string }>;
+}) {
   const session = await getSession();
   if (!session) {
     redirect('/login');
   }
+  const { page: pageParam } = await searchParams;
+  const page = Math.max(1, Number(pageParam) || 1);
   const actor = await loadActor(session.user.id);
   // 审计查看：管理员及以上
   const isAdmin = actor?.roles.some((r) => r.role === 'admin' || r.role === 'superadmin') ?? false;
@@ -69,25 +78,25 @@ export default async function AuditPage() {
     .from(auditLog)
     .leftJoin(userTable, eq(userTable.id, auditLog.actorId))
     .orderBy(desc(auditLog.id))
-    .limit(100);
+    .limit(PAGE_SIZE + 1)
+    .offset((page - 1) * PAGE_SIZE);
+  const hasNext = rows.length > PAGE_SIZE;
+  const items = rows.slice(0, PAGE_SIZE);
 
   return (
     <div className="mx-auto w-full max-w-4xl px-6 py-10">
       <header className="border-ink-200 border-b pb-6">
-        <p className="text-ink-500 text-sm">
-          <Link href="/admin" className="hover:text-brand-700">
-            ← 管理后台
-          </Link>
+        <h1 className="font-semibold font-serif text-2xl text-ink-900">审计日志</h1>
+        <p className="mt-2 text-ink-500 text-sm">
+          高危操作记录（不可篡改的治理凭证），按时间倒序分页
         </p>
-        <h1 className="mt-2 font-semibold font-serif text-2xl text-ink-900">审计日志</h1>
-        <p className="mt-2 text-ink-500 text-sm">最近 100 条高危操作记录（不可篡改的治理凭证）</p>
       </header>
 
-      {rows.length === 0 ? (
+      {items.length === 0 ? (
         <p className="py-10 text-ink-500 text-sm">暂无审计记录。</p>
       ) : (
         <ul className="mt-4 divide-y divide-ink-100">
-          {rows.map((r) => (
+          {items.map((r) => (
             <li key={r.id} className="flex flex-wrap items-baseline gap-x-3 gap-y-1 py-3 text-sm">
               <time dateTime={r.createdAt.toISOString()} className="font-mono text-ink-400 text-xs">
                 {formatDateTime(r.createdAt)}
@@ -103,6 +112,7 @@ export default async function AuditPage() {
           ))}
         </ul>
       )}
+      <Pagination page={page} hasNext={hasNext} basePath="/admin/audit" />
     </div>
   );
 }
