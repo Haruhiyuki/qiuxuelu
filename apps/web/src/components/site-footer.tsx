@@ -1,4 +1,5 @@
 import { SITE_NAME } from '@harublog/config';
+import Link from 'next/link';
 
 export function SiteFooter() {
   return (
@@ -17,7 +18,10 @@ export function SiteFooter() {
           </a>{' '}
           协议共享。
         </p>
-        <p>
+        <p className="flex flex-wrap gap-4">
+          <Link href="/transparency" className="text-ink-500 hover:text-brand-700">
+            透明度报告
+          </Link>
           {/* 仓库地址未定，先以组织名占位 */}
           <a
             href="https://github.com/harublog"
