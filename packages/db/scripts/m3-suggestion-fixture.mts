@@ -6,8 +6,8 @@ import {
   buildManifest,
   CANON_VERSION,
   canonicalize,
-  diffManifests,
   type DocJson,
+  diffManifests,
   extractText,
   SCHEMA_VERSION,
 } from '@harublog/kernel';
@@ -36,8 +36,9 @@ async function main(): Promise<void> {
   if (!doc) throw new Error('没有已发布的 m1-smoke 文档，先跑 m1-fixture');
 
   // 建议作者：consent 用户（TL2 非作者）
-  const author =
-    (await db.select().from(userTable).where(eq(userTable.email, 'consent@test.local')).limit(1))[0];
+  const author = (
+    await db.select().from(userTable).where(eq(userTable.email, 'consent@test.local')).limit(1)
+  )[0];
   if (!author) throw new Error('缺少 consent@test.local 用户');
 
   const baseRevId = (
@@ -59,7 +60,10 @@ async function main(): Promise<void> {
 
   const content = baseBlocks.map((b, i) => {
     const node = b.content as Record<string, unknown>;
-    const attrs = (typeof node.attrs === 'object' && node.attrs ? node.attrs : {}) as Record<string, unknown>;
+    const attrs = (typeof node.attrs === 'object' && node.attrs ? node.attrs : {}) as Record<
+      string,
+      unknown
+    >;
     const withId = { ...node, attrs: { ...attrs, blockId: b.blockId } };
     if (i === 0) {
       // 修改第一段：建议改写
@@ -134,7 +138,12 @@ async function main(): Promise<void> {
     suggestionId,
   });
   await db.insert(revisionBlocks).values(
-    dbEntries.map((e, position) => ({ revisionId: headRevId, position, blockId: e.blockId, blobHash: e.hash })),
+    dbEntries.map((e, position) => ({
+      revisionId: headRevId,
+      position,
+      blockId: e.blockId,
+      blobHash: e.hash,
+    })),
   );
   await db
     .insert(documentRefs)

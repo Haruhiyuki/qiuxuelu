@@ -6,6 +6,7 @@ import { eq } from 'drizzle-orm';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
+import { SuggestionActions } from '@/components/suggestions/suggestion-actions';
 import { formatDateTime } from '@/lib/format';
 import { getSession } from '@/lib/session';
 import { loadActor } from '@/server/actors';
@@ -123,6 +124,13 @@ export default async function SuggestionDetailPage({ params }: SuggestionPagePro
         <h2 className="mb-3 font-medium text-ink-800 text-sm">建议改动</h2>
         <RevisionDiffView diff={diff} />
       </div>
+
+      <SuggestionActions
+        suggestionId={sg.id}
+        status={sg.status}
+        isAuthor={isAuthor}
+        canReview={canReview}
+      />
     </div>
   );
 }

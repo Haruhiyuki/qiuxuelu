@@ -44,6 +44,12 @@ export default async function AdminHome() {
       visible: has('flag.review'),
     },
     {
+      href: '/admin/suggestions',
+      title: '建议审校',
+      desc: '审校编辑建议并合入正文',
+      visible: has('suggestion.review'),
+    },
+    {
       href: '/admin/patrol',
       title: '巡查队列',
       desc: '复核协作直编，必要时回退',

@@ -1,6 +1,6 @@
-import { documents, getDb, sections } from '@harublog/db';
+import { documents, getDb, sections, suggestions } from '@harublog/db';
 import { Badge, EmptyState } from '@harublog/ui';
-import { asc, desc, eq } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray } from 'drizzle-orm';
 import { PenLine } from 'lucide-react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
@@ -47,6 +47,31 @@ export default async function WritePage() {
       .from(sections)
       .orderBy(asc(sections.position)),
   ]);
+
+  // 我提交的、仍在流转中的编辑建议
+  const myActiveStatuses = ['open', 'under_review', 'changes_requested', 'outdated'] as const;
+  const mySuggestions = await db
+    .select({
+      id: suggestions.id,
+      status: suggestions.status,
+      docTitle: documents.title,
+      createdAt: suggestions.createdAt,
+    })
+    .from(suggestions)
+    .innerJoin(documents, eq(documents.id, suggestions.documentId))
+    .where(
+      and(
+        eq(suggestions.authorId, session.user.id),
+        inArray(suggestions.status, [...myActiveStatuses]),
+      ),
+    )
+    .orderBy(desc(suggestions.createdAt));
+  const sgStatusLabel: Record<string, string> = {
+    open: '待审',
+    under_review: '审校中',
+    changes_requested: '待修改',
+    outdated: '已过期',
+  };
 
   return (
     <div className="mx-auto w-full max-w-5xl px-6 py-10">
@@ -103,13 +128,34 @@ export default async function WritePage() {
           )}
         </section>
 
-        <aside>
+        <aside className="flex flex-col gap-6">
           <section className="rounded-sm border border-ink-200 bg-paper-50 p-5">
             <h2 className="font-serif text-lg font-semibold text-ink-900">新建文章</h2>
             <div className="mt-4">
               <NewDocumentForm sections={sectionRows} />
             </div>
           </section>
+
+          {mySuggestions.length > 0 ? (
+            <section className="rounded-sm border border-ink-200 bg-paper-50 p-5">
+              <h2 className="font-serif text-lg font-semibold text-ink-900">我的编辑建议</h2>
+              <ul className="mt-3 flex flex-col gap-3">
+                {mySuggestions.map((s) => (
+                  <li key={s.id} className="text-sm">
+                    <Link
+                      href={`/suggestions/${s.id}`}
+                      className="text-ink-800 hover:text-brand-700"
+                    >
+                      {s.docTitle}
+                    </Link>
+                    <span className="ml-2 text-ink-400 text-xs">
+                      {sgStatusLabel[s.status] ?? s.status}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          ) : null}
         </aside>
       </div>
     </div>

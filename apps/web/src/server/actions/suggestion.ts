@@ -16,7 +16,13 @@ import {
   revisions,
   suggestions,
 } from '@harublog/db';
-import { can, explainDeny } from '@harublog/domain';
+import {
+  can,
+  canActOnSuggestion,
+  explainDeny,
+  type SuggestionStatus,
+  transitionSuggestion,
+} from '@harublog/domain';
 import type { BlockNode, DocJson, ManifestEntry } from '@harublog/kernel';
 import {
   buildManifest,
@@ -29,11 +35,13 @@ import {
 } from '@harublog/kernel';
 import { and, asc, eq, inArray, sql } from 'drizzle-orm';
 import { z } from 'zod';
+import { REJECT_REASON_CODES } from '@/lib/review-reasons';
 import { getSession } from '@/lib/session';
 import type { ActionResult } from '@/server/action-result';
 import { loadActor } from '@/server/actors';
 import { hashManifest, toDbBlockId } from '@/server/block-identity';
 import { insertNotification } from '@/server/notifications';
+import { emitTrustEvent, recomputeTrust } from '@/server/trust';
 
 function fail(error: string): { ok: false; error: string } {
   return { ok: false, error };
@@ -325,4 +333,236 @@ export async function createSuggestion(
     }
     return fail('提交建议失败，请稍后重试');
   }
+}
+
+// ── 审校与撤回（合并见 mergeSuggestion，单列于步骤③）──────────────────────────
+
+interface SgRow {
+  id: string;
+  documentId: string;
+  authorId: string | null;
+  status: string;
+  sectionId: string;
+  ownerId: string | null;
+  slug: string;
+  title: string;
+}
+
+async function loadSuggestion(
+  db: ReturnType<typeof getDb>,
+  suggestionId: string,
+): Promise<SgRow | undefined> {
+  const rows = await db
+    .select({
+      id: suggestions.id,
+      documentId: suggestions.documentId,
+      authorId: suggestions.authorId,
+      status: suggestions.status,
+      sectionId: documents.sectionId,
+      ownerId: documents.ownerId,
+      slug: documents.slug,
+      title: documents.title,
+    })
+    .from(suggestions)
+    .innerJoin(documents, eq(documents.id, suggestions.documentId))
+    .where(eq(suggestions.id, suggestionId))
+    .limit(1);
+  return rows[0];
+}
+
+/** 审校者准入：can('suggestion.review')（含作者审自己文章的建议 = OWNER_CAPS TL2）。 */
+function reviewDecision(actor: Parameters<typeof can>[0], sg: SgRow) {
+  return can(actor, 'suggestion.review', {
+    sectionId: sg.sectionId,
+    doc: {
+      id: sg.documentId,
+      ownerId: sg.ownerId ?? '',
+      editPolicy: 'suggest_only',
+      status: 'published',
+    },
+  });
+}
+
+/** 活跃态 open 先自动 claim 到 under_review，再执行审校动作（M3 不单设认领 UI）。 */
+function toUnderReview(status: string): SuggestionStatus {
+  return status === 'open' ? transitionSuggestion('open', 'claim') : (status as SuggestionStatus);
+}
+
+export async function requestSuggestionChanges(
+  rawId: string,
+  rawNote: string,
+): Promise<ActionResult> {
+  const session = await getSession();
+  if (!session) return fail('请先登录');
+  const actor = await loadActor(session.user.id);
+  if (!actor || !uuidSchema.safeParse(rawId).success) return fail('参数非法');
+  const note = noteSchema.safeParse(rawNote);
+  if (!note.success) return fail(note.error.issues[0]?.message ?? '说明校验失败');
+
+  const db = getDb();
+  const sg = await loadSuggestion(db, rawId);
+  if (!sg) return fail('建议不存在');
+  const decision = reviewDecision(actor, sg);
+  if (!decision.allow) return fail(explainDeny(decision.reason));
+  const isAuthor = sg.authorId === actor.id;
+  if (!canActOnSuggestion('request_changes', { isAuthor, isReviewer: true })) {
+    return fail('不能裁决自己提交的建议');
+  }
+
+  try {
+    await db.transaction(async (tx) => {
+      const next = transitionSuggestion(toUnderReview(sg.status), 'request_changes');
+      const updated = await tx
+        .update(suggestions)
+        .set({ status: next })
+        .where(
+          and(eq(suggestions.id, rawId), inArray(suggestions.status, ['open', 'under_review'])),
+        )
+        .returning({ id: suggestions.id });
+      if (updated.length === 0) throw new Error('该建议已被处理');
+      await insertNotification(tx, {
+        recipientId: sg.authorId,
+        actorId: actor.id,
+        kind: 'suggestion_changes',
+        payload: { docId: sg.documentId, slug: sg.slug, title: sg.title, suggestionId: rawId },
+      });
+      await tx.insert(auditLog).values({
+        actorId: actor.id,
+        action: 'suggestion.request_changes',
+        subjectType: 'suggestion',
+        subjectId: rawId,
+        sectionId: sg.sectionId,
+        detail: { note: note.data },
+      });
+    });
+    return { ok: true, data: null };
+  } catch {
+    return fail('操作失败，请稍后重试');
+  }
+}
+
+export async function rejectSuggestion(
+  rawId: string,
+  rawReasonCode: string,
+  rawNote: string,
+): Promise<ActionResult> {
+  const session = await getSession();
+  if (!session) return fail('请先登录');
+  const actor = await loadActor(session.user.id);
+  if (!actor || !uuidSchema.safeParse(rawId).success) return fail('参数非法');
+  const reason = z.enum(REJECT_REASON_CODES).safeParse(rawReasonCode);
+  if (!reason.success) return fail('请选择驳回理由');
+  const note = noteSchema.safeParse(rawNote);
+  if (!note.success) return fail(note.error.issues[0]?.message ?? '说明校验失败');
+
+  const db = getDb();
+  const sg = await loadSuggestion(db, rawId);
+  if (!sg) return fail('建议不存在');
+  const decision = reviewDecision(actor, sg);
+  if (!decision.allow) return fail(explainDeny(decision.reason));
+  const isAuthor = sg.authorId === actor.id;
+  if (!canActOnSuggestion('reject', { isAuthor, isReviewer: true })) {
+    return fail('不能裁决自己提交的建议');
+  }
+
+  try {
+    await db.transaction(async (tx) => {
+      const next = transitionSuggestion(toUnderReview(sg.status), 'reject');
+      const now = new Date();
+      const updated = await tx
+        .update(suggestions)
+        .set({ status: next, resolvedBy: actor.id, resolvedAt: now })
+        .where(
+          and(eq(suggestions.id, rawId), inArray(suggestions.status, ['open', 'under_review'])),
+        )
+        .returning({ id: suggestions.id });
+      if (updated.length === 0) throw new Error('该建议已被处理');
+      // 信任：被拒减分（喂 mergeRejectRatio 窗口）+ 重算作者
+      if (sg.authorId !== null) {
+        await emitTrustEvent(tx, {
+          userId: sg.authorId,
+          kind: 'suggestion_rejected',
+          refType: 'suggestion',
+          refId: rawId,
+        });
+        await recomputeTrust(tx, sg.authorId, now);
+      }
+      await insertNotification(tx, {
+        recipientId: sg.authorId,
+        actorId: actor.id,
+        kind: 'suggestion_rejected',
+        payload: { docId: sg.documentId, slug: sg.slug, title: sg.title, suggestionId: rawId },
+      });
+      await tx.insert(auditLog).values({
+        actorId: actor.id,
+        action: 'suggestion.reject',
+        subjectType: 'suggestion',
+        subjectId: rawId,
+        sectionId: sg.sectionId,
+        detail: { reasonCode: reason.data, note: note.data },
+      });
+      await closeQueue(tx, rawId);
+    });
+    return { ok: true, data: null };
+  } catch {
+    return fail('驳回失败，请稍后重试');
+  }
+}
+
+export async function withdrawSuggestion(rawId: string): Promise<ActionResult> {
+  const session = await getSession();
+  if (!session) return fail('请先登录');
+  const actor = await loadActor(session.user.id);
+  if (!actor || !uuidSchema.safeParse(rawId).success) return fail('参数非法');
+
+  const db = getDb();
+  const sg = await loadSuggestion(db, rawId);
+  if (!sg) return fail('建议不存在');
+  if (sg.authorId !== actor.id) return fail('只有建议作者本人可以撤回');
+
+  try {
+    await db.transaction(async (tx) => {
+      const next = transitionSuggestion(sg.status as SuggestionStatus, 'withdraw');
+      const updated = await tx
+        .update(suggestions)
+        .set({ status: next, resolvedBy: actor.id, resolvedAt: new Date() })
+        .where(
+          and(
+            eq(suggestions.id, rawId),
+            inArray(suggestions.status, ['open', 'under_review', 'changes_requested', 'outdated']),
+          ),
+        )
+        .returning({ id: suggestions.id });
+      if (updated.length === 0) throw new Error('该建议已被处理');
+      await closeQueue(tx, rawId);
+      await tx.insert(auditLog).values({
+        actorId: actor.id,
+        action: 'suggestion.withdraw',
+        subjectType: 'suggestion',
+        subjectId: rawId,
+        sectionId: sg.sectionId,
+        detail: {},
+      });
+    });
+    return { ok: true, data: null };
+  } catch {
+    return fail('撤回失败，请稍后重试');
+  }
+}
+
+/** 关闭建议的审校队列项（裁决/撤回/合并后统一调用）。 */
+async function closeQueue(
+  tx: { update: ReturnType<typeof getDb>['update'] },
+  suggestionId: string,
+) {
+  await tx
+    .update(reviewItems)
+    .set({ status: 'done' })
+    .where(
+      and(
+        eq(reviewItems.queue, 'suggestion'),
+        eq(reviewItems.subjectType, 'suggestion'),
+        eq(reviewItems.subjectId, suggestionId),
+      ),
+    );
 }
