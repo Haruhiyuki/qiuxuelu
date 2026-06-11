@@ -18,6 +18,7 @@ import { ArticleRenderer, extractToc } from '@harublog/renderer';
 import { Badge } from '@harublog/ui';
 import { and, asc, eq } from 'drizzle-orm';
 import type { Metadata } from 'next';
+import { unstable_cache } from 'next/cache';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { CodeCopy } from '@/components/code-copy';
@@ -52,7 +53,7 @@ async function loadArticle(slug: string) {
       slug: documents.slug,
       title: documents.title,
       summary: documents.summary,
-      content: publishedSnapshots.content,
+      revisionId: publishedSnapshots.revisionId,
       publishedAt: publishedSnapshots.publishedAt,
       seq: revisions.seq,
       revisedAt: revisions.createdAt,
@@ -69,6 +70,24 @@ async function loadArticle(slug: string) {
     .limit(1);
   return rows[0] ?? null;
 }
+
+/**
+ * 已发布内容按 revisionId 缓存：修订不可变 → 内容永久可缓存，无需 revalidate（天然无失锚/无脏读）。
+ * 重新发布会指向新 revisionId，页面据元数据查到新 id 即自然命中新缓存，旧缓存闲置待淘汰。
+ */
+const loadPublishedContent = (revisionId: string) =>
+  unstable_cache(
+    async () => {
+      const rows = await getDb()
+        .select({ content: publishedSnapshots.content })
+        .from(publishedSnapshots)
+        .where(eq(publishedSnapshots.revisionId, revisionId))
+        .limit(1);
+      return rows[0]?.content ?? null;
+    },
+    ['published-content', revisionId],
+    { tags: [`revision:${revisionId}`] },
+  )();
 
 function buildDescription(summary: string | null, content: unknown): string {
   if (summary !== null && summary.length > 0) {
@@ -89,7 +108,8 @@ export async function generateMetadata({ params }: ArticlePageProps): Promise<Me
     // notFound() 在 Next 16 会软返回 200（框架限制）；至少标 noindex，避免「不存在」页被搜索引擎收录
     return { title: '文章不存在', robots: { index: false } };
   }
-  const description = buildDescription(article.summary, article.content);
+  const content = await loadPublishedContent(article.revisionId);
+  const description = buildDescription(article.summary, content);
   return {
     title: article.title,
     description,
@@ -112,13 +132,17 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
     notFound();
   }
 
+  // 已发布正文按 revisionId 缓存读取（不可变）
+  const content = await loadPublishedContent(article.revisionId);
+
   // 目录与代码高亮均从已校验文档派生；校验失败时正文交给 ArticleRenderer 的容错占位
   let toc: TocEntry[] = [];
   let codeHighlights: Awaited<ReturnType<typeof highlightDoc>> | undefined;
   try {
-    const validated = validateDoc(article.content);
+    const validated = validateDoc(content);
     toc = extractToc(validated);
-    codeHighlights = await highlightDoc(validated);
+    // 高亮按 revisionId 缓存（内容不可变 → 高亮结果永久可缓存，省去每次重算）
+    codeHighlights = await highlightDoc(validated, article.revisionId);
   } catch {
     toc = [];
   }
@@ -204,7 +228,7 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
     .where(eq(documentTags.documentId, article.docId));
 
   const articleUrl = `${SITE_URL}/a/${article.slug}`;
-  const description = buildDescription(article.summary, article.content);
+  const description = buildDescription(article.summary, content);
   const authorLd =
     article.ownerId !== null
       ? {
@@ -297,7 +321,7 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
 
         <div className="prose-zh py-8">
           <ArticleRenderer
-            doc={article.content}
+            doc={content}
             codeHighlights={codeHighlights}
             mathRenderer={renderMath}
           />
