@@ -8,6 +8,7 @@ import { CalloutView } from './callout-view';
 import { FigureView } from './figure-view';
 import { createImageUpload } from './image-upload';
 import { MathBlockView } from './math-block-view';
+import { SlashCommand } from './slash-command';
 import { uploadImageFile } from './upload';
 
 export interface ClientExtensionsOptions {
@@ -38,6 +39,7 @@ export function clientExtensions(options: ClientExtensionsOptions = {}): Extensi
     FigureWithView,
     CalloutWithView,
     MathWithView,
+    SlashCommand,
     Placeholder.configure({ placeholder: options.placeholder ?? DEFAULT_PLACEHOLDER }),
     createImageUpload(uploadImageFile),
   ];

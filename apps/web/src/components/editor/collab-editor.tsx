@@ -10,6 +10,7 @@ import { useRouter } from 'next/navigation';
 import { useMemo, useState } from 'react';
 import { directEditPublished } from '@/server/actions/document';
 import { createSuggestion } from '@/server/actions/suggestion';
+import { BubbleToolbar } from './bubble-toolbar';
 import { clientExtensions } from './client-extensions';
 import { EditorToolbar } from './toolbar';
 
@@ -118,6 +119,7 @@ export function CollabEditor({
         {editor ? (
           <>
             <EditorToolbar editor={editor} />
+            <BubbleToolbar editor={editor} />
             <EditorContent editor={editor} />
           </>
         ) : (

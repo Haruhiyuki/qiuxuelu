@@ -12,6 +12,7 @@ import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import * as Y from 'yjs';
 import { issueCollabToken } from '@/server/actions/collab';
+import { BubbleToolbar } from './bubble-toolbar';
 import { clientExtensions } from './client-extensions';
 import { EditorToolbar } from './toolbar';
 
@@ -113,6 +114,7 @@ function RealtimeInner({ docId, token, userName }: InnerProps) {
         {editor ? (
           <>
             <EditorToolbar editor={editor} />
+            <BubbleToolbar editor={editor} />
             <EditorContent editor={editor} />
           </>
         ) : (

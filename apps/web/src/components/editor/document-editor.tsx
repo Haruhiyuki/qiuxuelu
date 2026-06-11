@@ -9,6 +9,7 @@ import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { docStatusLabel } from '@/lib/doc-labels';
 import { commitRevision, requestPublish, saveWorkingCopy } from '@/server/actions/document';
+import { BubbleToolbar } from './bubble-toolbar';
 import { clientExtensions } from './client-extensions';
 import { EditorToolbar } from './toolbar';
 
@@ -198,6 +199,7 @@ export function DocumentEditor(props: DocumentEditorProps) {
         {editor ? (
           <>
             <EditorToolbar editor={editor} />
+            <BubbleToolbar editor={editor} />
             <EditorContent editor={editor} />
           </>
         ) : (
