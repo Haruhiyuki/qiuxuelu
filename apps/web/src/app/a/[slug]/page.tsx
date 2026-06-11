@@ -19,6 +19,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { CommentSection } from '@/components/comments/comment-section';
 import { InlineComments, type InlineCommentView } from '@/components/comments/inline-comments';
+import { ReadingProgress } from '@/components/reading-progress';
 import { JsonLd } from '@/components/seo/json-ld';
 import { formatDate, formatDateTime } from '@/lib/format';
 import { getSession } from '@/lib/session';
@@ -179,6 +180,7 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
 
   return (
     <div className="mx-auto w-full max-w-6xl px-6 py-10 lg:grid lg:grid-cols-[minmax(0,1fr)_220px] lg:gap-12">
+      <ReadingProgress />
       <JsonLd
         data={{
           '@context': 'https://schema.org',
