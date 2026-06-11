@@ -27,6 +27,7 @@ import { InlineComments, type InlineCommentView } from '@/components/comments/in
 import { ModerationBar } from '@/components/moderation-bar';
 import { ReadingProgress } from '@/components/reading-progress';
 import { JsonLd } from '@/components/seo/json-ld';
+import { TocNav } from '@/components/toc-nav';
 import { formatDate, formatDateTime } from '@/lib/format';
 import { highlightDoc } from '@/lib/highlight';
 import { renderMath } from '@/lib/math';
@@ -135,12 +136,15 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
   // 已发布正文按 revisionId 缓存读取（不可变）
   const content = await loadPublishedContent(article.revisionId);
 
-  // 目录与代码高亮均从已校验文档派生；校验失败时正文交给 ArticleRenderer 的容错占位
+  // 目录、阅读时长、代码高亮均从已校验文档派生；校验失败时正文交给 ArticleRenderer 的容错占位
   let toc: TocEntry[] = [];
+  let readingMinutes = 1;
   let codeHighlights: Awaited<ReturnType<typeof highlightDoc>> | undefined;
   try {
     const validated = validateDoc(content);
     toc = extractToc(validated);
+    // 阅读时长：中文按字符计（约 400 字/分钟），至少 1 分钟
+    readingMinutes = Math.max(1, Math.round([...extractText(validated)].length / 400));
     // 高亮按 revisionId 缓存（内容不可变 → 高亮结果永久可缓存，省去每次重算）
     codeHighlights = await highlightDoc(validated, article.revisionId);
   } catch {
@@ -306,6 +310,7 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
               内容更新于 {formatDate(article.revisedAt)}
             </time>
             <span>第 {article.seq} 号修订</span>
+            <span>约 {readingMinutes} 分钟</span>
             {article.featured ? <Badge variant="brand">精选</Badge> : null}
           </div>
           {canFeature || canProtect ? (
@@ -394,21 +399,7 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
         <aside className="hidden lg:block">
           <nav aria-label="目录" className="sticky top-10 border-l border-ink-200 pl-5 text-sm">
             <p className="font-medium text-ink-800">目录</p>
-            <ul className="mt-3 flex flex-col gap-2">
-              {toc.map((entry) => (
-                <li
-                  key={entry.id}
-                  className={entry.level === 3 ? 'pl-3' : entry.level === 4 ? 'pl-6' : ''}
-                >
-                  <a
-                    href={`#${entry.id}`}
-                    className="text-ink-500 transition-colors hover:text-brand-700"
-                  >
-                    {entry.text}
-                  </a>
-                </li>
-              ))}
-            </ul>
+            <TocNav items={toc} />
           </nav>
         </aside>
       ) : null}
