@@ -8,12 +8,12 @@ import { SignOutButton } from './sign-out-button';
 
 export async function SiteHeader() {
   const session = await getSession();
-  // admin 入口仅对持发布权角色可见（权限显隐；服务端页面仍有 403 守卫）
-  let showReview = false;
+  // 管理入口仅对持有任一治理角色者可见（权限显隐；各后台页仍有服务端守卫）
+  let showAdmin = false;
   let unread = 0;
   if (session) {
     const actor = await loadActor(session.user.id);
-    showReview = actor !== null && hasPublishGrant(actor);
+    showAdmin = actor !== null && (hasPublishGrant(actor) || actor.roles.length > 0);
     unread = await countUnread(getDb(), session.user.id);
   }
 
@@ -35,12 +35,9 @@ export async function SiteHeader() {
             >
               写文章
             </Link>
-            {showReview ? (
-              <Link
-                href="/admin/review"
-                className="text-ink-600 transition-colors hover:text-brand-700"
-              >
-                审批
+            {showAdmin ? (
+              <Link href="/admin" className="text-ink-600 transition-colors hover:text-brand-700">
+                管理
               </Link>
             ) : null}
           </nav>
