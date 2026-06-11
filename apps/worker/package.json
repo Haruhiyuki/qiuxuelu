@@ -7,6 +7,7 @@
     "dev": "tsx watch src/index.ts",
     "start": "tsx src/index.ts",
     "reindex": "tsx src/reindex.ts",
+    "export": "tsx src/export.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
