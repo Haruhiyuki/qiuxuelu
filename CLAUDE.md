@@ -33,3 +33,5 @@ M0–M5 全部架构里程碑已完成。后续为打磨与硬化（无障碍、
 信任结算：apps/web/server/trust.ts 的 recomputeTrust 从源表派生（可重放）；suggestionsMerged/mergeRejectRatio 已接入窗口（解锁 TL3）；TL4 仅人工授予（setTrustLevel 锁定）。
 建议合并：mergeSuggestion 用 kernel threeWayMerge；建议分支修订带 revisions.suggestion_id（不进主线历史，merge commit 在主线 suggestion_id=null）。
 实时协作：rev 的 seq 是文档全局单调计数（与分支无关），新修订一律 max(seq)+1；collab 网关鉴权用 web 签发的 HMAC token（COLLAB_SECRET 两端一致）；编辑器 schema 唯一事实源在 @harublog/editor。
+媒体：图片走 MinIO（S3 兼容），uploadMedia 动作先 can('media.upload') 再 sharp 剥 EXIF+转 webp+sha256 内容寻址去重，元数据落 media 表，私有桶经 /api/media/<hash> 同源代理出图（天然过渲染器「仅站内图源」红线）。
+编辑器：@harublog/editor 是 web 与 collab 共享的 schema 唯一事实源（kernel 全部块型/标记已打通往返，唯一有损=表格 header 归一为普通单元格）；web 在共享 schema 上叠加 React NodeView（figure/callout/math）、斜杠菜单、气泡菜单等纯 UI 增强（不改 schema）。新增 kernel 块型/标记需同步 normalize 双向 + BlockId TOP_BLOCK_TYPES（顶层块）+ 渲染器；underline/任务清单需先升 SCHEMA_VERSION（ADR-0003）。

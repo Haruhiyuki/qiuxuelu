@@ -123,4 +123,32 @@ describe('ArticleRenderer XSS 红线', () => {
     const html = render(doc);
     expect(html).toContain('id="b-blk-1"');
   });
+
+  it('站内上传图片（/api/media）渲染为 <img>，含 caption', () => {
+    const doc = {
+      type: 'doc',
+      content: [
+        {
+          type: 'figure',
+          attrs: { blockId: 'f1', src: '/api/media/abc', alt: '图', caption: '说明' },
+        },
+      ],
+    } as DocJson;
+    const html = render(doc, 'https://harublog.test');
+    expect(html).toContain('<img');
+    expect(html).toContain('src="/api/media/abc"');
+    expect(html).toContain('说明');
+  });
+
+  it('外部图源被屏蔽（不出 <img>，防 IP 追踪）', () => {
+    const doc = {
+      type: 'doc',
+      content: [
+        { type: 'figure', attrs: { blockId: 'f1', src: 'https://evil.example/x.png', alt: '图' } },
+      ],
+    } as DocJson;
+    const html = render(doc, 'https://harublog.test');
+    expect(html).not.toContain('<img');
+    expect(html).toContain('外部图片已屏蔽');
+  });
 });

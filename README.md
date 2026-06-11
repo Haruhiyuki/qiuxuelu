@@ -76,9 +76,15 @@ infra/              docker-compose（PostgreSQL + Meilisearch）/ 部署配置
 - **M2 社区底座** ✅：行内评论 + 锚点重映射（worker 重映射，存活/重定位/失锚三态）、信任引擎结算（可重放）、协作直编已发布文章 + 巡查队列、举报与制裁、管理后台、审计日志查看。
 - **M3 建议与审校** ✅：编辑建议=真实修订分支、补丁 diff、审校队列、要求修改/驳回/撤回、三方合并（主线未动→快进、前移→自动变基）、三栏逐块冲突裁决、信任联动（建议被采纳是 TL3 核心指标）。
 - **M4 实时协作** ✅：Hocuspocus + Yjs 草稿态协作（仅作者/编辑/TL4）、在场光标、checkpoint 缝合（Y.Doc 定期归档为 collab_checkpoint 修订，修订是唯一真相，断网重连不丢字）。
-- **M5 规模化** ✅：**数据导出（worker NDJSON dump + 公开 /api/export，自带 CC BY-SA 与贡献者署名）、公开透明度报告 /transparency、备份恢复演练（RTO<1h/RPO<5min，已实跑）、可插拔语义/混合检索（bge-m3）**。
+- **M5 规模化** ✅：数据导出（worker NDJSON dump + 公开 /api/export，自带 CC BY-SA 与贡献者署名）、公开透明度报告 /transparency、备份恢复演练（RTO<1h/RPO<5min，已实跑）、可插拔语义/混合检索（bge-m3）。
 
 五个架构里程碑（M0–M5）已全部交付，详见 `docs/02-architecture.md` §8。
+
+### 打磨与硬化（持续）
+- **红线单测**：renderer UGC XSS、editor normalize 往返不变式、db 块身份派生（vitest 锁死）。
+- **安全审计**：协作 token 签发改走唯一鉴权入口 `can()`，堵住制裁旁路。
+- **媒体与编辑器**：MinIO 图片上传管线（sharp 剥 EXIF + webp + 内容寻址去重 + 同源 /api/media 出图）；
+  现代博客编辑器——拖拽/粘贴/选择上传、图片/表格/提示框/高亮/代码/数学块、斜杠命令菜单、选区气泡菜单、占位符。
 
 ## 许可
 
