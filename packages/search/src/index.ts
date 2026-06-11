@@ -53,6 +53,41 @@ export async function ensureBlocksIndex(): Promise<void> {
     // 标题权重高于正文：搜词命中标题的块排前
     rankingRules: ['words', 'typo', 'proximity', 'attribute', 'sort', 'exactness'],
   });
+  // 远期语义检索（架构 §8 M5）：配置了 embedder 才开启向量化，Meilisearch 索引期自动算 embedding；
+  // 未配置则保持纯关键词。生产可用 bge-m3（Ollama 源）做中文混合召回。
+  const embedder = embedderConfig();
+  if (embedder !== null) {
+    // embedder 形状随 source 动态（ollama/openAi），用 Parameters 取 SDK 期望类型做一次定向 cast
+    await index.updateSettings({ embedders: { semantic: embedder } } as unknown as Parameters<
+      typeof index.updateSettings
+    >[0]);
+  }
+}
+
+/** 可插拔 embedder 配置（env 驱动）；未配置返回 null（纯关键词）。 */
+function embedderConfig(): Record<string, unknown> | null {
+  const source = process.env.MEILI_EMBEDDER_SOURCE;
+  if (source !== 'ollama' && source !== 'openAi') {
+    return null;
+  }
+  const model = process.env.MEILI_EMBEDDER_MODEL ?? 'bge-m3';
+  const documentTemplate = '{{doc.title}} {{doc.text}}';
+  const dims = process.env.MEILI_EMBEDDER_DIMENSIONS;
+  const base: Record<string, unknown> = { source, model, documentTemplate };
+  if (dims !== undefined && dims.length > 0) {
+    base.dimensions = Number(dims);
+  }
+  if (source === 'ollama') {
+    base.url = process.env.MEILI_EMBEDDER_URL ?? 'http://localhost:11434/api/embeddings';
+  } else {
+    base.apiKey = process.env.MEILI_EMBEDDER_API_KEY ?? '';
+  }
+  return base;
+}
+
+/** 是否已启用语义/混合检索（配置了 embedder）。 */
+export function semanticSearchEnabled(): boolean {
+  return embedderConfig() !== null;
 }
 
 /** 用一篇文章当前已发布的全部块覆盖其索引（先删后增，避免残留旧块）。 */
@@ -86,20 +121,36 @@ export interface SearchResult {
   query: string;
 }
 
-/** 块级搜索：返回命中块（含高亮片段），调用方按 docId 分组展示并深链到段落。 */
-export async function searchBlocks(query: string, limit = 30): Promise<SearchResult> {
+export interface SearchOptions {
+  limit?: number;
+  /** 语义占比 0–1（仅在配置了 embedder 时生效）；0=纯关键词、1=纯语义，默认 0.5 混合。 */
+  semanticRatio?: number;
+}
+
+/** 块级搜索：返回命中块（含高亮片段），调用方按 docId 分组展示并深链到段落。
+ *  配置了 embedder 时自动走 hybrid（关键词 + 向量）混合召回。 */
+export async function searchBlocks(
+  query: string,
+  options: SearchOptions = {},
+): Promise<SearchResult> {
   const trimmed = query.trim();
   if (trimmed.length === 0) {
     return { hits: [], estimatedTotal: 0, query: '' };
   }
-  const res = await blocksIndex().search(trimmed, {
+  const limit = options.limit ?? 30;
+  const params: Record<string, unknown> = {
     limit,
     attributesToHighlight: ['text'],
     highlightPreTag: '<mark>',
     highlightPostTag: '</mark>',
     attributesToCrop: ['text'],
     cropLength: 40,
-  });
+  };
+  if (semanticSearchEnabled()) {
+    params.hybrid = { embedder: 'semantic', semanticRatio: options.semanticRatio ?? 0.5 };
+  }
+  const index = blocksIndex();
+  const res = await index.search(trimmed, params as Parameters<typeof index.search>[1]);
   const hits: SearchHit[] = res.hits.map((h) => ({
     docId: h.docId,
     slug: h.slug,
