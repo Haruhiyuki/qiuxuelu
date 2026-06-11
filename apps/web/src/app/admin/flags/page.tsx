@@ -16,6 +16,7 @@ import { redirect } from 'next/navigation';
 import { FlagReviewPanel } from '@/components/flag-review-panel';
 import { FLAG_REASON_LABELS } from '@/lib/flag-reasons';
 import { getSession } from '@/lib/session';
+import { isOverdue } from '@/lib/sla';
 import { loadActor, sectionScopeForCapability } from '@/server/actors';
 
 export const dynamic = 'force-dynamic';
@@ -138,6 +139,7 @@ export default async function FlagQueuePage() {
               <div className="flex flex-wrap items-center gap-2 text-sm">
                 <Badge variant="accent">权重 {item.priority}</Badge>
                 <Badge variant="outline">{item.subjectType === 'comment' ? '评论' : '文章'}</Badge>
+                {isOverdue(item.createdAt) ? <Badge variant="accent">超时</Badge> : null}
                 {item.sectionName ? <span className="text-ink-500">{item.sectionName}</span> : null}
                 <span className="text-ink-400">{flagRows.length} 人举报</span>
                 <Link href={link} className="text-brand-700 hover:text-brand-900">

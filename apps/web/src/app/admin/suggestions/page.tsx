@@ -7,6 +7,7 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { formatDateTime } from '@/lib/format';
 import { getSession } from '@/lib/session';
+import { isOverdue } from '@/lib/sla';
 import { loadActor, sectionScopeForCapability } from '@/server/actors';
 
 export const dynamic = 'force-dynamic';
@@ -104,6 +105,7 @@ export default async function SuggestionQueuePage() {
                 <time dateTime={r.createdAt.toISOString()} className="text-ink-400">
                   {formatDateTime(r.createdAt)}
                 </time>
+                {isOverdue(r.createdAt) ? <Badge variant="accent">超时</Badge> : null}
               </div>
               <Link
                 href={`/suggestions/${r.id}`}

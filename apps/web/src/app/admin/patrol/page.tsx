@@ -15,6 +15,7 @@ import { redirect } from 'next/navigation';
 import { PatrolPanel } from '@/components/patrol-panel';
 import { formatDateTime } from '@/lib/format';
 import { getSession } from '@/lib/session';
+import { isOverdue } from '@/lib/sla';
 import { loadActor, sectionScopeForCapability } from '@/server/actors';
 
 export const dynamic = 'force-dynamic';
@@ -121,6 +122,7 @@ export default async function PatrolQueuePage() {
                 <time dateTime={r.createdAt.toISOString()} className="text-ink-400">
                   {formatDateTime(r.createdAt)}
                 </time>
+                {isOverdue(r.createdAt) ? <Badge variant="accent">超时</Badge> : null}
               </div>
               <p className="mt-1 font-serif text-ink-900">{r.docTitle}</p>
               {r.message ? (

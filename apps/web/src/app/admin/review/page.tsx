@@ -16,6 +16,7 @@ import { redirect } from 'next/navigation';
 import { ReviewPanel } from '@/components/review-panel';
 import { formatDateTime } from '@/lib/format';
 import { getSession } from '@/lib/session';
+import { isOverdue } from '@/lib/sla';
 import { hasPublishGrant, loadActor, publishableSectionIds } from '@/server/actors';
 import { loadRevisionDoc } from '@/server/revision-doc';
 
@@ -132,6 +133,7 @@ export default async function ReviewQueuePage({ searchParams }: ReviewPageProps)
                       <time dateTime={request.createdAt.toISOString()}>
                         {formatDateTime(request.createdAt)}
                       </time>
+                      {isOverdue(request.createdAt) ? <Badge variant="accent">超时</Badge> : null}
                     </p>
                   </Link>
                 </li>
