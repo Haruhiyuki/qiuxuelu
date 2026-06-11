@@ -162,8 +162,18 @@ function toKernelBlock(node: JSONContent): BlockNode | null {
     }
     case 'horizontalRule':
       return { type: 'divider', attrs: { blockId: readBlockId(node) } };
+    case 'figure': {
+      const blockId = readBlockId(node);
+      const src = typeof node.attrs?.src === 'string' ? node.attrs.src : '';
+      const alt = typeof node.attrs?.alt === 'string' ? node.attrs.alt : '';
+      const caption = typeof node.attrs?.caption === 'string' ? node.attrs.caption : '';
+      // caption 空串省略，保住与 kernel（caption optional）的往返一致
+      return caption.length > 0
+        ? { type: 'figure', attrs: { blockId, src, alt, caption } }
+        : { type: 'figure', attrs: { blockId, src, alt } };
+    }
     default:
-      // 不认识的顶层块直接丢弃——M0 配置下编辑器不会产生
+      // 不认识的顶层块直接丢弃——配置外的节点编辑器不会产生
       return null;
   }
 }
@@ -264,10 +274,20 @@ function fromKernelBlock(node: BlockNode): JSONContent {
     case 'divider':
       return { type: 'horizontalRule', attrs: { blockId } };
     case 'figure':
+      return {
+        type: 'figure',
+        attrs: {
+          blockId,
+          src: node.attrs.src,
+          alt: node.attrs.alt,
+          caption: node.attrs.caption ?? '',
+        },
+      };
     case 'table':
     case 'callout':
     case 'math_block': {
-      // 有损降级：M0 编辑器不支持这些块，回退为纯文本段落（保留 blockId 维持身份）
+      // 有损降级：编辑器尚未装这些块的扩展时，回退为纯文本段落（保留 blockId 维持身份）。
+      // 注：table/callout/math 的编辑器扩展在媒体③接入后此分支不再触发。
       const text = extractText(node).replaceAll('\n', ' ').trim();
       return text.length > 0
         ? { type: 'paragraph', attrs: { blockId }, content: [{ type: 'text', text }] }

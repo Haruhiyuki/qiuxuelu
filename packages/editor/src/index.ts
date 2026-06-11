@@ -7,4 +7,5 @@ export {
   COLLAB_FRAGMENT,
   getEditorSchema,
 } from './extensions';
+export { Figure, type FigureOptions } from './figure';
 export { kernelToTiptap, tiptapToKernel } from './normalize';

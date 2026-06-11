@@ -2,7 +2,7 @@
 
 // 实时协作编辑器（架构 §6.3 C 阶）：Yjs + Hocuspocus，仅草稿态、仅授权用户。
 // 不在客户端保存——服务端按防抖把 Y.Doc 快照为 collab_checkpoint 修订（修订才是真相）。
-import { buildExtensions, COLLAB_FRAGMENT } from '@harublog/editor';
+import { COLLAB_FRAGMENT } from '@harublog/editor';
 import { Alert } from '@harublog/ui';
 import { HocuspocusProvider } from '@hocuspocus/provider';
 import Collaboration from '@tiptap/extension-collaboration';
@@ -12,6 +12,7 @@ import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import * as Y from 'yjs';
 import { issueCollabToken } from '@/server/actions/collab';
+import { clientExtensions } from './client-extensions';
 import { EditorToolbar } from './toolbar';
 
 const COLLAB_URL = process.env.NEXT_PUBLIC_COLLAB_URL ?? 'ws://localhost:3201';
@@ -72,7 +73,7 @@ function RealtimeInner({ docId, token, userName }: InnerProps) {
 
   const editor = useEditor({
     extensions: [
-      ...buildExtensions({ collaboration: true }),
+      ...clientExtensions({ collaboration: true }),
       Collaboration.configure({ document: ydoc, field: COLLAB_FRAGMENT }),
       CollaborationCaret.configure({
         provider,

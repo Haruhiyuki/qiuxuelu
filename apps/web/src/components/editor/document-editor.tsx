@@ -1,15 +1,15 @@
 'use client';
 
-import { BlockId, kernelToTiptap, tiptapToKernel } from '@harublog/editor';
+import { kernelToTiptap, tiptapToKernel } from '@harublog/editor';
 import type { DocJson } from '@harublog/kernel';
 import { Alert, Badge, Button, Label, Textarea } from '@harublog/ui';
 import type { Editor } from '@tiptap/react';
 import { EditorContent, useEditor } from '@tiptap/react';
-import StarterKit from '@tiptap/starter-kit';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { docStatusLabel } from '@/lib/doc-labels';
 import { commitRevision, requestPublish, saveWorkingCopy } from '@/server/actions/document';
+import { clientExtensions } from './client-extensions';
 import { EditorToolbar } from './toolbar';
 
 type SaveState = 'idle' | 'dirty' | 'saving' | 'saved' | 'error';
@@ -77,16 +77,7 @@ export function DocumentEditor(props: DocumentEditorProps) {
   );
 
   const editor = useEditor({
-    extensions: [
-      StarterKit.configure({
-        // 正文层级收敛为 2-4（h1 留给文章标题字段）
-        heading: { levels: [2, 3, 4] },
-        // kernel schema 没有 underline mark，关闭以免产出无法保存的内容
-        underline: false,
-        link: { openOnClick: false },
-      }),
-      BlockId,
-    ],
+    extensions: clientExtensions(),
     content: initialContent,
     // Next SSR：跳过服务端渲染，避免水合不一致
     immediatelyRender: false,

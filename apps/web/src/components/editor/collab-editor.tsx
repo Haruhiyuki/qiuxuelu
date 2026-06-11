@@ -1,16 +1,16 @@
 'use client';
 
-import { BlockId, kernelToTiptap, tiptapToKernel } from '@harublog/editor';
+import { kernelToTiptap, tiptapToKernel } from '@harublog/editor';
 // 协作直编已发布文章的编辑器：从发布内容载入，单次「发布修改」即时生效（进巡查队列）。
 // 复用与 DocumentEditor 相同的 Tiptap 内核与 normalize；不走 working_copy / 审批。
 import type { DocJson } from '@harublog/kernel';
 import { Alert, Button, Label, Textarea } from '@harublog/ui';
 import { EditorContent, useEditor } from '@tiptap/react';
-import StarterKit from '@tiptap/starter-kit';
 import { useRouter } from 'next/navigation';
 import { useMemo, useState } from 'react';
 import { directEditPublished } from '@/server/actions/document';
 import { createSuggestion } from '@/server/actions/suggestion';
+import { clientExtensions } from './client-extensions';
 import { EditorToolbar } from './toolbar';
 
 export interface CollabEditorProps {
@@ -60,14 +60,7 @@ export function CollabEditor({
   const initialContent = useMemo(() => kernelToTiptap(initialDoc), [initialDoc]);
 
   const editor = useEditor({
-    extensions: [
-      StarterKit.configure({
-        heading: { levels: [2, 3, 4] },
-        underline: false,
-        link: { openOnClick: false },
-      }),
-      BlockId,
-    ],
+    extensions: clientExtensions(),
     content: initialContent,
     immediatelyRender: false,
     editorProps: {

@@ -15,6 +15,7 @@ const TOP_BLOCK_TYPES = [
   'orderedList',
   'codeBlock',
   'horizontalRule',
+  'figure',
 ];
 
 /**

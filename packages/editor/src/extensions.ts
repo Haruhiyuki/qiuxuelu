@@ -4,6 +4,7 @@ import { type Extensions, getSchema } from '@tiptap/core';
 import type { Schema } from '@tiptap/pm/model';
 import StarterKit from '@tiptap/starter-kit';
 import { BlockId } from './block-id';
+import { Figure } from './figure';
 
 /** y-prosemirror 共享片段名（web 协作编辑器与 collab 网关必须一致）。 */
 export const COLLAB_FRAGMENT = 'default';
@@ -26,6 +27,7 @@ export function buildExtensions(options: BuildExtensionsOptions = {}): Extension
       // 协作模式：交给 Yjs 处理历史，关掉本地 undoRedo 以免与 CRDT 冲突
       ...(options.collaboration ? { undoRedo: false } : {}),
     }),
+    Figure,
     BlockId,
   ];
 }

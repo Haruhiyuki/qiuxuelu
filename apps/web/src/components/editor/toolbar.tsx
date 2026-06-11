@@ -3,7 +3,8 @@
 import { cn } from '@harublog/ui';
 import type { Editor } from '@tiptap/react';
 import { useEditorState } from '@tiptap/react';
-import type { ReactNode } from 'react';
+import { type ReactNode, useRef } from 'react';
+import { uploadImageFile } from './upload';
 
 interface ToolbarButtonProps {
   title: string;
@@ -62,6 +63,21 @@ export function EditorToolbar({ editor }: { editor: Editor }) {
       canRedo: e.can().redo(),
     }),
   });
+
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  async function handleImagePick(file: File) {
+    const uploaded = await uploadImageFile(file);
+    if (uploaded === null) {
+      window.alert('图片上传失败，请重试');
+      return;
+    }
+    editor
+      .chain()
+      .focus()
+      .insertContent({ type: 'figure', attrs: { src: uploaded.url, alt: '', caption: '' } })
+      .run();
+  }
 
   function handleLink() {
     if (state.link) {
@@ -185,6 +201,22 @@ export function EditorToolbar({ editor }: { editor: Editor }) {
       >
         —
       </ToolbarButton>
+      <ToolbarButton title="插入图片" onClick={() => fileInputRef.current?.click()}>
+        图片
+      </ToolbarButton>
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          if (file) {
+            void handleImagePick(file);
+          }
+          e.target.value = '';
+        }}
+      />
       <Divider />
       <ToolbarButton
         title="撤销"
