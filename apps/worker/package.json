@@ -13,6 +13,7 @@
   "dependencies": {
     "@harublog/db": "workspace:*",
     "@harublog/kernel": "workspace:*",
+    "@harublog/mailer": "workspace:*",
     "@harublog/search": "workspace:*",
     "drizzle-orm": "catalog:"
   },

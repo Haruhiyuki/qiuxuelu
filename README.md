@@ -80,6 +80,13 @@ infra/              docker-compose（PostgreSQL + Meilisearch）/ 部署配置
 
 五个架构里程碑（M0–M5）已全部交付，详见 `docs/02-architecture.md` §8。
 
+### 上线刚需补强（持续）
+- **运维与兜底**：`grant-superadmin` 引导 CLI、自定义 404/错误页。
+- **用户体系**：贡献者公开主页 `/u/[id]`、账户自助设置 `/account`（改名/改密/邮箱验证/通知偏好）。
+- **SEO 与分发**：sitemap、robots、RSS（`/feed.xml`）、文章 JSON-LD（Article + 面包屑）、OG/Twitter 卡。
+- **邮件（Resend）**：密码重置、邮箱验证、关键通知邮件（worker 异步发送，用户可关）；
+  本地不配 `RESEND_API_KEY` 时走控制台打印，流程仍可端到端验证。
+
 ### 打磨与硬化（持续）
 - **红线单测**：renderer UGC XSS、editor normalize 往返不变式、db 块身份派生（vitest 锁死）。
 - **安全审计**：协作 token 签发改走唯一鉴权入口 `can()`，堵住制裁旁路。

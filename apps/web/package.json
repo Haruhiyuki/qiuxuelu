@@ -15,6 +15,7 @@
     "@harublog/domain": "workspace:*",
     "@harublog/editor": "workspace:*",
     "@harublog/kernel": "workspace:*",
+    "@harublog/mailer": "workspace:*",
     "@harublog/renderer": "workspace:*",
     "@harublog/search": "workspace:*",
     "@harublog/ui": "workspace:*",

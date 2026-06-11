@@ -213,6 +213,9 @@ importers:
       '@harublog/kernel':
         specifier: workspace:*
         version: link:../../packages/kernel
+      '@harublog/mailer':
+        specifier: workspace:*
+        version: link:../../packages/mailer
       '@harublog/renderer':
         specifier: workspace:*
         version: link:../../packages/renderer
@@ -337,6 +340,9 @@ importers:
       '@harublog/kernel':
         specifier: workspace:*
         version: link:../../packages/kernel
+      '@harublog/mailer':
+        specifier: workspace:*
+        version: link:../../packages/mailer
       '@harublog/search':
         specifier: workspace:*
         version: link:../../packages/search
@@ -474,6 +480,19 @@ importers:
       vitest:
         specifier: 'catalog:'
         version: 4.1.8(@types/node@25.9.2)(vite@8.0.16(@types/node@25.9.2)(esbuild@0.28.0)(jiti@2.7.0)(tsx@4.22.4))
+
+  packages/mailer:
+    dependencies:
+      resend:
+        specifier: 'catalog:'
+        version: 6.12.4
+    devDependencies:
+      '@types/node':
+        specifier: 'catalog:'
+        version: 25.9.2
+      typescript:
+        specifier: 'catalog:'
+        version: 5.9.3
 
   packages/renderer:
     dependencies:

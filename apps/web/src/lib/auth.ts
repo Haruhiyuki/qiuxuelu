@@ -4,11 +4,11 @@
 // 直接抛错——推迟到首个请求才构建实例，保证无任何 env 也能完成构建（CI 红线）。
 import { db } from '@harublog/db';
 import * as schema from '@harublog/db/schema';
+import { basicEmail, sendEmail } from '@harublog/mailer';
 import { betterAuth } from 'better-auth';
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
 import { APIError } from 'better-auth/api';
 import { nextCookies } from 'better-auth/next-js';
-import { basicEmail, sendEmail } from '@/server/mailer';
 import { COVENANT_CONSENT_VERSION, LICENSE_CONSENT_VERSION } from './consent';
 
 function buildAuth() {

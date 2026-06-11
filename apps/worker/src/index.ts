@@ -5,6 +5,7 @@ import { getDb } from '@harublog/db';
 import { ensureBlocksIndex } from '@harublog/search';
 import { sql } from 'drizzle-orm';
 import { remapDocumentAnchors } from './anchors';
+import { drainNotificationEmails } from './notify-email';
 import { syncDocument } from './sync';
 
 const POLL_INTERVAL_MS = 2000;
@@ -72,8 +73,15 @@ async function main(): Promise<void> {
     } catch (err) {
       console.error('[worker] 轮询出错：', err);
     }
+    // 通知邮件与 outbox 同一轮询节拍（解耦于业务事务）
+    let mailed = 0;
+    try {
+      mailed = await drainNotificationEmails(getDb());
+    } catch (err) {
+      console.error('[worker] 通知邮件轮询出错：', err);
+    }
     // 有积压则立即继续，空闲则歇一会
-    if (processed === 0) {
+    if (processed === 0 && mailed === 0) {
       await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS));
     }
   }

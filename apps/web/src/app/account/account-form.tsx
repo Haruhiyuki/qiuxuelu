@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { type FormEvent, useState } from 'react';
 import { authClient } from '@/lib/auth-client';
 import { translateAuthError } from '@/lib/auth-errors';
+import { setEmailNotifications } from '@/server/actions/account';
 
 type Notice = { kind: 'info' | 'danger'; text: string } | null;
 
@@ -13,10 +14,12 @@ export function AccountForm({
   initialName,
   email,
   emailVerified,
+  emailNotifications,
 }: {
   initialName: string;
   email: string;
   emailVerified: boolean;
+  emailNotifications: boolean;
 }) {
   const router = useRouter();
   const [name, setName] = useState(initialName);
@@ -25,6 +28,19 @@ export function AccountForm({
 
   const [verifyNotice, setVerifyNotice] = useState<Notice>(null);
   const [verifyBusy, setVerifyBusy] = useState(false);
+
+  const [emailPref, setEmailPref] = useState(emailNotifications);
+  const [prefBusy, setPrefBusy] = useState(false);
+
+  async function togglePref(enabled: boolean) {
+    setEmailPref(enabled);
+    setPrefBusy(true);
+    const r = await setEmailNotifications(enabled);
+    if (!r.ok) {
+      setEmailPref(!enabled); // 回滚
+    }
+    setPrefBusy(false);
+  }
 
   const [current, setCurrent] = useState('');
   const [next, setNext] = useState('');
@@ -171,6 +187,21 @@ export function AccountForm({
           {pwBusy ? '更新中…' : '更新密码'}
         </Button>
       </form>
+
+      <section className="flex flex-col gap-3 border-ink-200 border-t pt-8">
+        <h2 className="font-medium font-serif text-ink-800 text-lg">通知偏好</h2>
+        <label className="flex cursor-pointer items-center gap-3 text-ink-700 text-sm">
+          <input
+            type="checkbox"
+            checked={emailPref}
+            disabled={prefBusy}
+            onChange={(e) => togglePref(e.target.checked)}
+            className="h-4 w-4"
+          />
+          接收邮件通知（建议被采纳/驳回、发布审核结果、巡查回退等）
+        </label>
+        <p className="text-ink-400 text-xs">站内通知不受此开关影响；高频的评论/回复不发邮件。</p>
+      </section>
     </div>
   );
 }

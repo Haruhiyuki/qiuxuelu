@@ -1,3 +1,5 @@
+import { getDb, user as userTable } from '@harublog/db';
+import { eq } from 'drizzle-orm';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
@@ -12,6 +14,13 @@ export default async function AccountPage() {
   if (!session) {
     redirect('/login');
   }
+  const prefRow = (
+    await getDb()
+      .select({ emailNotifications: userTable.emailNotifications })
+      .from(userTable)
+      .where(eq(userTable.id, session.user.id))
+      .limit(1)
+  )[0];
   return (
     <div className="mx-auto w-full max-w-xl px-6 py-10">
       <header className="border-ink-200 border-b pb-6">
@@ -27,6 +36,7 @@ export default async function AccountPage() {
         initialName={session.user.name}
         email={session.user.email}
         emailVerified={session.user.emailVerified}
+        emailNotifications={prefRow?.emailNotifications ?? true}
       />
     </div>
   );

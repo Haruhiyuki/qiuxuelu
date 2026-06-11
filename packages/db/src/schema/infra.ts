@@ -53,6 +53,8 @@ export const notifications = pgTable('notifications', {
   kind: text('kind').notNull(),
   payload: jsonb('payload'),
   readAt: timestamp('read_at', { withTimezone: true }),
+  // 邮件触达去重：worker 发完通知邮件后置位（含「偏好关/无需发」也置位，避免反复扫描）
+  emailedAt: timestamp('emailed_at', { withTimezone: true }),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 });
 
