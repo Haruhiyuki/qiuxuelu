@@ -20,6 +20,8 @@ export const user = pgTable(
     // 教育阶段标签（自愿填写，公开展示）：初中/高中/大学/毕业/其他
     educationStage: text('education_stage'),
     status: text('status').notNull().default('active'),
+    // 账号注销（软删）：置位后 PII 已匿名化、会话清除、不可登录；内容署名保留为「已注销用户」
+    deletedAt: timestamp('deleted_at', { withTimezone: true }),
     // 邮件通知偏好（默认开）：worker 据此决定是否发通知邮件
     emailNotifications: boolean('emailNotifications').notNull().default(true),
     // 注册时的法律同意凭证（PRD §7 前置决策）：由 better-auth additionalFields 服务端强制写入，

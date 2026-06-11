@@ -1,13 +1,14 @@
 'use client';
 
 // 账户自助：公开资料（头像/简介/阶段）、改昵称、改密码（better-auth）、通知偏好、注销。
-import { Alert, Button, Input, Label, Textarea } from '@harublog/ui';
+import { Alert, Button, Input, Label, Textarea, usePrompt, useToast } from '@harublog/ui';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { type FormEvent, useRef, useState } from 'react';
 import { uploadImageFile } from '@/components/editor/upload';
 import { authClient } from '@/lib/auth-client';
 import { translateAuthError } from '@/lib/auth-errors';
-import { setEmailNotifications, updateProfile } from '@/server/actions/account';
+import { deleteMyAccount, setEmailNotifications, updateProfile } from '@/server/actions/account';
 
 type Notice = { kind: 'info' | 'danger'; text: string } | null;
 
@@ -90,6 +91,30 @@ export function AccountForm({
     setPrefBusy(false);
   }
 
+  const { prompt, promptDialog } = usePrompt();
+  const toast = useToast();
+  async function handleDelete() {
+    const v = await prompt({
+      title: '注销账号',
+      label:
+        '此操作不可逆：资料将被匿名化、无法再登录（文章/贡献会保留为「已注销用户」）。输入「注销」确认',
+      placeholder: '注销',
+      confirmLabel: '确认注销',
+      required: true,
+    });
+    if (v === null) {
+      return;
+    }
+    const r = await deleteMyAccount(v);
+    if (!r.ok) {
+      toast(r.error, 'error');
+      return;
+    }
+    await authClient.signOut();
+    router.push('/');
+    router.refresh();
+  }
+
   const [current, setCurrent] = useState('');
   const [next, setNext] = useState('');
   const [confirm, setConfirm] = useState('');
@@ -157,6 +182,7 @@ export function AccountForm({
 
   return (
     <div className="mt-8 flex flex-col gap-10">
+      {promptDialog}
       <form onSubmit={saveProfile} className="flex flex-col gap-3">
         <h2 className="font-medium font-serif text-ink-800 text-lg">公开资料</h2>
         {profileNotice ? (
@@ -320,6 +346,24 @@ export function AccountForm({
           接收邮件通知（建议被采纳/驳回、发布审核结果、巡查回退等）
         </label>
         <p className="text-ink-400 text-xs">站内通知不受此开关影响；高频的评论/回复不发邮件。</p>
+      </section>
+
+      <section className="flex flex-col gap-3 border-ink-200 border-t pt-8">
+        <h2 className="font-medium font-serif text-ink-800 text-lg">数据与账号</h2>
+        <div className="flex flex-wrap items-center gap-3">
+          <Link
+            href="/api/me/export"
+            className="rounded-sm border border-ink-200 px-3 py-1.5 text-ink-700 text-sm hover:bg-paper-200"
+          >
+            导出我的数据
+          </Link>
+          <Button variant="danger" onClick={handleDelete}>
+            注销账号
+          </Button>
+        </div>
+        <p className="text-ink-400 text-xs">
+          注销为不可逆操作：个人资料将被匿名化、无法再登录；你的文章与贡献会保留并署名为「已注销用户」。
+        </p>
       </section>
     </div>
   );

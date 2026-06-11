@@ -1,7 +1,13 @@
 'use server';
 
 // 账户自助：仅改本人记录，无需 can()（非治理操作，作用域限定自身）。
-import { getDb, user as userTable } from '@harublog/db';
+import {
+  account as accountTable,
+  auditLog,
+  getDb,
+  session as sessionTable,
+  user as userTable,
+} from '@harublog/db';
 import { eq } from 'drizzle-orm';
 import { z } from 'zod';
 import { getSession } from '@/lib/session';
@@ -55,5 +61,49 @@ export async function updateProfile(input: {
   if (Object.keys(patch).length > 0) {
     await getDb().update(userTable).set(patch).where(eq(userTable.id, session.user.id));
   }
+  return { ok: true, data: null };
+}
+
+/**
+ * 注销账号（软删 + 匿名化）：保留内容与修订署名（显示为「已注销用户」），但清除 PII、
+ * 失效会话与登录凭证、停用账号、不可再登录。需前端二次确认。不硬删——外键与贡献历史不破坏。
+ */
+export async function deleteMyAccount(confirmText: string): Promise<ActionResult> {
+  const session = await getSession();
+  if (!session) {
+    return { ok: false, error: '请先登录' };
+  }
+  if (confirmText.trim() !== '注销') {
+    return { ok: false, error: '请输入「注销」以确认' };
+  }
+  const uid = session.user.id;
+  const db = getDb();
+  const now = new Date();
+  await db.transaction(async (tx) => {
+    await tx
+      .update(userTable)
+      .set({
+        name: '已注销用户',
+        email: `deleted+${uid}@deleted.local`,
+        emailVerified: false,
+        image: null,
+        bio: null,
+        educationStage: null,
+        username: null,
+        status: 'suspended',
+        deletedAt: now,
+      })
+      .where(eq(userTable.id, uid));
+    // 失效会话 + 删除登录凭证（密码/OAuth），彻底断登录
+    await tx.delete(sessionTable).where(eq(sessionTable.userId, uid));
+    await tx.delete(accountTable).where(eq(accountTable.userId, uid));
+    await tx.insert(auditLog).values({
+      actorId: uid,
+      action: 'user.self_delete',
+      subjectType: 'user',
+      subjectId: uid,
+      detail: { via: 'self-service', anonymized: true },
+    });
+  });
   return { ok: true, data: null };
 }
