@@ -8,13 +8,38 @@ import { betterAuth } from 'better-auth';
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
 import { APIError } from 'better-auth/api';
 import { nextCookies } from 'better-auth/next-js';
+import { basicEmail, sendEmail } from '@/server/mailer';
 import { COVENANT_CONSENT_VERSION, LICENSE_CONSENT_VERSION } from './consent';
 
 function buildAuth() {
   return betterAuth({
     // schema 显式传入：adapter 不必回探 db._.fullSchema，惰性 db Proxy 不被提前触发
     database: drizzleAdapter(db, { provider: 'pg', schema }),
-    emailAndPassword: { enabled: true },
+    emailAndPassword: {
+      enabled: true,
+      // 忘记密码：发含重置链接的邮件（链接落在 /reset-password?token=...）
+      sendResetPassword: async ({ user, url }) => {
+        const mail = basicEmail(
+          '重置你的求学路密码',
+          '我们收到了重置密码的请求。点击下方按钮设置新密码；若非本人操作，请忽略此邮件。',
+          { label: '重置密码', url },
+        );
+        await sendEmail({ to: user.email, subject: '重置你的求学路密码', ...mail });
+      },
+    },
+    // 邮箱验证：注册即发，但不强制登录（验证状态用于 TL1 晋升，见信任引擎）
+    emailVerification: {
+      sendOnSignUp: true,
+      autoSignInAfterVerification: true,
+      sendVerificationEmail: async ({ user, url }) => {
+        const mail = basicEmail(
+          '验证你的求学路邮箱',
+          '点击下方按钮完成邮箱验证。验证后你将解锁更多协作能力。',
+          { label: '验证邮箱', url },
+        );
+        await sendEmail({ to: user.email, subject: '验证你的求学路邮箱', ...mail });
+      },
+    },
     user: {
       // 注册同意凭证（PRD §7「不可后补的前置决策」）：服务端必填并落库留痕，
       // 客户端勾选只是体验层——直连 API 的注册同样过不了这道闸。

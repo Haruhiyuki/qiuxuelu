@@ -23,7 +23,11 @@ export default async function AccountPage() {
           </Link>
         </p>
       </header>
-      <AccountForm initialName={session.user.name} email={session.user.email} />
+      <AccountForm
+        initialName={session.user.name}
+        email={session.user.email}
+        emailVerified={session.user.emailVerified}
+      />
     </div>
   );
 }

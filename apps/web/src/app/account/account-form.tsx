@@ -9,11 +9,22 @@ import { translateAuthError } from '@/lib/auth-errors';
 
 type Notice = { kind: 'info' | 'danger'; text: string } | null;
 
-export function AccountForm({ initialName, email }: { initialName: string; email: string }) {
+export function AccountForm({
+  initialName,
+  email,
+  emailVerified,
+}: {
+  initialName: string;
+  email: string;
+  emailVerified: boolean;
+}) {
   const router = useRouter();
   const [name, setName] = useState(initialName);
   const [nameNotice, setNameNotice] = useState<Notice>(null);
   const [nameBusy, setNameBusy] = useState(false);
+
+  const [verifyNotice, setVerifyNotice] = useState<Notice>(null);
+  const [verifyBusy, setVerifyBusy] = useState(false);
 
   const [current, setCurrent] = useState('');
   const [next, setNext] = useState('');
@@ -68,9 +79,40 @@ export function AccountForm({ initialName, email }: { initialName: string; email
     setPwBusy(false);
   }
 
+  async function resendVerification() {
+    setVerifyBusy(true);
+    setVerifyNotice(null);
+    const { error } = await authClient.sendVerificationEmail({ email, callbackURL: '/account' });
+    setVerifyNotice(
+      error
+        ? { kind: 'danger', text: translateAuthError(error.code) }
+        : { kind: 'info', text: '验证邮件已发送，请查收（含垃圾箱）' },
+    );
+    setVerifyBusy(false);
+  }
+
   return (
     <div className="mt-8 flex flex-col gap-10">
-      <form onSubmit={saveName} className="flex flex-col gap-3">
+      <section className="flex flex-col gap-2">
+        <h2 className="font-medium font-serif text-ink-800 text-lg">邮箱验证</h2>
+        {verifyNotice ? (
+          <Alert variant={verifyNotice.kind === 'info' ? 'info' : 'danger'}>
+            {verifyNotice.text}
+          </Alert>
+        ) : null}
+        {emailVerified ? (
+          <p className="text-moss-700 text-sm">✓ 邮箱已验证</p>
+        ) : (
+          <div className="flex flex-wrap items-center gap-3">
+            <p className="text-ink-500 text-sm">邮箱尚未验证，验证后可解锁更多协作能力。</p>
+            <Button variant="secondary" onClick={resendVerification} disabled={verifyBusy}>
+              {verifyBusy ? '发送中…' : '发送验证邮件'}
+            </Button>
+          </div>
+        )}
+      </section>
+
+      <form onSubmit={saveName} className="flex flex-col gap-3 border-ink-200 border-t pt-8">
         <h2 className="font-medium font-serif text-ink-800 text-lg">昵称</h2>
         {nameNotice ? (
           <Alert variant={nameNotice.kind === 'info' ? 'info' : 'danger'}>{nameNotice.text}</Alert>
