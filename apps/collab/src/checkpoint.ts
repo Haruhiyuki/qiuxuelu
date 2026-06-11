@@ -24,7 +24,7 @@ import {
   SCHEMA_VERSION,
   validateDoc,
 } from '@harublog/kernel';
-import { and, asc, eq, inArray } from 'drizzle-orm';
+import { and, asc, eq, inArray, sql } from 'drizzle-orm';
 import { yDocToProsemirrorJSON } from 'y-prosemirror';
 import type * as Y from 'yjs';
 
@@ -131,15 +131,8 @@ export async function writeCheckpoint(
     const expectedHead = refRows[0]?.revisionId ?? null;
 
     let parentEntries: ManifestEntry[] = [];
-    let parentSeq = 0;
     const parentHashes = new Set<string>();
     if (expectedHead !== null) {
-      const parentRev = await tx
-        .select({ seq: revisions.seq })
-        .from(revisions)
-        .where(eq(revisions.id, expectedHead))
-        .limit(1);
-      parentSeq = parentRev[0]?.seq ?? 0;
       const parentRows = await tx
         .select({ blockId: revisionBlocks.blockId, hash: revisionBlocks.blobHash })
         .from(revisionBlocks)
@@ -153,6 +146,14 @@ export async function writeCheckpoint(
     if (changes.length === 0) {
       return { changed: false };
     }
+
+    // seq 是文档全局单调计数（unique(document_id, seq)），与分支无关——取全文档最大值 +1，
+    // 不能用 draft 头的 seq（建议分支等会占用更大的 seq，导致碰撞）。
+    const maxSeqRows = await tx
+      .select({ maxSeq: sql<number>`coalesce(max(${revisions.seq}), 0)` })
+      .from(revisions)
+      .where(eq(revisions.documentId, docId));
+    const parentSeq = Number(maxSeqRows[0]?.maxSeq ?? 0);
 
     const textByHash = new Map<string, string>();
     for (const [hash, node] of manifest.blobs) {

@@ -365,16 +365,9 @@ export async function commitRevision(
       }
 
       let parentEntries: ManifestEntry[] = [];
-      let parentSeq = 0;
       let oldChars = 0;
       const parentHashes = new Set<string>();
       if (expectedHead !== null) {
-        const parentRev = await tx
-          .select({ seq: revisions.seq })
-          .from(revisions)
-          .where(eq(revisions.id, expectedHead))
-          .limit(1);
-        parentSeq = parentRev[0]?.seq ?? 0;
         const parentRows = await tx
           .select({
             blockId: revisionBlocks.blockId,
@@ -391,6 +384,12 @@ export async function commitRevision(
           parentHashes.add(row.hash);
         }
       }
+      // seq 是文档全局单调计数（与分支无关）——取全文档最大值 +1，避免与建议分支等占用的 seq 碰撞
+      const maxSeqRows = await tx
+        .select({ maxSeq: sql<number>`coalesce(max(${revisions.seq}), 0)` })
+        .from(revisions)
+        .where(eq(revisions.documentId, rawDocId));
+      const parentSeq = Number(maxSeqRows[0]?.maxSeq ?? 0);
 
       const changes = diffManifests(parentEntries, dbEntries);
       if (changes.length === 0) {
