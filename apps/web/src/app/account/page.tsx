@@ -3,6 +3,7 @@ import { eq } from 'drizzle-orm';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
+import { Breadcrumb } from '@/components/breadcrumb';
 import { getSession } from '@/lib/session';
 import { AccountForm } from './account-form';
 
@@ -23,6 +24,7 @@ export default async function AccountPage() {
   )[0];
   return (
     <div className="mx-auto w-full max-w-xl px-6 py-10">
+      <Breadcrumb items={[{ label: '首页', href: '/' }, { label: '账户设置' }]} />
       <header className="border-ink-200 border-b pb-6">
         <h1 className="font-semibold font-serif text-2xl text-ink-900">账户设置</h1>
         <p className="mt-2 text-ink-500 text-sm">

@@ -5,6 +5,7 @@ import { PenLine } from 'lucide-react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
+import { Breadcrumb } from '@/components/breadcrumb';
 import { NewDocumentForm } from '@/components/new-document-form';
 import { docStatusLabel } from '@/lib/doc-labels';
 import { formatDate } from '@/lib/format';
@@ -75,6 +76,7 @@ export default async function WritePage() {
 
   return (
     <div className="mx-auto w-full max-w-5xl px-6 py-10">
+      <Breadcrumb items={[{ label: '首页', href: '/' }, { label: '我的写作' }]} />
       <header className="border-b border-ink-200 pb-8">
         <h1 className="font-serif text-2xl font-semibold text-ink-900">我的写作</h1>
         <p className="mt-2 text-sm text-ink-500">

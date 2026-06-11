@@ -1,5 +1,6 @@
 import { SITE_NAME } from '@harublog/config';
 import { getDb } from '@harublog/db';
+import { Search } from 'lucide-react';
 import Link from 'next/link';
 import { getSession } from '@/lib/session';
 import { hasPublishGrant, loadActor } from '@/server/actors';
@@ -52,6 +53,14 @@ export async function SiteHeader() {
           />
         </form>
         <div className="flex items-center gap-4 text-sm">
+          {/* 移动端搜索入口（窄屏隐藏搜索框，改为图标跳搜索页） */}
+          <Link
+            href="/search"
+            aria-label="搜索"
+            className="text-ink-600 transition-colors hover:text-brand-700 sm:hidden"
+          >
+            <Search className="h-5 w-5" aria-hidden />
+          </Link>
           {session ? (
             <>
               <Link

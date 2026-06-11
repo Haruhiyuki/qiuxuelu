@@ -14,6 +14,7 @@ import { PenLine } from 'lucide-react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
+import { Breadcrumb } from '@/components/breadcrumb';
 import { formatDate } from '@/lib/format';
 
 export const dynamic = 'force-dynamic';
@@ -99,6 +100,7 @@ export default async function ProfilePage({ params }: ProfilePageProps) {
 
   return (
     <div className="mx-auto w-full max-w-3xl px-6 py-10">
+      <Breadcrumb items={[{ label: '首页', href: '/' }, { label: profile.name }]} />
       <header className="flex items-start gap-4 border-ink-200 border-b pb-6">
         <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-brand-100 font-semibold font-serif text-2xl text-brand-700">
           {profile.name.slice(0, 1)}

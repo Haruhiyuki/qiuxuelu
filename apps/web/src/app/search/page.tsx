@@ -2,6 +2,7 @@ import { searchBlocks } from '@harublog/search';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
+import { Breadcrumb } from '@/components/breadcrumb';
 
 export const dynamic = 'force-dynamic';
 
@@ -51,6 +52,7 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
 
   return (
     <div className="mx-auto w-full max-w-3xl px-6 py-10">
+      <Breadcrumb items={[{ label: '首页', href: '/' }, { label: '搜索' }]} />
       <h1 className="font-serif text-2xl font-semibold text-ink-900">搜索</h1>
       <form method="get" action="/search" className="mt-4 flex gap-2">
         <input
