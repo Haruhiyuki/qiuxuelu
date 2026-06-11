@@ -7,7 +7,8 @@
     ".": "./src/index.tsx"
   },
   "scripts": {
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
   },
   "dependencies": {
     "@harublog/kernel": "workspace:*",
@@ -15,6 +16,9 @@
   },
   "devDependencies": {
     "@types/react": "catalog:",
-    "typescript": "catalog:"
+    "typescript": "catalog:",
+    "vitest": "catalog:",
+    "react-dom": "catalog:",
+    "@types/react-dom": "catalog:"
   }
 }
