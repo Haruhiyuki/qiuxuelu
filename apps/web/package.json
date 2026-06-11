@@ -37,6 +37,8 @@
     "@tiptap/suggestion": "catalog:",
     "better-auth": "catalog:",
     "sharp": "catalog:",
+    "shiki": "catalog:",
+    "katex": "catalog:",
     "yjs": "catalog:",
     "clsx": "catalog:",
     "drizzle-orm": "catalog:",

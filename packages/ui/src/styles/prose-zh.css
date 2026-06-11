@@ -169,6 +169,54 @@
   font-size: 1em;
 }
 
+/* ---- 代码块（Shiki 高亮）：固定深色底（明暗一致）+ 行号 + 复制按钮 ---- */
+.prose-zh pre.shiki {
+  padding: 1em 0;
+  background: #0d1117;
+  color: #e6edf3;
+  counter-reset: shiki-line;
+}
+.prose-zh pre.shiki code {
+  display: block;
+  min-width: max-content;
+}
+.prose-zh pre.shiki .code-line {
+  counter-increment: shiki-line;
+  display: inline-block;
+  width: 100%;
+  padding: 0 1.25em;
+}
+.prose-zh pre.shiki .code-line::before {
+  content: counter(shiki-line);
+  display: inline-block;
+  width: 2.5ch;
+  margin-right: 1.25em;
+  color: #6e7681;
+  text-align: right;
+  user-select: none;
+}
+.prose-zh .code-block-wrap {
+  position: relative;
+}
+.prose-zh .code-block-wrap .code-copy {
+  position: absolute;
+  top: 1.9em;
+  right: 0.6em;
+  padding: 0.2em 0.6em;
+  font-size: 0.8em;
+  color: #c9d1d9;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: var(--radius-xs);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+.prose-zh .code-block-wrap:hover .code-copy,
+.prose-zh .code-block-wrap .code-copy:focus-visible {
+  opacity: 1;
+}
+
 /* ---- 高亮（mark 节点）：淡赭黄底 ---- */
 .prose-zh mark {
   padding: 0.05em 0.15em;

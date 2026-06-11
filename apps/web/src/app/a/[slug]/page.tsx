@@ -20,12 +20,14 @@ import { and, asc, eq } from 'drizzle-orm';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
+import { CodeCopy } from '@/components/code-copy';
 import { CommentSection } from '@/components/comments/comment-section';
 import { InlineComments, type InlineCommentView } from '@/components/comments/inline-comments';
 import { ModerationBar } from '@/components/moderation-bar';
 import { ReadingProgress } from '@/components/reading-progress';
 import { JsonLd } from '@/components/seo/json-ld';
 import { formatDate, formatDateTime } from '@/lib/format';
+import { highlightDoc } from '@/lib/highlight';
 import { getSession } from '@/lib/session';
 import { SITE_URL } from '@/lib/site-url';
 import { loadActor } from '@/server/actors';
@@ -109,10 +111,13 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
     notFound();
   }
 
-  // 目录从已校验文档提取；校验失败时正文交给 ArticleRenderer 的容错占位，目录留空
+  // 目录与代码高亮均从已校验文档派生；校验失败时正文交给 ArticleRenderer 的容错占位
   let toc: TocEntry[] = [];
+  let codeHighlights: Awaited<ReturnType<typeof highlightDoc>> | undefined;
   try {
-    toc = extractToc(validateDoc(article.content));
+    const validated = validateDoc(article.content);
+    toc = extractToc(validated);
+    codeHighlights = await highlightDoc(validated);
   } catch {
     toc = [];
   }
@@ -290,7 +295,8 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
         </header>
 
         <div className="prose-zh py-8">
-          <ArticleRenderer doc={article.content} />
+          <ArticleRenderer doc={article.content} codeHighlights={codeHighlights} />
+          <CodeCopy />
         </div>
 
         {docTags.length > 0 ? (
