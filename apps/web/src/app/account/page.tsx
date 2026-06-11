@@ -17,7 +17,12 @@ export default async function AccountPage() {
   }
   const prefRow = (
     await getDb()
-      .select({ emailNotifications: userTable.emailNotifications })
+      .select({
+        emailNotifications: userTable.emailNotifications,
+        bio: userTable.bio,
+        educationStage: userTable.educationStage,
+        image: userTable.image,
+      })
       .from(userTable)
       .where(eq(userTable.id, session.user.id))
       .limit(1)
@@ -39,6 +44,9 @@ export default async function AccountPage() {
         email={session.user.email}
         emailVerified={session.user.emailVerified}
         emailNotifications={prefRow?.emailNotifications ?? true}
+        initialBio={prefRow?.bio ?? ''}
+        initialEducationStage={prefRow?.educationStage ?? ''}
+        initialImage={prefRow?.image ?? ''}
       />
     </div>
   );

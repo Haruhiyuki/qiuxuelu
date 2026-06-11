@@ -17,6 +17,8 @@ export const user = pgTable(
     // —— 以下为业务追加列（better-auth additionalFields 对接）——
     username: text('username').unique(),
     bio: text('bio'),
+    // 教育阶段标签（自愿填写，公开展示）：初中/高中/大学/毕业/其他
+    educationStage: text('education_stage'),
     status: text('status').notNull().default('active'),
     // 邮件通知偏好（默认开）：worker 据此决定是否发通知邮件
     emailNotifications: boolean('emailNotifications').notNull().default(true),

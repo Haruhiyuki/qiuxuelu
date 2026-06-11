@@ -1,30 +1,78 @@
 'use client';
 
-// 账户自助：改昵称、改密码（better-auth 客户端）。注销账号涉及内容署名匿名化，留作单独设计。
-import { Alert, Button, Input, Label } from '@harublog/ui';
+// 账户自助：公开资料（头像/简介/阶段）、改昵称、改密码（better-auth）、通知偏好、注销。
+import { Alert, Button, Input, Label, Textarea } from '@harublog/ui';
 import { useRouter } from 'next/navigation';
-import { type FormEvent, useState } from 'react';
+import { type FormEvent, useRef, useState } from 'react';
+import { uploadImageFile } from '@/components/editor/upload';
 import { authClient } from '@/lib/auth-client';
 import { translateAuthError } from '@/lib/auth-errors';
-import { setEmailNotifications } from '@/server/actions/account';
+import { setEmailNotifications, updateProfile } from '@/server/actions/account';
 
 type Notice = { kind: 'info' | 'danger'; text: string } | null;
+
+const STAGES = ['', '初中', '高中', '大学', '毕业', '其他'];
 
 export function AccountForm({
   initialName,
   email,
   emailVerified,
   emailNotifications,
+  initialBio,
+  initialEducationStage,
+  initialImage,
 }: {
   initialName: string;
   email: string;
   emailVerified: boolean;
   emailNotifications: boolean;
+  initialBio: string;
+  initialEducationStage: string;
+  initialImage: string;
 }) {
   const router = useRouter();
   const [name, setName] = useState(initialName);
   const [nameNotice, setNameNotice] = useState<Notice>(null);
   const [nameBusy, setNameBusy] = useState(false);
+
+  const [bio, setBio] = useState(initialBio);
+  const [stage, setStage] = useState(initialEducationStage);
+  const [image, setImage] = useState(initialImage);
+  const [profileNotice, setProfileNotice] = useState<Notice>(null);
+  const [profileBusy, setProfileBusy] = useState(false);
+  const avatarRef = useRef<HTMLInputElement | null>(null);
+
+  async function pickAvatar(file: File) {
+    setProfileBusy(true);
+    setProfileNotice(null);
+    const uploaded = await uploadImageFile(file);
+    if (uploaded === null) {
+      setProfileNotice({ kind: 'danger', text: '头像上传失败' });
+      setProfileBusy(false);
+      return;
+    }
+    setImage(uploaded.url);
+    const r = await updateProfile({ image: uploaded.url });
+    setProfileNotice(
+      r.ok ? { kind: 'info', text: '头像已更新' } : { kind: 'danger', text: r.error },
+    );
+    setProfileBusy(false);
+    router.refresh();
+  }
+
+  async function saveProfile(e: FormEvent) {
+    e.preventDefault();
+    setProfileBusy(true);
+    setProfileNotice(null);
+    const r = await updateProfile({ bio, educationStage: stage });
+    setProfileNotice(
+      r.ok ? { kind: 'info', text: '资料已更新' } : { kind: 'danger', text: r.error },
+    );
+    setProfileBusy(false);
+    if (r.ok) {
+      router.refresh();
+    }
+  }
 
   const [verifyNotice, setVerifyNotice] = useState<Notice>(null);
   const [verifyBusy, setVerifyBusy] = useState(false);
@@ -109,7 +157,78 @@ export function AccountForm({
 
   return (
     <div className="mt-8 flex flex-col gap-10">
-      <section className="flex flex-col gap-2">
+      <form onSubmit={saveProfile} className="flex flex-col gap-3">
+        <h2 className="font-medium font-serif text-ink-800 text-lg">公开资料</h2>
+        {profileNotice ? (
+          <Alert variant={profileNotice.kind === 'info' ? 'info' : 'danger'}>
+            {profileNotice.text}
+          </Alert>
+        ) : null}
+        <div className="flex items-center gap-4">
+          <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-full bg-brand-100 font-semibold font-serif text-2xl text-brand-700">
+            {image.length > 0 ? (
+              <img src={image} alt="头像" className="h-full w-full object-cover" />
+            ) : (
+              name.slice(0, 1)
+            )}
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Button
+              variant="secondary"
+              size="sm"
+              loading={profileBusy}
+              onClick={() => avatarRef.current?.click()}
+            >
+              更换头像
+            </Button>
+            <span className="text-ink-400 text-xs">JPEG/PNG/WebP/GIF，自动转 WebP</span>
+            <input
+              ref={avatarRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (f) {
+                  void pickAvatar(f);
+                }
+                e.target.value = '';
+              }}
+            />
+          </div>
+        </div>
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="acc-bio">简介</Label>
+          <Textarea
+            id="acc-bio"
+            value={bio}
+            maxLength={280}
+            rows={3}
+            onChange={(e) => setBio(e.target.value)}
+            placeholder="一句话介绍你自己（最长 280 字，公开展示）"
+          />
+        </div>
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="acc-stage">教育阶段（自愿）</Label>
+          <select
+            id="acc-stage"
+            value={stage}
+            onChange={(e) => setStage(e.target.value)}
+            className="h-9 w-40 rounded-sm border border-ink-200 bg-paper-50 px-3 text-ink-800 text-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600"
+          >
+            {STAGES.map((s) => (
+              <option key={s} value={s}>
+                {s === '' ? '不公开' : s}
+              </option>
+            ))}
+          </select>
+        </div>
+        <Button type="submit" loading={profileBusy} className="self-start">
+          保存资料
+        </Button>
+      </form>
+
+      <section className="flex flex-col gap-2 border-ink-200 border-t pt-8">
         <h2 className="font-medium font-serif text-ink-800 text-lg">邮箱验证</h2>
         {verifyNotice ? (
           <Alert variant={verifyNotice.kind === 'info' ? 'info' : 'danger'}>

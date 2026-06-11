@@ -43,6 +43,13 @@
       "when": 1781157301356,
       "tag": "0005_odd_omega_sentinel",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1781169839746,
+      "tag": "0006_chemical_beyonder",
+      "breakpoints": true
     }
   ]
 }

@@ -38,6 +38,8 @@ async function loadProfile(id: string) {
       id: userTable.id,
       name: userTable.name,
       image: userTable.image,
+      bio: userTable.bio,
+      educationStage: userTable.educationStage,
       createdAt: userTable.createdAt,
       trustLevel: userTrust.level,
     })
@@ -102,8 +104,12 @@ export default async function ProfilePage({ params }: ProfilePageProps) {
     <div className="mx-auto w-full max-w-3xl px-6 py-10">
       <Breadcrumb items={[{ label: '首页', href: '/' }, { label: profile.name }]} />
       <header className="flex items-start gap-4 border-ink-200 border-b pb-6">
-        <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-brand-100 font-semibold font-serif text-2xl text-brand-700">
-          {profile.name.slice(0, 1)}
+        <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-full bg-brand-100 font-semibold font-serif text-2xl text-brand-700">
+          {profile.image ? (
+            <img src={profile.image} alt={profile.name} className="h-full w-full object-cover" />
+          ) : (
+            profile.name.slice(0, 1)
+          )}
         </div>
         <div className="min-w-0">
           <h1 className="font-semibold font-serif text-2xl text-ink-900">{profile.name}</h1>
@@ -111,8 +117,14 @@ export default async function ProfilePage({ params }: ProfilePageProps) {
             <Badge variant="brand">
               TL{trustLevel} · {TRUST_LABEL[trustLevel] ?? '贡献者'}
             </Badge>
+            {profile.educationStage ? (
+              <Badge variant="outline">{profile.educationStage}</Badge>
+            ) : null}
             <span>加入于 {formatDate(profile.createdAt)}</span>
           </div>
+          {profile.bio ? (
+            <p className="mt-2 text-ink-600 text-sm leading-relaxed">{profile.bio}</p>
+          ) : null}
         </div>
       </header>
 
