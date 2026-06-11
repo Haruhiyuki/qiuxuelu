@@ -1,11 +1,12 @@
 // 通知读写辅助（非 Server Action）。写入通常在业务事务内调用（与事件同事务，不丢不重）。
 import type { Database } from '@harublog/db';
-import { notifications } from '@harublog/db';
-import { and, count, desc, eq, isNull } from 'drizzle-orm';
+import { notifications, user as userTable } from '@harublog/db';
+import { and, count, desc, eq, inArray, isNull } from 'drizzle-orm';
 
 export type NotificationKind =
   | 'comment_on_doc'
   | 'comment_reply'
+  | 'mention'
   | 'publish_approved'
   | 'publish_rejected'
   | 'doc_edited'
@@ -17,6 +18,35 @@ export type NotificationKind =
 
 type TxLike = Pick<Database, 'insert'>;
 type ReadLike = Pick<Database, 'select'>;
+
+// @用户名：与 setUsername 校验同规则（3–20 位字母数字下划线）
+const MENTION_RE = /@([a-zA-Z0-9_]{3,20})/g;
+
+/**
+ * 解析正文中的 @用户名，给被提及者发 mention 通知（按 username 唯一解析；发给自己自动跳过）。
+ * 在业务事务内调用，需同时具备 select（解析）与 insert（写通知）能力。
+ */
+export async function notifyMentions(
+  tx: Pick<Database, 'select' | 'insert'>,
+  params: { text: string; actorId: string; payload: Record<string, unknown> },
+): Promise<void> {
+  const names = [...new Set([...params.text.matchAll(MENTION_RE)].map((m) => m[1] as string))];
+  if (names.length === 0) {
+    return;
+  }
+  const rows = await tx
+    .select({ id: userTable.id })
+    .from(userTable)
+    .where(inArray(userTable.username, names));
+  for (const r of rows) {
+    await insertNotification(tx, {
+      recipientId: r.id,
+      actorId: params.actorId,
+      kind: 'mention',
+      payload: params.payload,
+    });
+  }
+}
 
 /**
  * 写一条通知。recipientId === actorId 时跳过（不给自己发通知）。

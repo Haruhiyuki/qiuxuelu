@@ -37,6 +37,7 @@ async function loadProfile(id: string) {
     .select({
       id: userTable.id,
       name: userTable.name,
+      username: userTable.username,
       image: userTable.image,
       bio: userTable.bio,
       educationStage: userTable.educationStage,
@@ -130,6 +131,7 @@ export default async function ProfilePage({ params }: ProfilePageProps) {
         </div>
         <div className="min-w-0">
           <h1 className="font-semibold font-serif text-2xl text-ink-900">{profile.name}</h1>
+          {profile.username ? <p className="text-ink-400 text-sm">@{profile.username}</p> : null}
           <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-ink-500 text-sm">
             <Badge variant="brand">
               TL{trustLevel} · {TRUST_LABEL[trustLevel] ?? '贡献者'}

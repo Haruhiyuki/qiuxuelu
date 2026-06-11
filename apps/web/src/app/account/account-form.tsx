@@ -8,7 +8,12 @@ import { type FormEvent, useRef, useState } from 'react';
 import { uploadImageFile } from '@/components/editor/upload';
 import { authClient } from '@/lib/auth-client';
 import { translateAuthError } from '@/lib/auth-errors';
-import { deleteMyAccount, setEmailNotifications, updateProfile } from '@/server/actions/account';
+import {
+  deleteMyAccount,
+  setEmailNotifications,
+  setUsername,
+  updateProfile,
+} from '@/server/actions/account';
 
 type Notice = { kind: 'info' | 'danger'; text: string } | null;
 
@@ -22,6 +27,7 @@ export function AccountForm({
   initialBio,
   initialEducationStage,
   initialImage,
+  initialUsername,
 }: {
   initialName: string;
   email: string;
@@ -30,6 +36,7 @@ export function AccountForm({
   initialBio: string;
   initialEducationStage: string;
   initialImage: string;
+  initialUsername: string;
 }) {
   const router = useRouter();
   const [name, setName] = useState(initialName);
@@ -39,6 +46,7 @@ export function AccountForm({
   const [bio, setBio] = useState(initialBio);
   const [stage, setStage] = useState(initialEducationStage);
   const [image, setImage] = useState(initialImage);
+  const [username, setUsernameField] = useState(initialUsername);
   const [profileNotice, setProfileNotice] = useState<Notice>(null);
   const [profileBusy, setProfileBusy] = useState(false);
   const avatarRef = useRef<HTMLInputElement | null>(null);
@@ -65,6 +73,15 @@ export function AccountForm({
     e.preventDefault();
     setProfileBusy(true);
     setProfileNotice(null);
+    // 先存用户名（含唯一性校验），失败则中止并提示
+    if (username.trim() !== initialUsername) {
+      const u = await setUsername(username);
+      if (!u.ok) {
+        setProfileNotice({ kind: 'danger', text: u.error });
+        setProfileBusy(false);
+        return;
+      }
+    }
     const r = await updateProfile({ bio, educationStage: stage });
     setProfileNotice(
       r.ok ? { kind: 'info', text: '资料已更新' } : { kind: 'danger', text: r.error },
@@ -222,6 +239,23 @@ export function AccountForm({
               }}
             />
           </div>
+        </div>
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="acc-username">用户名（@提及用）</Label>
+          <div className="flex items-center gap-2">
+            <span className="text-ink-400 text-sm">@</span>
+            <Input
+              id="acc-username"
+              value={username}
+              maxLength={20}
+              onChange={(e) => setUsernameField(e.target.value)}
+              placeholder="3–20 位字母、数字或下划线"
+              className="w-56"
+            />
+          </div>
+          <span className="text-ink-400 text-xs">
+            设置后他人可在评论中用 @你的用户名 提到你；留空表示不启用。
+          </span>
         </div>
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="acc-bio">简介</Label>

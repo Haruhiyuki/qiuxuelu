@@ -22,6 +22,7 @@ export default async function AccountPage() {
         bio: userTable.bio,
         educationStage: userTable.educationStage,
         image: userTable.image,
+        username: userTable.username,
       })
       .from(userTable)
       .where(eq(userTable.id, session.user.id))
@@ -47,6 +48,7 @@ export default async function AccountPage() {
         initialBio={prefRow?.bio ?? ''}
         initialEducationStage={prefRow?.educationStage ?? ''}
         initialImage={prefRow?.image ?? ''}
+        initialUsername={prefRow?.username ?? ''}
       />
     </div>
   );

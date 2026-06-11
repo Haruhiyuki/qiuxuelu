@@ -21,7 +21,7 @@ import { getSession } from '@/lib/session';
 import type { ActionResult } from '@/server/action-result';
 import { loadActor } from '@/server/actors';
 import { consentGate } from '@/server/consent';
-import { insertNotification } from '@/server/notifications';
+import { insertNotification, notifyMentions } from '@/server/notifications';
 import { emitTrustEvent, recomputeTrust } from '@/server/trust';
 
 function fail(error: string): { ok: false; error: string } {
@@ -176,6 +176,8 @@ export async function createComment(
           payload,
         });
       }
+      // @提及：正文里 @用户名 的人收到 mention 通知
+      await notifyMentions(tx, { text: body.data, actorId: actor.id, payload });
       // 信任：记一条评论事件并重算作者等级（可重放，跨过阈值即自动晋升）
       await emitTrustEvent(tx, {
         userId: actor.id,
@@ -371,6 +373,12 @@ export async function createInlineComment(
         recipientId: doc.ownerId,
         actorId: actor.id,
         kind: 'comment_on_doc',
+        payload: { docId: rawDocId, slug: doc.slug, title: doc.title, byName: session.user.name },
+      });
+      // @提及：批注正文里 @用户名 的人收到 mention 通知
+      await notifyMentions(tx, {
+        text: body.data,
+        actorId: actor.id,
         payload: { docId: rawDocId, slug: doc.slug, title: doc.title, byName: session.user.name },
       });
       return comment.id;

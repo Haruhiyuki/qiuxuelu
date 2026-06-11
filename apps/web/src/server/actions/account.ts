@@ -64,6 +64,41 @@ export async function updateProfile(input: {
   return { ok: true, data: null };
 }
 
+const usernameSchema = z
+  .string()
+  .regex(/^[a-zA-Z0-9_]{3,20}$/, '用户名为 3–20 位字母、数字或下划线');
+
+/** 设置/清空用户名（@提及的唯一标识）：空字符串=清空；校验格式 + 唯一性（排除自己）。 */
+export async function setUsername(raw: string): Promise<ActionResult> {
+  const session = await getSession();
+  if (!session) {
+    return { ok: false, error: '请先登录' };
+  }
+  const db = getDb();
+  const trimmed = raw.trim();
+  if (trimmed.length === 0) {
+    await db.update(userTable).set({ username: null }).where(eq(userTable.id, session.user.id));
+    return { ok: true, data: null };
+  }
+  const parsed = usernameSchema.safeParse(trimmed);
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message ?? '用户名非法' };
+  }
+  const taken = await db
+    .select({ id: userTable.id })
+    .from(userTable)
+    .where(eq(userTable.username, parsed.data))
+    .limit(1);
+  if (taken[0] !== undefined && taken[0].id !== session.user.id) {
+    return { ok: false, error: '该用户名已被占用' };
+  }
+  await db
+    .update(userTable)
+    .set({ username: parsed.data })
+    .where(eq(userTable.id, session.user.id));
+  return { ok: true, data: null };
+}
+
 /**
  * 注销账号（软删 + 匿名化）：保留内容与修订署名（显示为「已注销用户」），但清除 PII、
  * 失效会话与登录凭证、停用账号、不可再登录。需前端二次确认。不硬删——外键与贡献历史不破坏。
