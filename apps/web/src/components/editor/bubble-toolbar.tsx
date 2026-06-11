@@ -27,7 +27,7 @@ function Btn({
       }}
       className={cn(
         'h-7 min-w-7 rounded-sm px-1.5 text-sm',
-        active ? 'bg-brand-600 text-paper-50' : 'text-paper-100 hover:bg-ink-700',
+        active ? 'bg-fill text-on-fill' : 'text-on-overlay hover:bg-overlay-hover',
       )}
     >
       {children}
@@ -83,7 +83,7 @@ export function BubbleToolbar({ editor }: { editor: Editor }) {
           from !== to && !e.isActive('figure') && !e.isActive('mathBlock')
         }
       >
-        <div className="flex items-center gap-0.5 rounded-sm bg-ink-800 px-1 py-1 shadow-lg">
+        <div className="flex items-center gap-0.5 rounded-sm bg-overlay px-1 py-1 shadow-lg">
           <Btn
             title="加粗"
             active={state.bold}

@@ -23,6 +23,12 @@ export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="zh-CN">
       <body className="flex min-h-svh flex-col antialiased">
+        {/* 首帧前设好明暗 class，避免主题闪烁（FOUC）。内联同步执行，先于内容绘制。 */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `try{var t=localStorage.getItem('theme');if(t==='dark'||(!t&&matchMedia('(prefers-color-scheme: dark)').matches))document.documentElement.classList.add('dark')}catch(e){}`,
+          }}
+        />
         <ToastProvider>
           <SiteHeader />
           <main className="flex-1">{children}</main>

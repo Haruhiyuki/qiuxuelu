@@ -42,7 +42,7 @@ export function FlagReviewPanel({ subjectType, subjectId }: FlagReviewPanelProps
           type="button"
           onClick={() => act('uphold')}
           disabled={busy}
-          className="rounded-sm bg-accent-700 px-3 py-1.5 font-medium text-paper-50 text-sm hover:bg-accent-800 disabled:opacity-50"
+          className="rounded-sm bg-danger-fill px-3 py-1.5 font-medium text-on-fill text-sm hover:bg-danger-fill-hover disabled:opacity-50"
         >
           采纳（隐藏内容）
         </button>

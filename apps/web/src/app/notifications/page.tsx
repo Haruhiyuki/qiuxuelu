@@ -103,7 +103,7 @@ export default async function NotificationsPage() {
               <li key={row.id} className="flex items-start gap-3 py-4">
                 <span
                   className={`mt-1.5 size-2 shrink-0 rounded-full ${
-                    row.readAt === null ? 'bg-accent-600' : 'bg-ink-200'
+                    row.readAt === null ? 'bg-danger-fill' : 'bg-ink-200'
                   }`}
                   aria-hidden
                 />

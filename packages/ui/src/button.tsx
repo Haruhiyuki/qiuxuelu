@@ -18,11 +18,11 @@ const baseClasses =
   'disabled:pointer-events-none disabled:opacity-50';
 
 const variantClasses: Record<ButtonVariant, string> = {
-  primary: 'bg-brand-700 text-paper-50 hover:bg-brand-800',
+  primary: 'bg-fill text-on-fill hover:bg-fill-hover',
   secondary:
     'border border-ink-200 bg-paper-50 text-ink-800 hover:border-ink-300 hover:bg-paper-200',
   ghost: 'text-brand-700 hover:bg-brand-50',
-  danger: 'bg-accent-600 text-paper-50 hover:bg-accent-700 focus-visible:outline-accent-600',
+  danger: 'bg-danger-fill text-on-fill hover:bg-danger-fill-hover focus-visible:outline-accent-600',
 };
 
 const sizeClasses: Record<ButtonSize, string> = {

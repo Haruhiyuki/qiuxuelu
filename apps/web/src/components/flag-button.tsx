@@ -81,7 +81,7 @@ export function FlagButton({ subjectType, subjectId }: FlagButtonProps) {
           type="button"
           onClick={submit}
           disabled={busy}
-          className="rounded-sm bg-accent-700 px-2.5 py-1 font-medium text-paper-50 text-xs hover:bg-accent-800 disabled:opacity-50"
+          className="rounded-sm bg-danger-fill px-2.5 py-1 font-medium text-on-fill text-xs hover:bg-danger-fill-hover disabled:opacity-50"
         >
           {busy ? '提交中…' : '提交举报'}
         </button>

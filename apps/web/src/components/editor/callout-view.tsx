@@ -34,7 +34,7 @@ export function CalloutView({ node, updateAttributes, editor }: NodeViewProps) {
               onClick={() => updateAttributes({ variant: v.value })}
               className={cn(
                 'rounded-sm px-2 py-0.5 text-xs',
-                variant === v.value ? 'bg-ink-800 text-paper-50' : 'bg-paper-100 text-ink-500',
+                variant === v.value ? 'bg-overlay text-on-overlay' : 'bg-paper-100 text-ink-500',
               )}
             >
               {v.label}

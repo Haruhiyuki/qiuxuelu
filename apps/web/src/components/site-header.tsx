@@ -6,6 +6,7 @@ import { getSession } from '@/lib/session';
 import { hasPublishGrant, loadActor } from '@/server/actors';
 import { countUnread } from '@/server/notifications';
 import { SignOutButton } from './sign-out-button';
+import { ThemeToggle } from './theme-toggle';
 
 export async function SiteHeader() {
   const session = await getSession();
@@ -61,6 +62,7 @@ export async function SiteHeader() {
           >
             <Search className="h-5 w-5" aria-hidden />
           </Link>
+          <ThemeToggle />
           {session ? (
             <>
               <Link
@@ -69,7 +71,7 @@ export async function SiteHeader() {
               >
                 通知
                 {unread > 0 ? (
-                  <span className="ml-1 inline-flex min-w-[1.25rem] justify-center rounded-full bg-accent-600 px-1.5 py-0.5 text-xs font-medium text-paper-50">
+                  <span className="ml-1 inline-flex min-w-[1.25rem] justify-center rounded-full bg-danger-fill px-1.5 py-0.5 text-xs font-medium text-on-fill">
                     {unread > 99 ? '99+' : unread}
                   </span>
                 ) : null}
@@ -92,7 +94,7 @@ export async function SiteHeader() {
               </Link>
               <Link
                 href="/register"
-                className="rounded-sm bg-brand-700 px-3 py-1.5 font-medium text-paper-50 transition-colors hover:bg-brand-800"
+                className="rounded-sm bg-fill px-3 py-1.5 font-medium text-on-fill transition-colors hover:bg-fill-hover"
               >
                 注册
               </Link>

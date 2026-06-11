@@ -143,7 +143,7 @@ export function InlineComments({
             setOpen(true);
           }}
           style={{ left: pending.x, top: pending.y - 40 }}
-          className="-translate-x-1/2 fixed z-20 rounded-sm bg-ink-900 px-2.5 py-1 font-medium text-paper-50 text-xs shadow-md"
+          className="-translate-x-1/2 fixed z-20 rounded-sm bg-ink-900 px-2.5 py-1 font-medium text-on-fill text-xs shadow-md"
         >
           批注「{pending.quotedText.slice(0, 12)}
           {pending.quotedText.length > 12 ? '…' : ''}」

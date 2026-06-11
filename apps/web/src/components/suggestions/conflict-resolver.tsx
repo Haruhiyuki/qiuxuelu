@@ -102,7 +102,7 @@ export function ConflictResolver({
           type="button"
           onClick={submit}
           disabled={busy || !allChosen}
-          className="rounded-sm bg-brand-700 px-4 py-2 font-medium text-paper-50 text-sm hover:bg-brand-800 disabled:opacity-50"
+          className="rounded-sm bg-fill px-4 py-2 font-medium text-on-fill text-sm hover:bg-fill-hover disabled:opacity-50"
         >
           {busy ? '合入中…' : '按裁决合入'}
         </button>

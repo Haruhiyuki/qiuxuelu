@@ -67,6 +67,19 @@
   --color-ochre-800: #6a4c1e;
   --color-ochre-900: #533c18;
 
+  /* 语义填充令牌：解决「色阶在明暗下被复用于文字与填充」的冲突。
+   * 实心彩色按钮/徽章的填充与其上的近白文字走这些令牌（不随中性/品牌色阶翻转），
+   * 而链接文字、边框、表面、浅色 tint 继续用 brand/ink/paper 色阶（在 .dark 下整体翻转）。
+   * 明亮模式下这些值等于原先字面量，故视觉零变化。 */
+  --color-fill: #2b515a; /* 主按钮/CTA 填充（= 明亮 brand-700） */
+  --color-fill-hover: #244149; /* = brand-800 */
+  --color-on-fill: #fdfcfa; /* 填充上的近白文字（明暗都近白） */
+  --color-danger-fill: #b8503d; /* = accent-600 */
+  --color-danger-fill-hover: #9a4030; /* = accent-700 */
+  --color-overlay: #2e3033; /* 中性深色浮层（气泡菜单等）= ink-800 */
+  --color-overlay-hover: #3a3a3b; /* = ink-700 */
+  --color-on-overlay: #fdfcfa;
+
   /* 字体栈：正文零字体下载（架构红线 §7），全部走系统字体 */
   --font-serif: "Noto Serif SC", "Source Han Serif SC", "Songti SC", SimSun, Georgia, serif;
   --font-sans:
@@ -80,4 +93,81 @@
   --radius-sm: 4px;
   --radius-md: 6px;
   --radius-lg: 8px;
+}
+
+/*
+ * 深色模式（.dark 在 <html> 上）：整体翻转中性（paper/ink）与品牌/功能色阶，
+ * 并把语义填充令牌调到适配深底的对比度。组件无需改 class——它们引用的 --color-* 在此被覆盖。
+ * 设计取舍：暖中性（略带墨绿/褐的近黑），保持「纸页」气质而非纯黑；链接/正文均满足 WCAG AA。
+ */
+.dark {
+  /* 纸面 → 深色表面（50=卡片/输入面，100=页面底，200=代码/hover，300=更高一层） */
+  --color-paper-50: #1f2123;
+  --color-paper-100: #191b1d;
+  --color-paper-200: #2a2d30;
+  --color-paper-300: #34383c;
+
+  /* 墨色翻转：低段=深表面/边框，高段=浅色文字 */
+  --color-ink-50: #202225;
+  --color-ink-100: #282b2e;
+  --color-ink-200: #3a3e43;
+  --color-ink-300: #4e5358;
+  --color-ink-400: #888f98;
+  --color-ink-500: #9ca3ab;
+  --color-ink-600: #b4babf;
+  --color-ink-700: #cbd0d5;
+  --color-ink-800: #e1e4e8;
+  --color-ink-900: #f1f3f5;
+  --color-ink-950: #fafbfc;
+
+  /* 黛青：tint（50/100）压深、文字/锚点（600-900）提亮，保证深底可读 */
+  --color-brand-50: #15282d;
+  --color-brand-100: #1d3b42;
+  --color-brand-200: #2a5560;
+  --color-brand-300: #6f9ca6;
+  --color-brand-400: #82aab4;
+  --color-brand-500: #93bcc6;
+  --color-brand-600: #6f9ca6;
+  --color-brand-700: #9ec8d1; /* 链接文字：深底浅青 */
+  --color-brand-800: #b8d9df;
+  --color-brand-900: #d2e7eb;
+
+  /* 朱砂：错误/批注文字提亮，tint 压深 */
+  --color-accent-50: #2d1613;
+  --color-accent-100: #43201b;
+  --color-accent-200: #5c2e25;
+  --color-accent-300: #8a4a3c;
+  --color-accent-400: #b4604c;
+  --color-accent-500: #c87662;
+  --color-accent-600: #cf8170;
+  --color-accent-700: #dc9a8a; /* 错误文字 */
+  --color-accent-800: #e6b3a6;
+  --color-accent-900: #efccc2;
+
+  /* 青绿（tip/成功）与赭黄（warn）：tint 压深、文字提亮 */
+  --color-moss-50: #16241b;
+  --color-moss-100: #1f3527;
+  --color-moss-200: #2c4a38;
+  --color-moss-600: #6f9c82;
+  --color-moss-700: #88b099;
+  --color-moss-800: #a4c6b2;
+  --color-moss-900: #c6ddd0;
+
+  --color-ochre-50: #2a2010;
+  --color-ochre-100: #3e2f16;
+  --color-ochre-200: #574122;
+  --color-ochre-600: #c19a5a;
+  --color-ochre-700: #d2b078;
+  --color-ochre-800: #e0c79a;
+  --color-ochre-900: #ecdcbe;
+
+  /* 语义填充：深底下提亮一档以从背景中跳出，文字仍近白 */
+  --color-fill: #3f6f7a;
+  --color-fill-hover: #4e828d;
+  --color-on-fill: #f1f3f5;
+  --color-danger-fill: #b85947;
+  --color-danger-fill-hover: #c96b58;
+  --color-overlay: #34383c;
+  --color-overlay-hover: #43484e;
+  --color-on-overlay: #f1f3f5;
 }

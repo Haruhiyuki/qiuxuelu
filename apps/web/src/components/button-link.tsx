@@ -20,7 +20,7 @@ const baseClasses =
   'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600';
 
 const variantClasses: Record<ButtonLinkVariant, string> = {
-  primary: 'bg-brand-700 text-paper-50 hover:bg-brand-800',
+  primary: 'bg-fill text-on-fill hover:bg-fill-hover',
   secondary:
     'border border-ink-200 bg-paper-50 text-ink-800 hover:border-ink-300 hover:bg-paper-200',
   ghost: 'text-brand-700 hover:bg-brand-50',

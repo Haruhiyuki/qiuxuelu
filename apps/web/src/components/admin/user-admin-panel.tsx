@@ -252,7 +252,7 @@ export function UserAdminPanel(props: UserAdminPanelProps) {
                   '已签发制裁',
                 )
               }
-              className="rounded-sm bg-accent-700 px-2 py-1 font-medium text-paper-50 hover:bg-accent-800"
+              className="rounded-sm bg-danger-fill px-2 py-1 font-medium text-on-fill hover:bg-danger-fill-hover"
             >
               签发
             </button>

@@ -73,7 +73,7 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
         />
         <button
           type="submit"
-          className="rounded-sm bg-brand-700 px-4 font-medium text-paper-50 hover:bg-brand-800"
+          className="rounded-sm bg-fill px-4 font-medium text-on-fill hover:bg-fill-hover"
         >
           搜索
         </button>

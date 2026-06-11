@@ -87,7 +87,7 @@ export function SuggestionActions({
             type="button"
             disabled={busy}
             onClick={handleMerge}
-            className="rounded-sm bg-brand-700 px-3 py-1.5 font-medium text-paper-50 text-sm hover:bg-brand-800 disabled:opacity-50"
+            className="rounded-sm bg-fill px-3 py-1.5 font-medium text-on-fill text-sm hover:bg-fill-hover disabled:opacity-50"
           >
             采纳并合入
           </button>
@@ -137,7 +137,7 @@ export function SuggestionActions({
             type="button"
             disabled={busy}
             onClick={() => run(requestSuggestionChanges(suggestionId, note))}
-            className="self-start rounded-sm bg-brand-700 px-3 py-1.5 font-medium text-paper-50 text-sm hover:bg-brand-800"
+            className="self-start rounded-sm bg-fill px-3 py-1.5 font-medium text-on-fill text-sm hover:bg-fill-hover"
           >
             发送修改要求
           </button>
@@ -170,7 +170,7 @@ export function SuggestionActions({
             type="button"
             disabled={busy || reason === ''}
             onClick={() => run(rejectSuggestion(suggestionId, reason, note))}
-            className="self-start rounded-sm bg-accent-700 px-3 py-1.5 font-medium text-paper-50 text-sm hover:bg-accent-800 disabled:opacity-50"
+            className="self-start rounded-sm bg-danger-fill px-3 py-1.5 font-medium text-on-fill text-sm hover:bg-danger-fill-hover disabled:opacity-50"
           >
             确认驳回
           </button>
