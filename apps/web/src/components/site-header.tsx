@@ -21,12 +21,15 @@ export async function SiteHeader() {
 
   return (
     <header className="border-b border-ink-200 bg-paper-50">
-      <div className="mx-auto flex h-14 w-full max-w-5xl items-center justify-between px-6">
-        <div className="flex items-baseline gap-8">
-          <Link href="/" className="font-serif text-xl font-semibold tracking-wide text-ink-900">
+      <div className="mx-auto flex h-14 w-full max-w-5xl items-center justify-between gap-3 px-4 sm:px-6">
+        <div className="flex items-baseline gap-4 sm:gap-8">
+          <Link
+            href="/"
+            className="shrink-0 whitespace-nowrap font-serif text-xl font-semibold tracking-wide text-ink-900"
+          >
             {SITE_NAME}
           </Link>
-          <nav className="flex items-center gap-5 text-sm">
+          <nav className="flex items-center gap-3 text-sm sm:gap-5">
             <Link href="/#sections" className="text-ink-600 transition-colors hover:text-brand-700">
               板块
             </Link>
