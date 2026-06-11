@@ -75,8 +75,10 @@ infra/              docker-compose（PostgreSQL + Meilisearch）/ 部署配置
 - **M1 可发布的博客** ✅：块编辑器与提交、发布审批工作台、修订 diff 可视化、回滚、文末评论、站内通知、Meilisearch 块级中文搜索 + worker。
 - **M2 社区底座** ✅：行内评论 + 锚点重映射（worker 重映射，存活/重定位/失锚三态）、信任引擎结算（可重放）、协作直编已发布文章 + 巡查队列、举报与制裁、管理后台、审计日志查看。
 - **M3 建议与审校** ✅：编辑建议=真实修订分支、补丁 diff、审校队列、要求修改/驳回/撤回、三方合并（主线未动→快进、前移→自动变基）、三栏逐块冲突裁决、信任联动（建议被采纳是 TL3 核心指标）。
-- **M4 实时协作** ✅：**Hocuspocus + Yjs 草稿态协作（仅作者/编辑/TL4）、在场光标、checkpoint 缝合（Y.Doc 定期归档为 collab_checkpoint 修订，修订是唯一真相，断网重连不丢字）**。
-- M5 起：语义搜索、数据导出（CC 协议开放 dump）、透明度报告、备份演练（见 `docs/02-architecture.md` §8）。
+- **M4 实时协作** ✅：Hocuspocus + Yjs 草稿态协作（仅作者/编辑/TL4）、在场光标、checkpoint 缝合（Y.Doc 定期归档为 collab_checkpoint 修订，修订是唯一真相，断网重连不丢字）。
+- **M5 规模化** ✅：**数据导出（worker NDJSON dump + 公开 /api/export，自带 CC BY-SA 与贡献者署名）、公开透明度报告 /transparency、备份恢复演练（RTO<1h/RPO<5min，已实跑）、可插拔语义/混合检索（bge-m3）**。
+
+五个架构里程碑（M0–M5）已全部交付，详见 `docs/02-architecture.md` §8。
 
 ## 许可
 
