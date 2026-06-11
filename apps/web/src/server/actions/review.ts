@@ -31,6 +31,7 @@ import type { ActionResult } from '@/server/action-result';
 import { loadActor } from '@/server/actors';
 import { insertNotification } from '@/server/notifications';
 import { loadRevisionDoc } from '@/server/revision-doc';
+import { emitTrustEvent, recomputeTrust } from '@/server/trust';
 
 class ActionError extends Error {}
 
@@ -239,6 +240,16 @@ export async function approvePublish(rawRequestId: string): Promise<ActionResult
       await tx
         .insert(searchOutbox)
         .values({ topic: 'doc.published', payload: { docId: request.documentId } });
+      // 信任：作者文章过审发布，记事件并重算其等级
+      if (request.requesterId !== null) {
+        await emitTrustEvent(tx, {
+          userId: request.requesterId,
+          kind: 'doc_published',
+          refType: 'document',
+          refId: request.documentId,
+        });
+        await recomputeTrust(tx, request.requesterId);
+      }
     });
     return { ok: true, data: null };
   } catch (err) {
