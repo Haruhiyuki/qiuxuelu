@@ -1,3 +1,4 @@
+import { SITE_NAME } from '@harublog/config';
 import {
   commentAnchors,
   comments,
@@ -18,8 +19,10 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { CommentSection } from '@/components/comments/comment-section';
 import { InlineComments, type InlineCommentView } from '@/components/comments/inline-comments';
+import { JsonLd } from '@/components/seo/json-ld';
 import { formatDate, formatDateTime } from '@/lib/format';
 import { getSession } from '@/lib/session';
+import { SITE_URL } from '@/lib/site-url';
 import { loadActor } from '@/server/actors';
 
 // M0 一律请求期动态渲染；ISR + revalidateTag 是 M1 的事
@@ -84,9 +87,11 @@ export async function generateMetadata({ params }: ArticlePageProps): Promise<Me
       title: article.title,
       description,
       type: 'article',
+      url: `${SITE_URL}/a/${article.slug}`,
       publishedTime: article.publishedAt.toISOString(),
       modifiedTime: article.revisedAt.toISOString(),
     },
+    twitter: { card: 'summary', title: article.title, description },
   };
 }
 
@@ -161,8 +166,50 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
     createdAtLabel: formatDateTime(r.createdAt),
   }));
 
+  const articleUrl = `${SITE_URL}/a/${article.slug}`;
+  const description = buildDescription(article.summary, article.content);
+  const authorLd =
+    article.ownerId !== null
+      ? {
+          '@type': 'Person',
+          name: article.authorName ?? '佚名',
+          url: `${SITE_URL}/u/${article.ownerId}`,
+        }
+      : { '@type': 'Person', name: article.authorName ?? '佚名' };
+
   return (
     <div className="mx-auto w-full max-w-6xl px-6 py-10 lg:grid lg:grid-cols-[minmax(0,1fr)_220px] lg:gap-12">
+      <JsonLd
+        data={{
+          '@context': 'https://schema.org',
+          '@type': 'Article',
+          headline: article.title,
+          ...(description.length > 0 ? { description } : {}),
+          datePublished: article.publishedAt.toISOString(),
+          dateModified: article.revisedAt.toISOString(),
+          author: authorLd,
+          publisher: { '@type': 'Organization', name: SITE_NAME },
+          mainEntityOfPage: articleUrl,
+          inLanguage: 'zh-CN',
+          license: 'https://creativecommons.org/licenses/by-sa/4.0/',
+        }}
+      />
+      <JsonLd
+        data={{
+          '@context': 'https://schema.org',
+          '@type': 'BreadcrumbList',
+          itemListElement: [
+            { '@type': 'ListItem', position: 1, name: '首页', item: SITE_URL },
+            {
+              '@type': 'ListItem',
+              position: 2,
+              name: article.sectionName,
+              item: `${SITE_URL}/s/${article.sectionSlug}`,
+            },
+            { '@type': 'ListItem', position: 3, name: article.title, item: articleUrl },
+          ],
+        }}
+      />
       <article>
         <header className="border-b border-ink-200 pb-8">
           <nav aria-label="面包屑" className="text-sm text-ink-500">
