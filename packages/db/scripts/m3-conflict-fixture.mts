@@ -24,9 +24,13 @@ import {
 const db = getDb();
 
 async function main(): Promise<void> {
-  const sg = (await db.select().from(suggestions).where(eq(suggestions.status, 'open')).limit(1))[0];
+  const sg = (
+    await db.select().from(suggestions).where(eq(suggestions.status, 'open')).limit(1)
+  )[0];
   if (!sg) throw new Error('没有 open 建议，先跑 m3-suggestion-fixture');
-  const doc = (await db.select().from(documents).where(eq(documents.id, sg.documentId)).limit(1))[0];
+  const doc = (
+    await db.select().from(documents).where(eq(documents.id, sg.documentId)).limit(1)
+  )[0];
   if (!doc) throw new Error('文档缺失');
 
   const pubRev = (
@@ -39,7 +43,11 @@ async function main(): Promise<void> {
   if (!pubRev) throw new Error('无发布修订');
 
   const baseBlocks = await db
-    .select({ blockId: revisionBlocks.blockId, hash: revisionBlocks.blobHash, content: blobs.content })
+    .select({
+      blockId: revisionBlocks.blockId,
+      hash: revisionBlocks.blobHash,
+      content: blobs.content,
+    })
     .from(revisionBlocks)
     .innerJoin(blobs, eq(blobs.hash, revisionBlocks.blobHash))
     .where(eq(revisionBlocks.revisionId, pubRev))
@@ -48,10 +56,16 @@ async function main(): Promise<void> {
   // 主线把首块改成另一种说法（与建议不同 → 冲突）
   const content = baseBlocks.map((b, i) => {
     const node = b.content as Record<string, unknown>;
-    const attrs = (typeof node.attrs === 'object' && node.attrs ? node.attrs : {}) as Record<string, unknown>;
+    const attrs = (typeof node.attrs === 'object' && node.attrs ? node.attrs : {}) as Record<
+      string,
+      unknown
+    >;
     const withId = { ...node, attrs: { ...attrs, blockId: b.blockId } };
     if (i === 0) {
-      return { ...withId, content: [{ type: 'text', text: '【主线】高三这一年，效率与方法决定一切。' }] };
+      return {
+        ...withId,
+        content: [{ type: 'text', text: '【主线】高三这一年，效率与方法决定一切。' }],
+      };
     }
     return withId;
   });
@@ -96,7 +110,12 @@ async function main(): Promise<void> {
     blocksChanged: 1,
   });
   await db.insert(revisionBlocks).values(
-    manifest.entries.map((e, position) => ({ revisionId: newRev, position, blockId: e.blockId, blobHash: e.hash })),
+    manifest.entries.map((e, position) => ({
+      revisionId: newRev,
+      position,
+      blockId: e.blockId,
+      blobHash: e.hash,
+    })),
   );
   await db
     .update(documentRefs)
