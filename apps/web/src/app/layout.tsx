@@ -1,4 +1,5 @@
 import { SITE_DESCRIPTION, SITE_NAME } from '@harublog/config';
+import { ToastProvider } from '@harublog/ui';
 import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
 import { SiteFooter } from '@/components/site-footer';
@@ -22,9 +23,11 @@ export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="zh-CN">
       <body className="flex min-h-svh flex-col antialiased">
-        <SiteHeader />
-        <main className="flex-1">{children}</main>
-        <SiteFooter />
+        <ToastProvider>
+          <SiteHeader />
+          <main className="flex-1">{children}</main>
+          <SiteFooter />
+        </ToastProvider>
       </body>
     </html>
   );

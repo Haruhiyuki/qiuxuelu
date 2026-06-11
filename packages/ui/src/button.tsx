@@ -1,5 +1,6 @@
 import type { ComponentProps } from 'react';
 import { cn } from './cn';
+import { Spinner } from './spinner';
 
 export type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger';
 export type ButtonSize = 'sm' | 'md';
@@ -7,6 +8,8 @@ export type ButtonSize = 'sm' | 'md';
 export interface ButtonProps extends ComponentProps<'button'> {
   variant?: ButtonVariant;
   size?: ButtonSize;
+  /** 加载态：显示 spinner 并禁用，避免重复提交。 */
+  loading?: boolean;
 }
 
 const baseClasses =
@@ -32,14 +35,22 @@ export function Button({
   size = 'md',
   // 浏览器默认 type 是 submit，表单内极易误触提交；显式收紧为 button，调用方可透传覆盖
   type = 'button',
+  loading = false,
+  disabled,
   className,
+  children,
   ...props
 }: ButtonProps) {
   return (
     <button
       type={type}
+      disabled={disabled || loading}
+      aria-busy={loading || undefined}
       className={cn(baseClasses, variantClasses[variant], sizeClasses[size], className)}
       {...props}
-    />
+    >
+      {loading ? <Spinner /> : null}
+      {children}
+    </button>
   );
 }
