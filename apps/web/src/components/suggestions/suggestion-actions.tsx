@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { REJECT_REASON_CODES, REJECT_REASON_LABELS } from '@/lib/review-reasons';
 import {
+  mergeSuggestion,
   rejectSuggestion,
   requestSuggestionChanges,
   withdrawSuggestion,
@@ -14,8 +15,6 @@ export interface SuggestionActionsProps {
   status: string;
   isAuthor: boolean;
   canReview: boolean;
-  /** 步骤③接入：审校者可见「采纳合入」。 */
-  mergeSlot?: React.ReactNode;
 }
 
 const ACTIVE = new Set(['open', 'under_review', 'changes_requested', 'outdated']);
@@ -25,7 +24,6 @@ export function SuggestionActions({
   status,
   isAuthor,
   canReview,
-  mergeSlot,
 }: SuggestionActionsProps) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
@@ -53,12 +51,43 @@ export function SuggestionActions({
 
   const reviewerCanAct = canReview && !isAuthor && status !== 'outdated';
 
+  async function handleMerge() {
+    if (
+      !window.confirm(
+        '确认采纳并合入这份建议？将三方合并后更新正文（主线未动则快进、已前移则自动变基）。',
+      )
+    ) {
+      return;
+    }
+    setBusy(true);
+    setMsg(null);
+    const r = await mergeSuggestion(suggestionId, {});
+    if (r.ok && r.data.merged) {
+      router.refresh();
+    } else if (r.ok && !r.data.merged) {
+      // 存在冲突 → 前往逐块裁决页（步骤④）
+      router.push(`/suggestions/${suggestionId}/resolve`);
+    } else if (!r.ok) {
+      setMsg(r.error);
+      setBusy(false);
+    }
+  }
+
   return (
     <div className="mt-6 flex flex-col gap-3 border-ink-200 border-t pt-6">
       {msg !== null ? <p className="text-accent-700 text-sm">{msg}</p> : null}
 
       <div className="flex flex-wrap items-center gap-3">
-        {reviewerCanAct ? mergeSlot : null}
+        {reviewerCanAct ? (
+          <button
+            type="button"
+            disabled={busy}
+            onClick={handleMerge}
+            className="rounded-sm bg-brand-700 px-3 py-1.5 font-medium text-paper-50 text-sm hover:bg-brand-800 disabled:opacity-50"
+          >
+            采纳并合入
+          </button>
+        ) : null}
         {reviewerCanAct ? (
           <>
             <button

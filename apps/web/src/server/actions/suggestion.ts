@@ -10,10 +10,12 @@ import {
   documentRefs,
   documents,
   getDb,
+  publishedSnapshots,
   reviewItems,
   revisionBlocks,
   revisionChanges,
   revisions,
+  searchOutbox,
   suggestions,
 } from '@harublog/db';
 import {
@@ -23,7 +25,7 @@ import {
   type SuggestionStatus,
   transitionSuggestion,
 } from '@harublog/domain';
-import type { BlockNode, DocJson, ManifestEntry } from '@harublog/kernel';
+import type { BlockNode, DocJson, ManifestEntry, MergeConflict } from '@harublog/kernel';
 import {
   buildManifest,
   CANON_VERSION,
@@ -31,6 +33,7 @@ import {
   diffManifests,
   extractText,
   SCHEMA_VERSION,
+  threeWayMerge,
   validateDoc,
 } from '@harublog/kernel';
 import { and, asc, eq, inArray, sql } from 'drizzle-orm';
@@ -41,6 +44,7 @@ import type { ActionResult } from '@/server/action-result';
 import { loadActor } from '@/server/actors';
 import { hashManifest, toDbBlockId } from '@/server/block-identity';
 import { insertNotification } from '@/server/notifications';
+import { loadRevisionDoc } from '@/server/revision-doc';
 import { emitTrustEvent, recomputeTrust } from '@/server/trust';
 
 function fail(error: string): { ok: false; error: string } {
@@ -565,4 +569,264 @@ async function closeQueue(
         eq(reviewItems.subjectId, suggestionId),
       ),
     );
+}
+
+// ── 接受建议：三方块级合并（快进/自动变基/冲突裁决，ADR-0004 §3.3）──────────────
+
+/** 冲突裁决结果：blockId → 采用主线(ours)还是建议(theirs)。 */
+export type ConflictResolutions = Record<string, 'ours' | 'theirs'>;
+
+export interface ConflictView {
+  blockId: string;
+  baseHash: string | null;
+  oursHash: string | null;
+  theirsHash: string | null;
+}
+
+export type MergeOutcome =
+  | { merged: true; seq: number }
+  | { merged: false; conflicts: ConflictView[] };
+
+/** 把冲突裁决应用到合并结果 entries 上（both-modified→换 hash；删/改→按选择增删）。 */
+function applyResolutions(
+  entries: ManifestEntry[],
+  conflicts: MergeConflict[],
+  resolutions: ConflictResolutions,
+): ManifestEntry[] {
+  const out = entries.map((e) => ({ ...e }));
+  for (const c of conflicts) {
+    const choice = resolutions[c.blockId];
+    const chosenHash = choice === 'theirs' ? c.theirsHash : c.oursHash;
+    const idx = out.findIndex((e) => e.blockId === c.blockId);
+    if (chosenHash === null) {
+      if (idx >= 0) out.splice(idx, 1);
+    } else if (idx >= 0) {
+      const cur = out[idx];
+      if (cur !== undefined) cur.hash = chosenHash;
+    } else {
+      out.push({ blockId: c.blockId, hash: chosenHash });
+    }
+  }
+  return out;
+}
+
+async function entriesOf(
+  tx: Pick<ReturnType<typeof getDb>, 'select'>,
+  revisionId: string,
+): Promise<ManifestEntry[]> {
+  const rows = await tx
+    .select({ blockId: revisionBlocks.blockId, hash: revisionBlocks.blobHash })
+    .from(revisionBlocks)
+    .where(eq(revisionBlocks.revisionId, revisionId))
+    .orderBy(asc(revisionBlocks.position));
+  return rows.map((r) => ({ blockId: r.blockId, hash: r.hash }));
+}
+
+export async function mergeSuggestion(
+  rawId: string,
+  resolutions: ConflictResolutions = {},
+): Promise<ActionResult<MergeOutcome>> {
+  const session = await getSession();
+  if (!session) return fail('请先登录');
+  const actor = await loadActor(session.user.id);
+  if (!actor || !uuidSchema.safeParse(rawId).success) return fail('参数非法');
+
+  const db = getDb();
+  const sgRows = await db
+    .select({
+      id: suggestions.id,
+      documentId: suggestions.documentId,
+      authorId: suggestions.authorId,
+      baseRevisionId: suggestions.baseRevisionId,
+      headRevisionId: suggestions.headRevisionId,
+      status: suggestions.status,
+      sectionId: documents.sectionId,
+      ownerId: documents.ownerId,
+      slug: documents.slug,
+      title: documents.title,
+    })
+    .from(suggestions)
+    .innerJoin(documents, eq(documents.id, suggestions.documentId))
+    .where(eq(suggestions.id, rawId))
+    .limit(1);
+  const sg = sgRows[0];
+  if (!sg) return fail('建议不存在');
+  if (!['open', 'under_review', 'changes_requested'].includes(sg.status)) {
+    return fail('该建议已结案，无法合入');
+  }
+  const decision = can(actor, 'suggestion.merge', {
+    sectionId: sg.sectionId,
+    doc: {
+      id: sg.documentId,
+      ownerId: sg.ownerId ?? '',
+      editPolicy: 'suggest_only',
+      status: 'published',
+    },
+  });
+  if (!decision.allow) return fail(explainDeny(decision.reason));
+  if (!canActOnSuggestion('merge', { isAuthor: sg.authorId === actor.id, isReviewer: true })) {
+    return fail('不能合入自己提交的建议');
+  }
+
+  try {
+    const outcome = await db.transaction(async (tx): Promise<MergeOutcome> => {
+      // 三方：base=建议基底、ours=当前发布修订（主线）、theirs=建议头
+      const pubRows = await tx
+        .select({ revisionId: documentRefs.revisionId })
+        .from(documentRefs)
+        .where(and(eq(documentRefs.documentId, sg.documentId), eq(documentRefs.name, 'published')))
+        .limit(1);
+      const oursHead = pubRows[0]?.revisionId;
+      if (oursHead === undefined) throw new Error('文章无发布修订');
+
+      const [baseEntries, oursEntries, theirsEntries] = await Promise.all([
+        entriesOf(tx, sg.baseRevisionId),
+        entriesOf(tx, oursHead),
+        entriesOf(tx, sg.headRevisionId),
+      ]);
+
+      const merge = threeWayMerge(baseEntries, oursEntries, theirsEntries);
+      const unresolved = merge.conflicts.filter((c) => resolutions[c.blockId] === undefined);
+      if (unresolved.length > 0) {
+        // 存在未裁决冲突：不写入，回传冲突清单供 UI 逐块裁决（步骤④）
+        return {
+          merged: false,
+          conflicts: merge.conflicts.map((c) => ({
+            blockId: c.blockId,
+            baseHash: c.baseHash,
+            oursHash: c.oursHash,
+            theirsHash: c.theirsHash,
+          })),
+        };
+      }
+      const finalEntries = applyResolutions(merge.entries, merge.conflicts, resolutions);
+
+      const changes = diffManifests(oursEntries, finalEntries);
+      if (changes.length === 0) {
+        // 主线已包含该建议的全部改动（殊途同归），直接结案为已合入
+        await tx
+          .update(suggestions)
+          .set({
+            status: 'merged',
+            resolvedBy: actor.id,
+            resolvedAt: new Date(),
+            mergedRevisionId: oursHead,
+          })
+          .where(eq(suggestions.id, rawId));
+        await closeQueue(tx, rawId);
+        return { merged: true, seq: 0 };
+      }
+
+      const maxSeqRows = await tx
+        .select({ maxSeq: sql<number>`coalesce(max(${revisions.seq}), 0)` })
+        .from(revisions)
+        .where(eq(revisions.documentId, sg.documentId));
+      const newSeq = Number(maxSeqRows[0]?.maxSeq ?? 0) + 1;
+      const baseSchema = await tx
+        .select({ schemaVersion: revisions.schemaVersion })
+        .from(revisions)
+        .where(eq(revisions.id, oursHead))
+        .limit(1);
+
+      const merged = await tx
+        .insert(revisions)
+        .values({
+          documentId: sg.documentId,
+          seq: newSeq,
+          parentId: oursHead, // 主线父
+          mergeParentId: sg.headRevisionId, // 第二父=建议头
+          authorId: sg.authorId, // 内容作者=建议人
+          committerId: actor.id, // 落盘者=审校者（双署名）
+          kind: 'merge_suggestion',
+          message: '合入编辑建议',
+          manifestHash: hashManifest(finalEntries),
+          schemaVersion: baseSchema[0]?.schemaVersion ?? SCHEMA_VERSION,
+          blocksChanged: changes.length,
+          // suggestionId 留空：merge commit 在主线
+        })
+        .returning({ id: revisions.id });
+      const mergeRevId = merged[0]?.id;
+      if (mergeRevId === undefined) throw new Error('合并修订写入失败');
+
+      await tx.insert(revisionBlocks).values(
+        finalEntries.map((e, position) => ({
+          revisionId: mergeRevId,
+          position,
+          blockId: e.blockId,
+          blobHash: e.hash,
+        })),
+      );
+      await tx.insert(revisionChanges).values(changes.map((c) => toChangeRow(mergeRevId, c)));
+
+      // CAS 移 published（expected = 合并所基于的主线头）
+      const now = new Date();
+      const moved = await tx
+        .update(documentRefs)
+        .set({ revisionId: mergeRevId, updatedAt: now })
+        .where(
+          and(
+            eq(documentRefs.documentId, sg.documentId),
+            eq(documentRefs.name, 'published'),
+            eq(documentRefs.revisionId, oursHead),
+          ),
+        )
+        .returning({ documentId: documentRefs.documentId });
+      if (moved.length === 0) throw new Error('合并冲突：主线在合入期间已更新，请重试');
+
+      const assembled = await loadRevisionDoc(tx, mergeRevId);
+      const snapshot = validateDoc(assembled);
+      await tx
+        .update(publishedSnapshots)
+        .set({ revisionId: mergeRevId, content: snapshot, publishedAt: now })
+        .where(eq(publishedSnapshots.documentId, sg.documentId));
+      await tx.update(documents).set({ updatedAt: now }).where(eq(documents.id, sg.documentId));
+      await tx
+        .insert(searchOutbox)
+        .values({ topic: 'doc.published', payload: { docId: sg.documentId } });
+
+      await tx
+        .update(suggestions)
+        .set({
+          status: 'merged',
+          resolvedBy: actor.id,
+          resolvedAt: now,
+          mergedRevisionId: mergeRevId,
+        })
+        .where(eq(suggestions.id, rawId));
+      await closeQueue(tx, rawId);
+
+      // 信任：建议被合入（核心晋升指标）+ 重算作者
+      if (sg.authorId !== null) {
+        await emitTrustEvent(tx, {
+          userId: sg.authorId,
+          kind: 'suggestion_merged',
+          refType: 'suggestion',
+          refId: rawId,
+        });
+        await recomputeTrust(tx, sg.authorId, now);
+        await insertNotification(tx, {
+          recipientId: sg.authorId,
+          actorId: actor.id,
+          kind: 'suggestion_merged',
+          payload: { docId: sg.documentId, slug: sg.slug, title: sg.title, suggestionId: rawId },
+        });
+      }
+      await tx.insert(auditLog).values({
+        actorId: actor.id,
+        action: 'suggestion.merge',
+        subjectType: 'suggestion',
+        subjectId: rawId,
+        sectionId: sg.sectionId,
+        detail: {
+          documentId: sg.documentId,
+          mergeRevisionId: mergeRevId,
+          fastForward: merge.fastForward,
+        },
+      });
+      return { merged: true, seq: newSeq };
+    });
+    return { ok: true, data: outcome };
+  } catch (err) {
+    return fail(err instanceof Error ? err.message : '合入失败，请稍后重试');
+  }
 }

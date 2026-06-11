@@ -7,6 +7,7 @@ import {
   flags,
   revisions,
   siteSettings,
+  suggestions,
   trustEvents,
   user as userTable,
   userTrust,
@@ -74,19 +75,38 @@ export async function computeUserStats(
   const windowStart = new Date(now.getTime() - windowDays * MS_PER_DAY);
   const windowActiveDays = await countActiveDays(db, userId, windowStart);
   const flagsAccuracy = await computeFlagsAccuracy(db, userId, windowStart);
+  const sg = await computeSuggestionWindow(db, userId, windowStart);
 
   return {
     accountAgeDays,
     activeDays,
     commentsPosted,
     window: {
-      // suggestionsMerged / mergeRejectRatio 属 M3 建议流程，暂记 0
-      suggestionsMerged: 0,
-      mergeRejectRatio: 0,
+      suggestionsMerged: sg.merged,
+      mergeRejectRatio: sg.rejectRatio,
       flagsAccuracy,
       activeDays: windowActiveDays,
     },
   };
+}
+
+/** 窗口内建议合入数与被拒比例（喂 TL3 晋升条件）。无已裁决建议时 rejectRatio 记 0。 */
+async function computeSuggestionWindow(
+  db: Pick<Database, 'select'>,
+  userId: string,
+  windowStart: Date,
+): Promise<{ merged: number; rejectRatio: number }> {
+  const rows = await db
+    .select({
+      merged: sql<number>`count(*) filter (where ${suggestions.status} = 'merged')`,
+      rejected: sql<number>`count(*) filter (where ${suggestions.status} = 'rejected')`,
+    })
+    .from(suggestions)
+    .where(and(eq(suggestions.authorId, userId), gte(suggestions.createdAt, windowStart)));
+  const merged = Number(rows[0]?.merged ?? 0);
+  const rejected = Number(rows[0]?.rejected ?? 0);
+  const decided = merged + rejected;
+  return { merged, rejectRatio: decided === 0 ? 0 : rejected / decided };
 }
 
 /** 窗口内举报命中率 = upheld / (upheld + dismissed)；无已裁决举报时记 1（不因未举报卡晋升）。 */
