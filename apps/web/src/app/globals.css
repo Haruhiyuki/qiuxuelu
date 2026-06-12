@@ -72,6 +72,60 @@
   }
 }
 
+/* 横向滚动条隐藏：移动端横滑的工具条 / 标签条保留滚动与触屏惯性，但不显示滚动条 */
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+/* 移动端抽屉：自右滑入 + 遮罩淡入（尊重 reduced-motion） */
+@keyframes drawer-in {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+.drawer-in {
+  animation: drawer-in 0.24s cubic-bezier(0.32, 0.72, 0, 1) both;
+}
+
+@keyframes overlay-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.overlay-in {
+  animation: overlay-in 0.2s ease-out both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .drawer-in,
+  .overlay-in {
+    animation: none;
+  }
+}
+
+/* 刘海/圆角屏安全区：抽屉、吸顶条等贴边元素让出系统区域（需 viewport-fit=cover） */
+.pt-safe {
+  padding-top: env(safe-area-inset-top);
+}
+.pb-safe {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+.pr-safe {
+  padding-right: env(safe-area-inset-right);
+}
+
 /* 文武线（中式书版的粗细双线）：用双层 border 模拟，作大区块的章法分隔 */
 .rule-double {
   border-top: 3px solid var(--color-ink-800);

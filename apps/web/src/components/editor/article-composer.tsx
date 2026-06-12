@@ -355,7 +355,7 @@ export function ArticleComposer(props: ArticleComposerProps) {
       {confirmDialog}
       {/* 顶部操作条：返回 / 状态 / 保存指示 / 发布设置 / 提交 / 发布 */}
       <div className="sticky top-0 z-30 border-ink-200 border-b bg-paper-100/90 backdrop-blur-md">
-        <div className="mx-auto flex w-full max-w-5xl items-center gap-3 px-4 py-2.5 sm:px-6">
+        <div className="mx-auto flex w-full max-w-5xl items-center gap-2 px-4 py-2.5 sm:gap-3 sm:px-6">
           <button
             type="button"
             onClick={() => router.push('/write')}
@@ -372,9 +372,16 @@ export function ArticleComposer(props: ArticleComposerProps) {
           ) : null}
           <SaveIndicator state={saveState} />
           <div className="ml-auto flex items-center gap-2">
-            <Button type="button" variant="secondary" size="sm" onClick={() => setPanelOpen(true)}>
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              onClick={() => setPanelOpen(true)}
+              aria-label="发布设置"
+            >
               <Settings2 className="h-4 w-4" aria-hidden />
-              发布设置
+              {/* 窄屏只留齿轮图标，给状态徽标让出空间 */}
+              <span className="hidden sm:inline">发布设置</span>
             </Button>
             {/* 「提交修订」= 向版本历史追加一次改动，仅对已发布文章的再编辑有意义；新草稿不显示 */}
             {!isDraft ? (

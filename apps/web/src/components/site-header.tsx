@@ -6,6 +6,7 @@ import { getSession } from '@/lib/session';
 import { hasPublishGrant, loadActor } from '@/server/actors';
 import { hasConsented } from '@/server/consent';
 import { countUnread } from '@/server/notifications';
+import { MobileNav } from './mobile-nav';
 import { NavLink } from './nav-link';
 import { SignOutButton } from './sign-out-button';
 import { ThemeToggle } from './theme-toggle';
@@ -50,7 +51,8 @@ export async function SiteHeader() {
               {SITE_NAME}
             </span>
           </Link>
-          <nav className="flex items-center gap-3 text-sm sm:gap-6">
+          {/* 桌面主导航（窄屏收进汉堡菜单） */}
+          <nav className="hidden items-center gap-3 text-sm md:flex md:gap-6">
             <NavLink href="/#sections" match="/s">
               板块
             </NavLink>
@@ -78,15 +80,8 @@ export async function SiteHeader() {
             className="h-8 w-44 rounded-full border border-ink-200 bg-paper-50 pr-3 pl-8 text-ink-800 text-sm transition-[width,border-color] duration-200 placeholder:text-ink-400 focus-visible:w-56 focus-visible:border-brand-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-200"
           />
         </form>
-        <div className="flex items-center gap-3 text-sm sm:gap-4">
-          {/* 移动端搜索入口（窄屏隐藏搜索框，改为图标跳搜索页） */}
-          <Link
-            href="/search"
-            aria-label="搜索"
-            className="text-ink-600 transition-colors hover:text-brand-700 md:hidden"
-          >
-            <Search className="h-5 w-5" aria-hidden />
-          </Link>
+        {/* 桌面账户簇（md+）：窄屏整组收进汉堡菜单 */}
+        <div className="hidden items-center gap-3 text-sm md:flex md:gap-4">
           <ThemeToggle />
           {session ? (
             <>
@@ -104,20 +99,17 @@ export async function SiteHeader() {
               </Link>
               <Link
                 href={`/u/${session.user.id}`}
-                className="font-medium text-ink-800 transition-colors hover:text-brand-700"
+                className="max-w-[10rem] truncate font-medium text-ink-800 transition-colors hover:text-brand-700"
               >
                 {session.user.name}
               </Link>
               <Link
                 href="/bookmarks"
-                className="hidden text-ink-600 transition-colors hover:text-brand-700 sm:inline"
+                className="text-ink-600 transition-colors hover:text-brand-700"
               >
                 收藏
               </Link>
-              <Link
-                href="/account"
-                className="hidden text-ink-600 transition-colors hover:text-brand-700 sm:inline"
-              >
+              <Link href="/account" className="text-ink-600 transition-colors hover:text-brand-700">
                 设置
               </Link>
               <SignOutButton />
@@ -135,6 +127,17 @@ export async function SiteHeader() {
               </Link>
             </>
           )}
+        </div>
+        {/* 移动端：汉堡菜单（板块/写文章/管理 + 账户 + 搜索 + 主题全收进抽屉） */}
+        <div className="flex items-center md:hidden">
+          <MobileNav
+            loggedIn={session !== null}
+            userName={session?.user.name ?? null}
+            userId={session?.user.id ?? null}
+            unread={unread}
+            showAdmin={showAdmin}
+            writeHref={session ? '/write' : '/login'}
+          />
         </div>
       </div>
     </header>

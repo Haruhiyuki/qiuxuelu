@@ -55,7 +55,7 @@ function ToolbarButton({
         onClick();
       }}
       className={cn(
-        'flex h-8 w-8 items-center justify-center rounded-md transition-colors',
+        'flex h-8 w-8 shrink-0 items-center justify-center rounded-md transition-colors',
         active
           ? 'bg-brand-100 text-brand-800'
           : 'text-ink-500 hover:bg-paper-200 hover:text-ink-800',
@@ -68,7 +68,7 @@ function ToolbarButton({
 }
 
 function Divider() {
-  return <span aria-hidden className="mx-1 h-5 w-px self-center bg-ink-200" />;
+  return <span aria-hidden className="mx-1 h-5 w-px shrink-0 self-center bg-ink-200" />;
 }
 
 const ICON = 'h-4 w-4';
@@ -139,7 +139,8 @@ export function EditorToolbar({ editor }: { editor: Editor }) {
     <div
       role="toolbar"
       aria-label="编辑工具栏"
-      className="sticky top-14 z-20 flex flex-wrap items-center gap-0.5 border-ink-200 border-b bg-paper-50/95 px-2 py-1.5 backdrop-blur-sm"
+      // 移动端单行横滑（no-scrollbar）避免多行换行挤压；桌面端（md+）放开自动换行
+      className="no-scrollbar sticky top-14 z-20 flex flex-nowrap items-center gap-0.5 overflow-x-auto border-ink-200 border-b bg-paper-50/95 px-2 py-1.5 backdrop-blur-sm md:flex-wrap md:overflow-x-visible"
     >
       {promptDialog}
       <ToolbarButton

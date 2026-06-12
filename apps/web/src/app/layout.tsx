@@ -1,6 +1,6 @@
 import { SITE_DESCRIPTION, SITE_NAME } from '@harublog/config';
 import { ToastProvider } from '@harublog/ui';
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import type { ReactNode } from 'react';
 import { SiteFooter } from '@/components/site-footer';
 import { SiteHeader } from '@/components/site-header';
@@ -17,6 +17,17 @@ export const metadata: Metadata = {
   description: SITE_DESCRIPTION,
   // RSS 订阅源自动发现
   alternates: { types: { 'application/rss+xml': `${SITE_URL}/feed.xml` } },
+};
+
+// 移动端视口：viewport-fit=cover 开启安全区（刘海屏让位），themeColor 让地址栏随明暗着色（呼应 paper-100）
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  viewportFit: 'cover',
+  themeColor: [
+    { media: '(prefers-color-scheme: light)', color: '#faf8f3' },
+    { media: '(prefers-color-scheme: dark)', color: '#191b1d' },
+  ],
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {
