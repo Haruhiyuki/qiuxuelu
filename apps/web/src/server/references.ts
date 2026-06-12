@@ -67,100 +67,111 @@ export async function recomputeReferences(tx: Tx, docId: string, content: unknow
     .onConflictDoNothing();
 }
 
-export interface GraphNode {
-  id: string;
-  slug: string;
-  title: string;
-  /** 与中心帖子的关系：center / outgoing(本帖提及它) / incoming(它提及本帖) / both */
-  relation: 'center' | 'outgoing' | 'incoming' | 'both';
-}
-
 export interface GraphEdge {
   source: string;
   target: string;
 }
 
-export interface DocGraph {
-  nodes: GraphNode[];
-  edges: GraphEdge[];
+export interface LayeredNode {
+  id: string;
+  slug: string;
+  title: string;
+  /** 距中心的最短跳数：0=中心，1/2/3=第一/二/三层 */
+  depth: number;
 }
+
+export interface LayeredGraph {
+  centerId: string;
+  /** 含中心（depth 0）在内的全部节点 */
+  nodes: LayeredNode[];
+  /** 节点集合内的全部有向边（source 提及 target） */
+  edges: GraphEdge[];
+  /** 因节点上限被截断（图过大）*/
+  truncated: boolean;
+}
+
+/** 单次图谱节点上限：超过即停止扩层，避免超大帖网拖垮渲染 */
+const MAX_GRAPH_NODES = 60;
 
 /**
- * 取某帖子的 1 跳邻域子图：中心 + 它提及的/提及它的已发布帖子，外加这些节点之间的全部有向边
- * （让它是真正的图而非星形）。无邻居时返回仅含中心的图（调用方据此决定是否展示）。
+ * 以某帖为中心做 BFS，取最多 maxDepth 层（默认 3）的邻域子图。邻接按「提及」双向展开
+ * （它提及的 + 提及它的，均限已发布帖子），节点带最短跳数 depth；最后补齐节点集合内的
+ * 全部有向边，使其成为真正的图而非树。空邻域时只返回中心（调用方据此决定是否展示）。
  */
-export async function getDocGraph(db: Pick<Database, 'select'>, docId: string): Promise<DocGraph> {
-  const [outRows, inRows, centerRow] = await Promise.all([
-    db
-      .select({ id: documents.id, slug: documents.slug, title: documents.title })
-      .from(documentReferences)
-      .innerJoin(documents, eq(documents.id, documentReferences.targetDocId))
-      .innerJoin(publishedSnapshots, eq(publishedSnapshots.documentId, documents.id))
-      .where(eq(documentReferences.sourceDocId, docId)),
-    db
-      .select({ id: documents.id, slug: documents.slug, title: documents.title })
-      .from(documentReferences)
-      .innerJoin(documents, eq(documents.id, documentReferences.sourceDocId))
-      .innerJoin(publishedSnapshots, eq(publishedSnapshots.documentId, documents.id))
-      .where(eq(documentReferences.targetDocId, docId)),
-    db
-      .select({ id: documents.id, slug: documents.slug, title: documents.title })
-      .from(documents)
-      .where(eq(documents.id, docId))
-      .limit(1),
-  ]);
+export async function getDocGraphLayered(
+  db: Pick<Database, 'select'>,
+  centerId: string,
+  maxDepth = 3,
+): Promise<LayeredGraph> {
+  const centerRow = await db
+    .select({ id: documents.id, slug: documents.slug, title: documents.title })
+    .from(documents)
+    .where(eq(documents.id, centerId))
+    .limit(1);
   const center = centerRow[0];
   if (center === undefined) {
-    return { nodes: [], edges: [] };
+    return { centerId, nodes: [], edges: [], truncated: false };
   }
 
-  const outIds = new Set(outRows.map((r) => r.id));
-  const inIds = new Set(inRows.map((r) => r.id));
-  const byId = new Map<string, { id: string; slug: string; title: string }>();
-  for (const r of [...outRows, ...inRows]) {
-    byId.set(r.id, r);
+  const seen = new Set<string>([center.id]);
+  const nodes: LayeredNode[] = [{ ...center, depth: 0 }];
+  let frontier = [center.id];
+  let truncated = false;
+
+  for (let d = 1; d <= maxDepth && frontier.length > 0 && !truncated; d++) {
+    const [outRows, inRows] = await Promise.all([
+      db
+        .select({ id: documents.id, slug: documents.slug, title: documents.title })
+        .from(documentReferences)
+        .innerJoin(documents, eq(documents.id, documentReferences.targetDocId))
+        .innerJoin(publishedSnapshots, eq(publishedSnapshots.documentId, documents.id))
+        .where(inArray(documentReferences.sourceDocId, frontier)),
+      db
+        .select({ id: documents.id, slug: documents.slug, title: documents.title })
+        .from(documentReferences)
+        .innerJoin(documents, eq(documents.id, documentReferences.sourceDocId))
+        .innerJoin(publishedSnapshots, eq(publishedSnapshots.documentId, documents.id))
+        .where(inArray(documentReferences.targetDocId, frontier)),
+    ]);
+    const next: string[] = [];
+    for (const r of [...outRows, ...inRows]) {
+      if (seen.has(r.id)) {
+        continue;
+      }
+      if (seen.size >= MAX_GRAPH_NODES) {
+        truncated = true;
+        break;
+      }
+      seen.add(r.id);
+      nodes.push({ ...r, depth: d });
+      next.push(r.id);
+    }
+    frontier = next;
   }
 
-  const nodes: GraphNode[] = [
-    { ...center, relation: 'center' },
-    ...[...byId.values()].map((r) => {
-      const isOut = outIds.has(r.id);
-      const isIn = inIds.has(r.id);
-      return {
-        ...r,
-        relation: (isOut && isIn
-          ? 'both'
-          : isOut
-            ? 'outgoing'
-            : 'incoming') as GraphNode['relation'],
-      };
-    }),
-  ];
-
-  if (nodes.length === 1) {
-    return { nodes, edges: [] };
+  let edges: GraphEdge[] = [];
+  if (nodes.length > 1) {
+    const ids = nodes.map((n) => n.id);
+    const idSet = new Set(ids);
+    const edgeRows = await db
+      .select({
+        source: documentReferences.sourceDocId,
+        target: documentReferences.targetDocId,
+      })
+      .from(documentReferences)
+      .where(
+        and(
+          inArray(documentReferences.sourceDocId, ids),
+          inArray(documentReferences.targetDocId, ids),
+        ),
+      );
+    edges = edgeRows.filter((e) => idSet.has(e.source) && idSet.has(e.target));
   }
 
-  // 子图全部节点之间的有向边（含中心↔邻居 与 邻居↔邻居），让图更连通
-  const idSet = new Set(nodes.map((n) => n.id));
-  const ids = [...idSet];
-  const edgeRows = await db
-    .select({
-      source: documentReferences.sourceDocId,
-      target: documentReferences.targetDocId,
-    })
-    .from(documentReferences)
-    .where(
-      and(
-        inArray(documentReferences.sourceDocId, ids),
-        inArray(documentReferences.targetDocId, ids),
-      ),
-    );
-  const edges = edgeRows.filter((e) => idSet.has(e.source) && idSet.has(e.target));
-  return { nodes, edges };
+  return { centerId: center.id, nodes, edges, truncated };
 }
 
-/** 便捷：用全局 db 取图（页面读路径用）。 */
-export function getDocGraphLive(docId: string): Promise<DocGraph> {
-  return getDocGraph(getDb(), docId);
+/** 便捷：用全局 db 取分层图（页面读路径用）。 */
+export function getDocGraphLayeredLive(docId: string, maxDepth = 3): Promise<LayeredGraph> {
+  return getDocGraphLayered(getDb(), docId, maxDepth);
 }
