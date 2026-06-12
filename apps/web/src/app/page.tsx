@@ -8,6 +8,7 @@ import type { ReactNode } from 'react';
 import { ButtonLink } from '@/components/button-link';
 import { DocumentList } from '@/components/document-list';
 import { formatDate } from '@/lib/format';
+import { getSession } from '@/lib/session';
 import { stageLabel } from '@/lib/stage';
 
 // M0 一律请求期动态渲染（ISR 是 M1 的事）；构建期不触碰数据库
@@ -81,11 +82,14 @@ function SectionHeading({ title, sub }: { title: string; sub?: ReactNode }) {
 const CJK_ORDINALS = ['壹', '贰', '叁', '肆', '伍', '陆'] as const;
 
 export default async function HomePage() {
-  const [latest, featured, topSections] = await Promise.all([
+  const [latest, featured, topSections, session] = await Promise.all([
     fetchLatestPublished(),
     fetchFeatured(),
     fetchTopSections(),
+    getSession(),
   ]);
+  // 已登录直接去写作台，未登录走注册（拒绝变引导，与顶栏「写文章」同语义）
+  const writeHref = session ? '/write' : '/register';
 
   return (
     <div className="mx-auto w-full max-w-6xl px-6">
@@ -103,7 +107,7 @@ export default async function HomePage() {
           </h1>
           <p className="mt-6 max-w-xl text-base text-ink-600 leading-relaxed">{SITE_DESCRIPTION}</p>
           <div className="mt-10 flex flex-wrap items-center gap-4">
-            <ButtonLink href="/register" className="h-10 px-6">
+            <ButtonLink href={writeHref} className="h-10 px-6">
               开始写作
             </ButtonLink>
             <ButtonLink href="/#sections" variant="secondary" className="h-10 px-6">
@@ -179,7 +183,7 @@ export default async function HomePage() {
             icon={<PenLine />}
             title="还没有发布的文章"
             description="第一篇求学经验，由你来写——注册后即可起草，发布前会有志愿者协助审校。"
-            action={<ButtonLink href="/register">开始写作</ButtonLink>}
+            action={<ButtonLink href={writeHref}>开始写作</ButtonLink>}
           />
         )}
       </section>

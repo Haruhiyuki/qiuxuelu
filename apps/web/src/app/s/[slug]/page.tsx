@@ -123,7 +123,7 @@ export default async function SectionPage({ params }: SectionPageProps) {
             icon={<BookOpen />}
             title="本板块还没有文章"
             description="这一段路还没人写下来。注册后即可起草第一篇。"
-            action={<ButtonLink href="/register">开始写作</ButtonLink>}
+            action={<ButtonLink href={session ? '/write' : '/register'}>开始写作</ButtonLink>}
           />
         )}
       </section>

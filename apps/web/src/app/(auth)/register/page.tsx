@@ -2,8 +2,8 @@
 
 import { Alert, Button, Input, Label } from '@harublog/ui';
 import Link from 'next/link';
-import type { FormEvent } from 'react';
-import { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { type FormEvent, useEffect, useState } from 'react';
 import { OAuthButtons } from '@/components/auth/oauth-buttons';
 import { authClient } from '@/lib/auth-client';
 import { translateAuthError } from '@/lib/auth-errors';
@@ -15,6 +15,8 @@ const EMAIL_PATTERN = /^\S+@\S+\.\S+$/;
 const MIN_PASSWORD_LENGTH = 8;
 
 export default function RegisterPage() {
+  const router = useRouter();
+  const { data: authSession } = authClient.useSession();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -25,6 +27,13 @@ export default function RegisterPage() {
   // 注册成功后进入「查收验证邮件」状态（强制邮箱验证：此时尚无会话，验证链接点击后自动登录）
   const [registeredEmail, setRegisteredEmail] = useState<string | null>(null);
   const [resend, setResend] = useState<'idle' | 'sending' | 'sent'>('idle');
+
+  // 已登录用户不应停留在注册页（被链接/书签带过来时弹回首页）
+  useEffect(() => {
+    if (authSession?.user && registeredEmail === null) {
+      router.replace('/');
+    }
+  }, [authSession, registeredEmail, router]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
