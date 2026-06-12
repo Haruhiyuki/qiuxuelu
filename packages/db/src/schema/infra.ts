@@ -1,8 +1,47 @@
 // 基础设施表：审计、站点配置、合规删除、通知与搜索 outbox（M1 预留）
-import { bigserial, index, jsonb, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core';
+import { sql } from 'drizzle-orm';
+import {
+  bigserial,
+  boolean,
+  check,
+  index,
+  jsonb,
+  pgTable,
+  text,
+  timestamp,
+  uuid,
+} from 'drizzle-orm/pg-core';
 import { user } from './auth';
 import { blobs } from './content';
 import { sections } from './sections';
+
+// 站点新闻/公告（近闻页 + 首页公告栏）：管理员发布。body 为纯文本（保留换行），可带一个 CTA 链接。
+export const announcements = pgTable(
+  'announcements',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    title: text('title').notNull(),
+    body: text('body').notNull(),
+    // info=普通新闻；notice=重要公告（样式更醒目）
+    level: text('level').notNull().default('info'),
+    // draft 不公开；published 进近闻页；archived 下线
+    status: text('status').notNull().default('published'),
+    // 置顶到首页公告栏（可多条，公告栏取最新一条）
+    pinned: boolean('pinned').notNull().default(false),
+    // 可选行动链接（站内路径或外链）
+    linkHref: text('link_href'),
+    linkLabel: text('link_label'),
+    authorId: text('author_id').references(() => user.id),
+    publishedAt: timestamp('published_at', { withTimezone: true }).notNull().defaultNow(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    check('announcements_level_check', sql`${t.level} in ('info', 'notice')`),
+    check('announcements_status_check', sql`${t.status} in ('draft', 'published', 'archived')`),
+    index('announcements_status_published_idx').on(t.status, t.publishedAt),
+  ],
+);
 
 export const auditLog = pgTable(
   'audit_log',

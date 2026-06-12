@@ -27,6 +27,7 @@ const CAP_LABELS: Record<Capability, string> = {
   'role.grant_section': '任命板块职务',
   'role.grant_global': '任命全局职务',
   'section.manage': '管理板块',
+  'announcement.manage': '发布站点公告',
   'system.config': '修改系统配置',
 };
 

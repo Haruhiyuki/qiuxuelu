@@ -28,8 +28,56 @@ import {
   revisions,
 } from './schema/content';
 import { docReactions } from './schema/engagement';
+import { announcements } from './schema/infra';
 import { sections } from './schema/sections';
 import { documentTags, tags } from './schema/tags';
+
+// 演示公告（近闻页 + 首页公告栏）；幂等：按标题去重。
+const DEMO_ANNOUNCEMENTS = [
+  {
+    title: '求学路 v0.2 测试版上线',
+    body: '新增统一写作台、知识图谱、页面模式（私有/公共）与标签分类。欢迎试用并反馈。',
+    level: 'notice',
+    pinned: true,
+    linkHref: '/news',
+    linkLabel: '了解更多',
+  },
+  {
+    title: '本周新增「大学」板块精选',
+    body: '科研入门、选课避坑等几篇经验已加入精选，欢迎在大学板块查看。',
+    level: 'info',
+    pinned: false,
+    linkHref: '/s/college',
+    linkLabel: '去看看',
+  },
+  {
+    title: '社区公约小幅更新',
+    body: '明确了转载署名与编辑建议的礼仪，详见公约页。',
+    level: 'info',
+    pinned: false,
+    linkHref: null as string | null,
+    linkLabel: null as string | null,
+  },
+];
+
+async function syncDemoAnnouncements(
+  db: ReturnType<typeof getDb>,
+  authorId: string | undefined,
+): Promise<void> {
+  for (const a of DEMO_ANNOUNCEMENTS) {
+    const exists = await db
+      .select({ id: announcements.id })
+      .from(announcements)
+      .where(eq(announcements.title, a.title))
+      .limit(1);
+    if (exists.length > 0) {
+      continue;
+    }
+    await db
+      .insert(announcements)
+      .values({ ...a, authorId: authorId ?? null, status: 'published' });
+  }
+}
 
 /** 从 /a/<slug> 取 slug；非站内链接返回 null。 */
 function slugFromHref(href: string): string | null {
@@ -679,6 +727,9 @@ async function main(): Promise<void> {
 
   // 站内提及图：全部文章创建后统一从已发布正文重建有向边（用 kernel 抽链，与生产路径一致）
   await syncDemoReferences(db);
+
+  // 演示公告（近闻页 + 首页公告栏），作者用管理员账号
+  await syncDemoAnnouncements(db, userByEmail.get(A));
 
   console.log('演示数据完成');
 }

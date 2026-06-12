@@ -5,11 +5,13 @@ import { and, asc, desc, eq, isNull } from 'drizzle-orm';
 import { ArrowRight, PenLine } from 'lucide-react';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
+import { AnnouncementBar } from '@/components/announcement-bar';
 import { ButtonLink } from '@/components/button-link';
 import { DocumentList } from '@/components/document-list';
 import { formatDate } from '@/lib/format';
 import { getSession } from '@/lib/session';
 import { stageLabel } from '@/lib/stage';
+import { getHomepageBanner } from '@/server/announcements';
 
 // M0 一律请求期动态渲染（ISR 是 M1 的事）；构建期不触碰数据库
 export const dynamic = 'force-dynamic';
@@ -82,17 +84,31 @@ function SectionHeading({ title, sub }: { title: string; sub?: ReactNode }) {
 const CJK_ORDINALS = ['壹', '贰', '叁', '肆', '伍', '陆'] as const;
 
 export default async function HomePage() {
-  const [latest, featured, topSections, session] = await Promise.all([
+  const [latest, featured, topSections, session, banner] = await Promise.all([
     fetchLatestPublished(),
     fetchFeatured(),
     fetchTopSections(),
     getSession(),
+    getHomepageBanner(getDb()),
   ]);
   // 已登录直接进写作台（标题正文一体），未登录走注册（拒绝变引导）
   const writeHref = session ? '/write/new' : '/register';
 
   return (
     <div className="mx-auto w-full max-w-6xl px-6">
+      {/* 首页公告栏（管理员置顶的公告，可关闭） */}
+      {banner !== null ? (
+        <div className="pt-4">
+          <AnnouncementBar
+            id={banner.id}
+            title={banner.title}
+            level={banner.level}
+            linkHref={banner.linkHref}
+            linkLabel={banner.linkLabel}
+          />
+        </div>
+      ) : null}
+
       {/* Hero：左题右注的非对称版式。右侧为稿纸界栏 + 竖排注语（纯装饰，窄屏隐藏） */}
       <section className="relative grid items-center gap-8 border-ink-200 border-b py-16 sm:py-24 md:grid-cols-[minmax(0,1fr)_200px]">
         <div className="rise-in">

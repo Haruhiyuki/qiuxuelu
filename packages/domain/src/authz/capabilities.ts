@@ -25,6 +25,7 @@ export type Capability =
   | 'role.grant_section'
   | 'role.grant_global'
   | 'section.manage'
+  | 'announcement.manage'
   | 'system.config';
 
 export type Role = 'editor' | 'section_mod' | 'admin' | 'superadmin';
@@ -67,6 +68,8 @@ const ADMIN_CAPS: readonly Capability[] = [
   'user.trust_adjust',
   'role.grant_section',
   'section.manage',
+  // 站点新闻/公告发布（近闻页 + 首页公告栏）
+  'announcement.manage',
 ];
 
 const SUPERADMIN_CAPS: readonly Capability[] = [
@@ -110,6 +113,7 @@ export const TRUST_CAPS: Record<TrustLevel, readonly Capability[]> = (() => {
 
 /** 红线：晋升给能力，任命给权力——这些能力永不经信任线授予（ADR-0005）。 */
 export const ROLE_ONLY_CAPS: ReadonlySet<Capability> = new Set([
+  'announcement.manage',
   'doc.publish',
   'doc.unpublish',
   'doc.protect',

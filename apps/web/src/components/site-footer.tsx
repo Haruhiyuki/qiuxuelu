@@ -29,6 +29,11 @@ export function SiteFooter() {
               </Link>
             </li>
             <li>
+              <Link href="/news" className="transition-colors hover:text-brand-700">
+                近闻
+              </Link>
+            </li>
+            <li>
               <Link href="/search" className="transition-colors hover:text-brand-700">
                 全站搜索
               </Link>
