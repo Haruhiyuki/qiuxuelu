@@ -191,9 +191,14 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
   let canFeature = false;
   let canProtect = false;
   let canPublicize = false;
+  // 行内批注需 comment.inline.create（TL1+）：仅有写权时才显示「批注」入口
+  let canInlineComment = false;
   if (session) {
     const actor = await loadActor(session.user.id);
     if (actor !== null) {
+      canInlineComment = can(actor, 'comment.inline.create', {
+        sectionId: article.sectionId,
+      }).allow;
       if (session.user.id !== article.ownerId) {
         canCollabEdit = can(actor, 'doc.edit_direct', {
           sectionId: article.sectionId,
@@ -573,7 +578,7 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
       </article>
 
       {/* 右栏：行内批注边注栏（xl+ 对齐锚点段落；窄屏退化为点击高亮弹浮窗） */}
-      <InlineComments docId={article.docId} canComment={session !== null} comments={anchored} />
+      <InlineComments docId={article.docId} canComment={canInlineComment} comments={anchored} />
     </div>
   );
 }

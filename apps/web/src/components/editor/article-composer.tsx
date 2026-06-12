@@ -305,7 +305,7 @@ export function ArticleComposer(props: ArticleComposerProps) {
     }
     const ok = await confirm({
       title: '申请发布？',
-      description: '提交后将进入审校队列，期间可继续修改并提交新修订。',
+      description: '提交后将进入审校队列，志愿者审校通过后文章公开可见；期间你仍可继续修改。',
       confirmLabel: '申请发布',
     });
     if (!ok) {
@@ -322,6 +322,16 @@ export function ArticleComposer(props: ArticleComposerProps) {
       if (id === null) {
         return;
       }
+      // 申请发布前自动把当前草稿固化为一次修订（新文章无需手动「提交修订」）：
+      // 内容有变则提交；与上次修订一致且已有修订则直接发布；空文章则提示先写内容。
+      const commit = await commitRevision(id, '');
+      if (commit.ok) {
+        setHasRevisions(true);
+        setHeadSeq(commit.data.seq);
+      } else if (!hasRevisions) {
+        setNotice({ kind: 'danger', text: commit.error });
+        return;
+      }
       const result = await requestPublish(id);
       if (result.ok) {
         setDocStatus('pending');
@@ -335,7 +345,10 @@ export function ArticleComposer(props: ArticleComposerProps) {
     }
   }
 
-  const canRequestPublish = docStatus === 'draft' && hasRevisions && !actionPending;
+  // 新文章（草稿）：直接「申请发布」（内部自动固化修订），不暴露「提交修订」这个版本史概念；
+  // 已发布文章在撰写器里再编辑时，「提交修订」才有意义（向版本历史追加一次改动）。
+  const isDraft = docStatus === 'draft';
+  const canRequestPublish = isDraft && title.trim().length > 0 && !actionPending && editor !== null;
 
   return (
     <div className="min-h-svh">
@@ -363,30 +376,29 @@ export function ArticleComposer(props: ArticleComposerProps) {
               <Settings2 className="h-4 w-4" aria-hidden />
               发布设置
             </Button>
-            <Button
-              type="button"
-              variant="secondary"
-              size="sm"
-              onClick={() => setCommitOpen((o) => !o)}
-              disabled={actionPending || !editor}
-            >
-              提交修订
-            </Button>
-            <Button
-              type="button"
-              size="sm"
-              onClick={handleRequestPublish}
-              disabled={!canRequestPublish}
-              title={
-                !hasRevisions
-                  ? '提交第一个修订后才能申请发布'
-                  : docStatus !== 'draft'
-                    ? '当前状态不可申请'
-                    : ''
-              }
-            >
-              申请发布
-            </Button>
+            {/* 「提交修订」= 向版本历史追加一次改动，仅对已发布文章的再编辑有意义；新草稿不显示 */}
+            {!isDraft ? (
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                onClick={() => setCommitOpen((o) => !o)}
+                disabled={actionPending || !editor}
+              >
+                提交修订
+              </Button>
+            ) : null}
+            {isDraft ? (
+              <Button
+                type="button"
+                size="sm"
+                onClick={handleRequestPublish}
+                disabled={!canRequestPublish}
+                title={title.trim().length === 0 ? '请先填写标题' : ''}
+              >
+                申请发布
+              </Button>
+            ) : null}
           </div>
         </div>
       </div>
