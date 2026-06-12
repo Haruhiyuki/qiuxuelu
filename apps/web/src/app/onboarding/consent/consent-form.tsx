@@ -44,7 +44,16 @@ export function ConsentForm() {
           >
             CC BY-SA 4.0
           </a>{' '}
-          协议共享（署名归原作者及贡献者，修订历史即贡献凭证），并遵守社区公约。
+          协议共享（署名归原作者及贡献者，修订历史即贡献凭证），并遵守{' '}
+          <a
+            href="/covenant"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-brand-700 underline decoration-brand-300 underline-offset-2 hover:text-brand-900"
+          >
+            社区公约
+          </a>
+          。
         </span>
       </label>
       <Button onClick={submit} loading={busy} disabled={!agree} className="self-start">

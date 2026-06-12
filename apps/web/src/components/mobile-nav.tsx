@@ -120,6 +120,12 @@ export function MobileNav(props: MobileNavProps) {
                     <DrawerLink href="/sections" match={['/sections', '/s']} pathname={pathname}>
                       板块
                     </DrawerLink>
+                    <DrawerLink href="/news" match="/news" pathname={pathname}>
+                      近闻
+                    </DrawerLink>
+                    <DrawerLink href="/covenant" match="/covenant" pathname={pathname}>
+                      公约
+                    </DrawerLink>
                     <DrawerLink href={props.writeHref} match="/write" pathname={pathname}>
                       写文章
                     </DrawerLink>

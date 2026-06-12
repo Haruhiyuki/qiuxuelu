@@ -52,9 +52,15 @@ export async function SiteHeader() {
             </span>
           </Link>
           {/* 桌面主导航（窄屏收进汉堡菜单） */}
-          <nav className="hidden items-center gap-3 text-sm md:flex md:gap-6">
+          <nav className="hidden items-center gap-3 text-sm md:flex md:gap-4 lg:gap-6">
             <NavLink href="/sections" match={['/sections', '/s']}>
               板块
+            </NavLink>
+            <NavLink href="/news" match="/news">
+              近闻
+            </NavLink>
+            <NavLink href="/covenant" match="/covenant">
+              公约
             </NavLink>
             {/* 未登录也显示入口，点击跳登录（拒绝变引导） */}
             <NavLink href={session ? '/write' : '/login'} match="/write">
