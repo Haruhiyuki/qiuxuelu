@@ -1,12 +1,12 @@
 import { documents, getDb, revisions, sections, suggestions, workingCopies } from '@harublog/db';
 import { Badge, EmptyState } from '@harublog/ui';
-import { and, asc, desc, eq, inArray, isNull, max } from 'drizzle-orm';
+import { and, desc, eq, inArray, isNull, max } from 'drizzle-orm';
 import { PenLine } from 'lucide-react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { Breadcrumb } from '@/components/breadcrumb';
-import { NewDocumentForm } from '@/components/new-document-form';
+import { ButtonLink } from '@/components/button-link';
 import { formatDateTime } from '@/lib/format';
 import { getSession } from '@/lib/session';
 
@@ -111,30 +111,24 @@ export default async function WritePage() {
   }
 
   const db = getDb();
-  const [myDocs, sectionRows] = await Promise.all([
-    db
-      .select({
-        id: documents.id,
-        title: documents.title,
-        slug: documents.slug,
-        status: documents.status,
-        updatedAt: documents.updatedAt,
-        sectionName: sections.name,
-        wcUpdatedAt: workingCopies.updatedAt,
-      })
-      .from(documents)
-      .innerJoin(sections, eq(sections.id, documents.sectionId))
-      .leftJoin(
-        workingCopies,
-        and(eq(workingCopies.documentId, documents.id), eq(workingCopies.userId, session.user.id)),
-      )
-      .where(eq(documents.ownerId, session.user.id))
-      .orderBy(desc(documents.updatedAt)),
-    db
-      .select({ id: sections.id, name: sections.name })
-      .from(sections)
-      .orderBy(asc(sections.position)),
-  ]);
+  const myDocs = await db
+    .select({
+      id: documents.id,
+      title: documents.title,
+      slug: documents.slug,
+      status: documents.status,
+      updatedAt: documents.updatedAt,
+      sectionName: sections.name,
+      wcUpdatedAt: workingCopies.updatedAt,
+    })
+    .from(documents)
+    .innerJoin(sections, eq(sections.id, documents.sectionId))
+    .leftJoin(
+      workingCopies,
+      and(eq(workingCopies.documentId, documents.id), eq(workingCopies.userId, session.user.id)),
+    )
+    .where(eq(documents.ownerId, session.user.id))
+    .orderBy(desc(documents.updatedAt));
 
   // 每篇文档的最新主线修订时刻（建议分支不算「我的草稿」的提交线）
   const docIds = myDocs.map((d) => d.id);
@@ -191,11 +185,17 @@ export default async function WritePage() {
   return (
     <div className="mx-auto w-full max-w-5xl px-6 py-10">
       <Breadcrumb items={[{ label: '首页', href: '/' }, { label: '我的写作' }]} />
-      <header className="border-ink-200 border-b pb-8">
-        <h1 className="font-semibold font-serif text-2xl text-ink-900">我的写作</h1>
-        <p className="mt-2 text-ink-500 text-sm">
-          草稿自动保存，显式提交修订形成历史；申请发布后由志愿者审校上线。
-        </p>
+      <header className="flex flex-wrap items-end justify-between gap-4 border-ink-200 border-b pb-8">
+        <div>
+          <h1 className="font-semibold font-serif text-2xl text-ink-900">我的写作</h1>
+          <p className="mt-2 text-ink-500 text-sm">
+            草稿自动保存，显式提交修订形成历史；申请发布后由志愿者审校上线。
+          </p>
+        </div>
+        <ButtonLink href="/write/new" className="h-10 px-5">
+          <PenLine className="h-4 w-4" aria-hidden />
+          开始写作
+        </ButtonLink>
       </header>
 
       <div className="grid grid-cols-1 gap-10 py-10 lg:grid-cols-[minmax(0,1fr)_320px]">
@@ -259,11 +259,15 @@ export default async function WritePage() {
         </div>
 
         <aside className="flex flex-col gap-6">
-          <section className="rounded-md border border-ink-200 bg-paper-50 p-5 shadow-paper">
-            <h2 className="font-semibold font-serif text-ink-900 text-lg">新建文章</h2>
-            <div className="mt-4">
-              <NewDocumentForm sections={sectionRows} />
-            </div>
+          <section className="rounded-md border border-ink-200 border-dashed bg-paper-50 p-5 text-center">
+            <PenLine className="mx-auto h-6 w-6 text-ink-300" aria-hidden />
+            <p className="mt-2 text-ink-600 text-sm">有新的经验想分享？</p>
+            <p className="mt-1 text-ink-400 text-xs leading-relaxed">
+              直接进入写作台，标题与正文一处写完，内容自动保存。
+            </p>
+            <ButtonLink href="/write/new" variant="secondary" className="mt-4 w-full">
+              开始写作
+            </ButtonLink>
           </section>
 
           {mySuggestions.length > 0 ? (

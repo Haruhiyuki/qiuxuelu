@@ -88,8 +88,8 @@ export default async function HomePage() {
     fetchTopSections(),
     getSession(),
   ]);
-  // 已登录直接去写作台，未登录走注册（拒绝变引导，与顶栏「写文章」同语义）
-  const writeHref = session ? '/write' : '/register';
+  // 已登录直接进写作台（标题正文一体），未登录走注册（拒绝变引导）
+  const writeHref = session ? '/write/new' : '/register';
 
   return (
     <div className="mx-auto w-full max-w-6xl px-6">

@@ -287,6 +287,77 @@ export async function saveWorkingCopy(
   return { ok: true, data: null };
 }
 
+const metaSchema = z.object({
+  title: z.string().trim().min(1, '标题不能为空').max(120, '标题最长 120 字').optional(),
+  sectionId: z.uuid().optional(),
+  summary: z.string().trim().max(200, '摘要最长 200 字').optional(),
+});
+
+/**
+ * 更新文档元信息（标题 / 板块 / 摘要）——统一撰写界面里随写随存。
+ * 仅作者本人、且经 can('doc.edit_direct')（让制裁/停用一票否决）；草稿/已发布皆可改元信息。
+ */
+export async function updateDocumentMeta(
+  rawDocId: string,
+  input: { title?: string; sectionId?: string; summary?: string },
+): Promise<ActionResult> {
+  const actor = await requireActor();
+  if (!actor) {
+    return fail('请先登录');
+  }
+  if (!uuidSchema.safeParse(rawDocId).success) {
+    return fail('文档参数非法');
+  }
+  const parsed = metaSchema.safeParse(input);
+  if (!parsed.success) {
+    return fail(parsed.error.issues[0]?.message ?? '元信息校验失败');
+  }
+  const doc = await findDoc(rawDocId);
+  if (!doc) {
+    return fail('文章不存在');
+  }
+  if (doc.ownerId !== actor.id) {
+    return fail('只有作者本人可以编辑这篇文章');
+  }
+  const decision = can(actor, 'doc.edit_direct', { sectionId: doc.sectionId, doc: toDocCtx(doc) });
+  if (!decision.allow) {
+    return fail(explainDeny(decision.reason));
+  }
+  const { title, sectionId, summary } = parsed.data;
+  // 换板块需校验目标板块存在 + 在目标板块也有创建权（防绕过板块制裁）
+  if (sectionId !== undefined && sectionId !== doc.sectionId) {
+    const target = await getDb()
+      .select({ id: sections.id })
+      .from(sections)
+      .where(eq(sections.id, sectionId))
+      .limit(1);
+    if (!target[0]) {
+      return fail('所选板块不存在');
+    }
+    const sd = can(actor, 'doc.create', { sectionId });
+    if (!sd.allow) {
+      return fail(explainDeny(sd.reason));
+    }
+  }
+  const patch: Partial<{ title: string; sectionId: string; summary: string | null }> = {};
+  if (title !== undefined) {
+    patch.title = title;
+  }
+  if (sectionId !== undefined) {
+    patch.sectionId = sectionId;
+  }
+  if (summary !== undefined) {
+    patch.summary = summary.length > 0 ? summary : null;
+  }
+  if (Object.keys(patch).length > 0) {
+    await getDb()
+      .update(documents)
+      .set({ ...patch, updatedAt: new Date() })
+      .where(eq(documents.id, rawDocId));
+  }
+  return { ok: true, data: null };
+}
+
 export async function commitRevision(
   rawDocId: string,
   rawMessage: string,

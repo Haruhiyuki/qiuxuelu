@@ -1,18 +1,33 @@
 'use client';
 
+// 编辑工具栏：图标按钮分组（标题/行内/块/插入/历史），sticky 吸顶。
+// 文字标签全部换成 lucide 图标 + title 提示，靠拢现代编辑器观感。
 import { cn, usePrompt, useToast } from '@harublog/ui';
 import type { Editor } from '@tiptap/react';
 import { useEditorState } from '@tiptap/react';
+import {
+  Bold,
+  Code,
+  Code2,
+  Heading2,
+  Heading3,
+  Heading4,
+  Highlighter,
+  Image as ImageIcon,
+  Italic,
+  Link2,
+  List,
+  ListOrdered,
+  Minus,
+  Quote,
+  Redo2,
+  Sigma,
+  Strikethrough,
+  Table as TableIcon,
+  Undo2,
+} from 'lucide-react';
 import { type ReactNode, useRef } from 'react';
 import { uploadImageFile } from './upload';
-
-interface ToolbarButtonProps {
-  title: string;
-  active?: boolean;
-  disabled?: boolean;
-  onClick: () => void;
-  children: ReactNode;
-}
 
 function ToolbarButton({
   title,
@@ -20,17 +35,31 @@ function ToolbarButton({
   disabled = false,
   onClick,
   children,
-}: ToolbarButtonProps) {
+}: {
+  title: string;
+  active?: boolean;
+  disabled?: boolean;
+  onClick: () => void;
+  children: ReactNode;
+}) {
   return (
     <button
       type="button"
       title={title}
+      aria-label={title}
+      aria-pressed={active}
       disabled={disabled}
-      onClick={onClick}
+      // onMouseDown + preventDefault：点工具栏不抢走编辑器选区
+      onMouseDown={(e) => {
+        e.preventDefault();
+        onClick();
+      }}
       className={cn(
-        'h-8 min-w-8 rounded-sm px-2 text-sm transition-colors',
-        active ? 'bg-brand-100 font-medium text-brand-800' : 'text-ink-600 hover:bg-paper-200',
-        'disabled:pointer-events-none disabled:opacity-40',
+        'flex h-8 w-8 items-center justify-center rounded-md transition-colors',
+        active
+          ? 'bg-brand-100 text-brand-800'
+          : 'text-ink-500 hover:bg-paper-200 hover:text-ink-800',
+        'disabled:pointer-events-none disabled:opacity-30',
       )}
     >
       {children}
@@ -42,11 +71,12 @@ function Divider() {
   return <span aria-hidden className="mx-1 h-5 w-px self-center bg-ink-200" />;
 }
 
+const ICON = 'h-4 w-4';
+
 export function EditorToolbar({ editor }: { editor: Editor }) {
   const state = useEditorState({
     editor,
     selector: ({ editor: e }) => ({
-      paragraph: e.isActive('paragraph'),
       h2: e.isActive('heading', { level: 2 }),
       h3: e.isActive('heading', { level: 3 }),
       h4: e.isActive('heading', { level: 4 }),
@@ -109,36 +139,29 @@ export function EditorToolbar({ editor }: { editor: Editor }) {
     <div
       role="toolbar"
       aria-label="编辑工具栏"
-      className="sticky top-0 z-10 flex flex-wrap items-center gap-0.5 border-b border-ink-200 bg-paper-50 px-2 py-1.5"
+      className="sticky top-14 z-20 flex flex-wrap items-center gap-0.5 border-ink-200 border-b bg-paper-50/95 px-2 py-1.5 backdrop-blur-sm"
     >
       {promptDialog}
-      <ToolbarButton
-        title="正文段落"
-        active={state.paragraph}
-        onClick={() => editor.chain().focus().setParagraph().run()}
-      >
-        正文
-      </ToolbarButton>
       <ToolbarButton
         title="小节标题（二级）"
         active={state.h2}
         onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
       >
-        H2
+        <Heading2 className={ICON} />
       </ToolbarButton>
       <ToolbarButton
         title="小节标题（三级）"
         active={state.h3}
         onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()}
       >
-        H3
+        <Heading3 className={ICON} />
       </ToolbarButton>
       <ToolbarButton
         title="小节标题（四级）"
         active={state.h4}
         onClick={() => editor.chain().focus().toggleHeading({ level: 4 }).run()}
       >
-        H4
+        <Heading4 className={ICON} />
       </ToolbarButton>
       <Divider />
       <ToolbarButton
@@ -146,42 +169,42 @@ export function EditorToolbar({ editor }: { editor: Editor }) {
         active={state.bold}
         onClick={() => editor.chain().focus().toggleBold().run()}
       >
-        <strong>B</strong>
+        <Bold className={ICON} />
       </ToolbarButton>
       <ToolbarButton
         title="斜体"
         active={state.italic}
         onClick={() => editor.chain().focus().toggleItalic().run()}
       >
-        <em>I</em>
+        <Italic className={ICON} />
       </ToolbarButton>
       <ToolbarButton
         title="删除线"
         active={state.strike}
         onClick={() => editor.chain().focus().toggleStrike().run()}
       >
-        <s>S</s>
+        <Strikethrough className={ICON} />
       </ToolbarButton>
       <ToolbarButton
         title="行内代码"
         active={state.code}
         onClick={() => editor.chain().focus().toggleCode().run()}
       >
-        {'<>'}
+        <Code className={ICON} />
       </ToolbarButton>
       <ToolbarButton
         title="高亮"
         active={state.highlight}
         onClick={() => editor.chain().focus().toggleHighlight().run()}
       >
-        <mark>高</mark>
+        <Highlighter className={ICON} />
       </ToolbarButton>
       <ToolbarButton
         title={state.link ? '移除链接' : '插入链接'}
         active={state.link}
         onClick={handleLink}
       >
-        链接
+        <Link2 className={ICON} />
       </ToolbarButton>
       <Divider />
       <ToolbarButton
@@ -189,37 +212,32 @@ export function EditorToolbar({ editor }: { editor: Editor }) {
         active={state.blockquote}
         onClick={() => editor.chain().focus().toggleBlockquote().run()}
       >
-        引用
+        <Quote className={ICON} />
       </ToolbarButton>
       <ToolbarButton
         title="无序列表"
         active={state.bulletList}
         onClick={() => editor.chain().focus().toggleBulletList().run()}
       >
-        •列表
+        <List className={ICON} />
       </ToolbarButton>
       <ToolbarButton
         title="有序列表"
         active={state.orderedList}
         onClick={() => editor.chain().focus().toggleOrderedList().run()}
       >
-        1.列表
+        <ListOrdered className={ICON} />
       </ToolbarButton>
       <ToolbarButton
         title="代码块"
         active={state.codeBlock}
         onClick={() => editor.chain().focus().toggleCodeBlock().run()}
       >
-        代码块
+        <Code2 className={ICON} />
       </ToolbarButton>
-      <ToolbarButton
-        title="分隔线"
-        onClick={() => editor.chain().focus().setHorizontalRule().run()}
-      >
-        —
-      </ToolbarButton>
+      <Divider />
       <ToolbarButton title="插入图片" onClick={() => fileInputRef.current?.click()}>
-        图片
+        <ImageIcon className={ICON} />
       </ToolbarButton>
       <ToolbarButton
         title="插入表格（3×3）"
@@ -227,7 +245,7 @@ export function EditorToolbar({ editor }: { editor: Editor }) {
           editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: false }).run()
         }
       >
-        表格
+        <TableIcon className={ICON} />
       </ToolbarButton>
       <ToolbarButton
         title="插入提示框"
@@ -243,7 +261,7 @@ export function EditorToolbar({ editor }: { editor: Editor }) {
             .run()
         }
       >
-        提示框
+        <span className="font-serif text-[15px] leading-none">!</span>
       </ToolbarButton>
       <ToolbarButton
         title="插入公式"
@@ -255,7 +273,13 @@ export function EditorToolbar({ editor }: { editor: Editor }) {
             .run()
         }
       >
-        公式
+        <Sigma className={ICON} />
+      </ToolbarButton>
+      <ToolbarButton
+        title="分隔线"
+        onClick={() => editor.chain().focus().setHorizontalRule().run()}
+      >
+        <Minus className={ICON} />
       </ToolbarButton>
       <input
         ref={fileInputRef}
@@ -276,14 +300,14 @@ export function EditorToolbar({ editor }: { editor: Editor }) {
         disabled={!state.canUndo}
         onClick={() => editor.chain().focus().undo().run()}
       >
-        撤销
+        <Undo2 className={ICON} />
       </ToolbarButton>
       <ToolbarButton
         title="重做"
         disabled={!state.canRedo}
         onClick={() => editor.chain().focus().redo().run()}
       >
-        重做
+        <Redo2 className={ICON} />
       </ToolbarButton>
     </div>
   );

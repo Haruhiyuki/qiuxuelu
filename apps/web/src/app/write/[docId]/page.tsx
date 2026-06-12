@@ -1,13 +1,12 @@
-import { documentRefs, documents, getDb, revisions, workingCopies } from '@harublog/db';
+import { documentRefs, documents, getDb, revisions, sections, workingCopies } from '@harublog/db';
 import type { DocJson } from '@harublog/kernel';
 import { validateDoc } from '@harublog/kernel';
-import { and, eq } from 'drizzle-orm';
+import { and, asc, eq } from 'drizzle-orm';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import { z } from 'zod';
-import { DocumentEditor } from '@/components/editor/document-editor';
-import { TagEditor } from '@/components/tag-editor';
+import { ArticleComposer, type SectionOption } from '@/components/editor/article-composer';
 import { getSession } from '@/lib/session';
 import { getDocumentTags } from '@/server/actions/tags';
 import { loadRevisionDoc } from '@/server/revision-doc';
@@ -33,16 +32,24 @@ export default async function EditDocumentPage({ params }: EditPageProps) {
   }
 
   const db = getDb();
-  const docRows = await db
-    .select({
-      id: documents.id,
-      title: documents.title,
-      status: documents.status,
-      ownerId: documents.ownerId,
-    })
-    .from(documents)
-    .where(eq(documents.id, docId))
-    .limit(1);
+  const [docRows, sectionRows] = await Promise.all([
+    db
+      .select({
+        id: documents.id,
+        title: documents.title,
+        summary: documents.summary,
+        sectionId: documents.sectionId,
+        status: documents.status,
+        ownerId: documents.ownerId,
+      })
+      .from(documents)
+      .where(eq(documents.id, docId))
+      .limit(1),
+    db
+      .select({ id: sections.id, name: sections.name })
+      .from(sections)
+      .orderBy(asc(sections.position)),
+  ]);
   const doc = docRows[0];
   if (!doc) {
     notFound();
@@ -50,13 +57,13 @@ export default async function EditDocumentPage({ params }: EditPageProps) {
   if (doc.ownerId !== session.user.id) {
     return (
       <div className="mx-auto w-full max-w-3xl px-6 py-20 text-center">
-        <h1 className="font-serif text-2xl font-semibold text-ink-900">无权编辑</h1>
-        <p className="mt-3 text-sm leading-relaxed text-ink-500">
-          这篇文章不属于你。M0 阶段仅作者本人可编辑，对他人文章的编辑建议将在后续阶段开放。
+        <h1 className="font-semibold font-serif text-2xl text-ink-900">无权编辑</h1>
+        <p className="mt-3 text-ink-500 text-sm leading-relaxed">
+          这篇文章不属于你。仅作者本人可直接编辑，对他人文章可提交编辑建议。
         </p>
         <p className="mt-6">
           <Link href="/write" className="text-brand-700 hover:text-brand-900">
-            ← 返回我的写作
+            ← 返回草稿箱
           </Link>
         </p>
       </div>
@@ -96,33 +103,23 @@ export default async function EditDocumentPage({ params }: EditPageProps) {
   try {
     initialDoc = validateDoc(rawInitial);
   } catch {
-    // 坏数据兜底：宁可空白起步也不让编辑页整页崩溃
     initialDoc = EMPTY_DOC;
   }
-  const docTags = await getDocumentTags(doc.id);
+  const tags = await getDocumentTags(doc.id);
+  const sectionOptions: SectionOption[] = sectionRows;
 
   return (
-    <div className="mx-auto w-full max-w-4xl px-6 py-8">
-      <p className="mb-4 flex items-center gap-4 text-sm text-ink-500">
-        <Link href="/write" className="hover:text-brand-700">
-          ← 我的写作
-        </Link>
-        <Link href={`/write/${doc.id}/collab`} className="text-brand-700 hover:text-brand-900">
-          实时协作编辑 →
-        </Link>
-      </p>
-      <DocumentEditor
-        docId={doc.id}
-        title={doc.title}
-        status={doc.status}
-        hasRevisions={draftHead !== null}
-        headSeq={headSeq}
-        initialDoc={initialDoc}
-      />
-      <section className="mt-6">
-        <h2 className="mb-2 font-medium font-serif text-ink-800 text-sm">标签</h2>
-        <TagEditor docId={doc.id} initialTags={docTags} />
-      </section>
-    </div>
+    <ArticleComposer
+      docId={doc.id}
+      sections={sectionOptions}
+      initialTitle={doc.title}
+      initialSectionId={doc.sectionId}
+      initialSummary={doc.summary ?? ''}
+      initialTags={tags}
+      initialDoc={initialDoc}
+      status={doc.status}
+      hasRevisions={draftHead !== null}
+      headSeq={headSeq}
+    />
   );
 }
