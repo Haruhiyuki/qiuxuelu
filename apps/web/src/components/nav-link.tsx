@@ -11,13 +11,14 @@ export function NavLink({
   children,
 }: {
   href: string;
-  /** 命中该前缀即视为当前页；缺省用 href 本身（去掉 hash） */
-  match?: string;
+  /** 命中该前缀（或任一前缀）即视为当前页；缺省用 href 本身（去掉 hash） */
+  match?: string | string[];
   children: ReactNode;
 }) {
   const pathname = usePathname();
-  const prefix = match ?? href.split('#')[0];
-  const active = prefix !== '' && (pathname === prefix || pathname.startsWith(`${prefix}/`));
+  const prefixes =
+    match !== undefined ? (Array.isArray(match) ? match : [match]) : [href.split('#')[0] ?? href];
+  const active = prefixes.some((p) => p !== '' && (pathname === p || pathname.startsWith(`${p}/`)));
 
   return (
     <Link

@@ -53,7 +53,7 @@ export async function SiteHeader() {
           </Link>
           {/* 桌面主导航（窄屏收进汉堡菜单） */}
           <nav className="hidden items-center gap-3 text-sm md:flex md:gap-6">
-            <NavLink href="/#sections" match="/s">
+            <NavLink href="/sections" match={['/sections', '/s']}>
               板块
             </NavLink>
             {/* 未登录也显示入口，点击跳登录（拒绝变引导） */}

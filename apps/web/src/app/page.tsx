@@ -126,7 +126,7 @@ export default async function HomePage() {
             <ButtonLink href={writeHref} className="h-10 px-6">
               开始写作
             </ButtonLink>
-            <ButtonLink href="/#sections" variant="secondary" className="h-10 px-6">
+            <ButtonLink href="/sections" variant="secondary" className="h-10 px-6">
               浏览板块
             </ButtonLink>
           </div>

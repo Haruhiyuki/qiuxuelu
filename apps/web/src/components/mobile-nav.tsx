@@ -117,7 +117,7 @@ export function MobileNav(props: MobileNavProps) {
 
                   {/* 主导航 */}
                   <nav className="flex flex-col">
-                    <DrawerLink href="/#sections" match="/s" pathname={pathname}>
+                    <DrawerLink href="/sections" match={['/sections', '/s']} pathname={pathname}>
                       板块
                     </DrawerLink>
                     <DrawerLink href={props.writeHref} match="/write" pathname={pathname}>
@@ -219,13 +219,14 @@ function DrawerLink({
   children,
 }: {
   href: string;
-  match?: string;
+  match?: string | string[];
   pathname: string;
   icon?: ReactNode;
   children: ReactNode;
 }) {
-  const prefix = match ?? href.split('#')[0];
-  const active = prefix !== '' && (pathname === prefix || pathname.startsWith(`${prefix}/`));
+  const prefixes =
+    match !== undefined ? (Array.isArray(match) ? match : [match]) : [href.split('#')[0] ?? href];
+  const active = prefixes.some((p) => p !== '' && (pathname === p || pathname.startsWith(`${p}/`)));
   return (
     <Link
       href={href}
