@@ -7,6 +7,7 @@ import {
   buildManifest,
   CANON_VERSION,
   canonicalize,
+  collectLinkHrefs,
   extractText,
   SCHEMA_VERSION,
   validateDoc,
@@ -19,6 +20,7 @@ import { commentAnchors, comments } from './schema/collaboration';
 import {
   blobs,
   blocks,
+  documentReferences,
   documentRefs,
   documents,
   publishedSnapshots,
@@ -28,6 +30,47 @@ import {
 import { docReactions } from './schema/engagement';
 import { sections } from './schema/sections';
 import { documentTags, tags } from './schema/tags';
+
+/** 从 /a/<slug> 取 slug；非站内链接返回 null。 */
+function slugFromHref(href: string): string | null {
+  const m = /^\/a\/([^/#?]+)/.exec(href.trim());
+  return m === null ? null : (m[1] as string);
+}
+
+/**
+ * 重建全部已发布文章的站内提及边（知识图谱）：用 kernel collectLinkHrefs 抽链 → 解析 /a/<slug>
+ * → 解析到已发布的目标文章 → 重建 document_references。与生产发布钩子同口径。
+ */
+async function syncDemoReferences(db: ReturnType<typeof getDb>): Promise<void> {
+  const pub = await db
+    .select({ id: documents.id, slug: documents.slug, content: publishedSnapshots.content })
+    .from(documents)
+    .innerJoin(publishedSnapshots, eq(publishedSnapshots.documentId, documents.id));
+  const idBySlug = new Map(pub.map((r) => [r.slug, r.id]));
+  for (const row of pub) {
+    let doc: DocJson;
+    try {
+      doc = validateDoc(row.content);
+    } catch {
+      continue;
+    }
+    const targetIds = new Set<string>();
+    for (const href of collectLinkHrefs(doc)) {
+      const slug = slugFromHref(href);
+      const tid = slug !== null ? idBySlug.get(slug) : undefined;
+      if (tid !== undefined && tid !== row.id) {
+        targetIds.add(tid);
+      }
+    }
+    await db.delete(documentReferences).where(eq(documentReferences.sourceDocId, row.id));
+    if (targetIds.size > 0) {
+      await db
+        .insert(documentReferences)
+        .values([...targetIds].map((tid) => ({ sourceDocId: row.id, targetDocId: tid })))
+        .onConflictDoNothing();
+    }
+  }
+}
 
 /** 幂等同步一篇文档的标签：建标签（全局唯一）+ 重建 document_tags 关联。 */
 async function syncTags(
@@ -55,6 +98,23 @@ async function syncTags(
 // —— 文档 JSON 构造（attrs.blockId 直接用库内 uuid，DOM 锚点与 blocks.id 同源）——
 const uid = () => randomUUID();
 const text = (t: string) => ({ type: 'text' as const, text: t });
+/** 站内文章链接（知识图谱提边的来源）：指向 /a/<slug> */
+const docLink = (t: string, slug: string) => ({
+  type: 'text' as const,
+  text: t,
+  marks: [{ type: 'link' as const, attrs: { href: `/a/${slug}` } }],
+});
+/** 「延伸阅读」段落：前缀文字 + 若干站内文章链接（顿号分隔） */
+const relatedPara = (links: { slug: string; label: string }[]) => ({
+  type: 'paragraph' as const,
+  attrs: { blockId: uid() },
+  content: [
+    text('延伸阅读：'),
+    ...links.flatMap((l, i) =>
+      i === 0 ? [docLink(l.label, l.slug)] : [text('、'), docLink(l.label, l.slug)],
+    ),
+  ],
+});
 const p = (t: string) => ({
   type: 'paragraph' as const,
   attrs: { blockId: uid() },
@@ -113,6 +173,21 @@ const DEMO_TAGS: Record<string, string[]> = {
   'demo-how-to-read-papers': ['科研入门', '论文'],
   'demo-zhongkao-mindset': ['心态', '中考'],
   'demo-pomodoro-two-years': ['时间管理', '效率工具'],
+};
+
+// 演示站内提及（知识图谱）：在正文末尾插「延伸阅读」链接，构成连通有向图（含相互提及）。
+const DEMO_RELATED: Record<string, { slug: string; label: string }[]> = {
+  'demo-gaokao-100days': [{ slug: 'demo-wrong-answer-notebook', label: '错题本的正确打开方式' }],
+  'demo-wrong-answer-notebook': [
+    { slug: 'demo-gaokao-100days', label: '高考最后一百天' },
+    { slug: 'demo-pomodoro-two-years', label: '番茄工作法两年实践' },
+  ],
+  'demo-college-course-selection': [{ slug: 'demo-how-to-read-papers', label: '读论文的三遍法' }],
+  'demo-how-to-read-papers': [{ slug: 'demo-pomodoro-two-years', label: '番茄工作法两年实践' }],
+  'demo-zhongkao-mindset': [{ slug: 'demo-gaokao-100days', label: '高考最后一百天' }],
+  'demo-pomodoro-two-years': [
+    { slug: 'demo-wrong-answer-notebook', label: '错题本的正确打开方式' },
+  ],
 };
 
 const ARTICLES: DemoArticle[] = [
@@ -424,7 +499,10 @@ async function main(): Promise<void> {
       throw new Error(`板块或作者缺失：${art.slug}`);
     }
 
-    const doc: DocJson = validateDoc({ type: 'doc', content: art.body });
+    // 正文末尾追加「延伸阅读」站内链接（知识图谱提边来源）
+    const related = DEMO_RELATED[art.slug] ?? [];
+    const body = related.length > 0 ? [...art.body, relatedPara(related)] : art.body;
+    const doc: DocJson = validateDoc({ type: 'doc', content: body });
     const manifest = buildManifest(doc);
     const entries = manifest.entries;
     const now = new Date();
@@ -598,6 +676,10 @@ async function main(): Promise<void> {
     }
     console.log(`[ok] ${art.slug}`);
   }
+
+  // 站内提及图：全部文章创建后统一从已发布正文重建有向边（用 kernel 抽链，与生产路径一致）
+  await syncDemoReferences(db);
+
   console.log('演示数据完成');
 }
 

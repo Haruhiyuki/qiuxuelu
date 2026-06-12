@@ -26,6 +26,7 @@ import { CodeCopy } from '@/components/code-copy';
 import { CommentSection } from '@/components/comments/comment-section';
 import { InlineComments, type InlineCommentView } from '@/components/comments/inline-comments';
 import { MentionText } from '@/components/comments/mention-text';
+import { KnowledgeGraph } from '@/components/knowledge-graph';
 import { ModerationBar } from '@/components/moderation-bar';
 import { ReactionBar } from '@/components/reaction-bar';
 import { ReadingProgress } from '@/components/reading-progress';
@@ -38,6 +39,7 @@ import { getSession } from '@/lib/session';
 import { SITE_URL } from '@/lib/site-url';
 import { loadActor } from '@/server/actors';
 import { getReactionState } from '@/server/reactions';
+import { getDocGraph } from '@/server/references';
 
 // M0 一律请求期动态渲染；ISR + revalidateTag 是 M1 的事
 export const dynamic = 'force-dynamic';
@@ -269,6 +271,10 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
     .where(eq(documentTags.documentId, article.docId));
 
   const reactions = await getReactionState(db, article.docId, session?.user.id ?? null);
+
+  // 知识图谱：本帖与其它帖子的提及关系子图（仅在有邻居时展示）
+  const graph = await getDocGraph(db, article.docId);
+  const hasGraph = graph.nodes.length > 1;
 
   const articleUrl = `${SITE_URL}/a/${article.slug}`;
   const description = buildDescription(article.summary, content);
@@ -527,6 +533,40 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
               ))}
             </ul>
           </details>
+        ) : null}
+
+        {/* 知识图谱：本帖与相关帖子的提及关系网 */}
+        {hasGraph ? (
+          <section className="mt-14">
+            <div className="flex items-baseline gap-3 border-ink-200 border-b pb-4">
+              <span aria-hidden className="h-4 w-1 self-center rounded-xs bg-accent-600" />
+              <h2 className="font-semibold font-serif text-ink-900 text-xl">知识图谱</h2>
+              <p className="text-ink-400 text-sm">
+                本帖与 {graph.nodes.length - 1} 篇相关帖子的提及关系
+              </p>
+            </div>
+            <div className="mt-4 rounded-md border border-ink-200 bg-paper-50 p-4 shadow-paper">
+              <KnowledgeGraph graph={graph} />
+              <div className="mt-2 flex flex-wrap items-center justify-center gap-x-5 gap-y-1 text-ink-400 text-xs">
+                <span className="flex items-center gap-1.5">
+                  <span aria-hidden className="h-2.5 w-2.5 rounded-full bg-accent-600" />
+                  本帖
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <span aria-hidden className="h-2.5 w-2.5 rounded-full bg-brand-500" />
+                  本帖提及
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <span aria-hidden className="h-2.5 w-2.5 rounded-full bg-moss-600" />
+                  提及本帖
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <span aria-hidden className="h-2.5 w-2.5 rounded-full bg-brand-700" />
+                  相互提及
+                </span>
+              </div>
+            </div>
+          </section>
         ) : null}
 
         <CommentSection docId={article.docId} sectionId={article.sectionId} />

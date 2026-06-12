@@ -32,6 +32,7 @@ import { getSession } from '@/lib/session';
 import type { ActionResult } from '@/server/action-result';
 import { loadActor } from '@/server/actors';
 import { insertNotification } from '@/server/notifications';
+import { recomputeReferences } from '@/server/references';
 import { loadRevisionDoc } from '@/server/revision-doc';
 import { emitTrustEvent, recomputeTrust } from '@/server/trust';
 
@@ -205,6 +206,9 @@ export async function approvePublish(rawRequestId: string): Promise<ActionResult
         .update(documents)
         .set({ status: 'published', updatedAt: now })
         .where(eq(documents.id, request.documentId));
+
+      // 知识图谱：据新发布正文重建本帖出边（指向其它已发布帖子的站内链接）
+      await recomputeReferences(tx, request.documentId, docJson);
 
       const items = await tx
         .update(reviewItems)

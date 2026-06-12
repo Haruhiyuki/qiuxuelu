@@ -189,3 +189,43 @@ export function extractText(node: ExtractableNode): string {
     }
   }
 }
+
+/**
+ * 收集文档里所有 link mark 的 href（link 是 schema 中唯一带 href 的 mark）。
+ * 纯函数、零 IO；对站内提及/外链统计、知识图谱提边等共用。href 语义（如 /a/<slug>）由调用方解释。
+ */
+export function collectLinkHrefs(doc: DocJson): string[] {
+  const out: string[] = [];
+  const walk = (node: unknown): void => {
+    if (Array.isArray(node)) {
+      for (const item of node) {
+        walk(item);
+      }
+      return;
+    }
+    if (typeof node !== 'object' || node === null) {
+      return;
+    }
+    const obj = node as Record<string, unknown>;
+    const marks = obj.marks;
+    if (Array.isArray(marks)) {
+      for (const mark of marks) {
+        if (
+          typeof mark === 'object' &&
+          mark !== null &&
+          (mark as { type?: unknown }).type === 'link'
+        ) {
+          const href = (mark as { attrs?: { href?: unknown } }).attrs?.href;
+          if (typeof href === 'string') {
+            out.push(href);
+          }
+        }
+      }
+    }
+    if (Array.isArray(obj.content)) {
+      walk(obj.content);
+    }
+  };
+  walk(doc);
+  return out;
+}

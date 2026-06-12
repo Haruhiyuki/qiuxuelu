@@ -220,6 +220,28 @@ export const publishedSnapshots = pgTable('published_snapshots', {
   publishedAt: timestamp('published_at', { withTimezone: true }).notNull().defaultNow(),
 });
 
+// 站内提及图（知识图谱数据源）：source 帖子的正文里链接到 target 帖子（/a/<slug>）即一条有向边。
+// 发布事务内据已发布正文同步重建 source 侧全部出边；派生缓存，可从正文全量重算。
+export const documentReferences = pgTable(
+  'document_references',
+  {
+    sourceDocId: uuid('source_doc_id')
+      .notNull()
+      .references(() => documents.id, { onDelete: 'cascade' }),
+    targetDocId: uuid('target_doc_id')
+      .notNull()
+      .references(() => documents.id, { onDelete: 'cascade' }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.sourceDocId, t.targetDocId] }),
+    // 反查入边（谁提到了我）
+    index('document_references_target_idx').on(t.targetDocId),
+    // 不记自引用
+    check('document_references_no_self', sql`${t.sourceDocId} <> ${t.targetDocId}`),
+  ],
+);
+
 export const slugHistory = pgTable('slug_history', {
   oldSlug: text('old_slug').primaryKey(),
   documentId: uuid('document_id')
