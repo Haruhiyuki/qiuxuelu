@@ -46,6 +46,7 @@ import type { ActionResult } from '@/server/action-result';
 import { loadActor } from '@/server/actors';
 import { consentGate } from '@/server/consent';
 import { insertNotification } from '@/server/notifications';
+import { maybeAutoPromote } from '@/server/promote';
 import { loadRevisionDoc } from '@/server/revision-doc';
 import { emitTrustEvent, recomputeTrust } from '@/server/trust';
 
@@ -336,6 +337,8 @@ export async function createSuggestion(
         detail: { documentId: rawDocId, blocksChanged: changes.length },
       });
     });
+    // 建议是「他人贡献」的核心：建议落库后检查是否够阈值自动转公共（ADR-0007）
+    await maybeAutoPromote(db, rawDocId);
     return { ok: true, data: { suggestionId } };
   } catch (err) {
     if (err instanceof Error && err.message === 'EMPTY') {
@@ -356,6 +359,7 @@ interface SgRow {
   ownerId: string | null;
   slug: string;
   title: string;
+  visibility: string;
 }
 
 async function loadSuggestion(
@@ -372,6 +376,7 @@ async function loadSuggestion(
       ownerId: documents.ownerId,
       slug: documents.slug,
       title: documents.title,
+      visibility: documents.visibility,
     })
     .from(suggestions)
     .innerJoin(documents, eq(documents.id, suggestions.documentId))
@@ -389,6 +394,7 @@ function reviewDecision(actor: Parameters<typeof can>[0], sg: SgRow) {
       ownerId: sg.ownerId ?? '',
       editPolicy: 'suggest_only',
       status: 'published',
+      visibility: sg.visibility as 'private' | 'public',
     },
   });
 }
@@ -650,6 +656,7 @@ export async function mergeSuggestion(
       ownerId: documents.ownerId,
       slug: documents.slug,
       title: documents.title,
+      visibility: documents.visibility,
     })
     .from(suggestions)
     .innerJoin(documents, eq(documents.id, suggestions.documentId))
@@ -668,6 +675,7 @@ export async function mergeSuggestion(
       ownerId: sg.ownerId ?? '',
       editPolicy: 'suggest_only',
       status: 'published',
+      visibility: sg.visibility as 'private' | 'public',
     },
   });
   if (!decision.allow) return fail(explainDeny(decision.reason));
@@ -835,6 +843,8 @@ export async function mergeSuggestion(
       });
       return { merged: true, seq: newSeq };
     });
+    // 合入新增一条非作者署名的主线修订（他人贡献）：检查是否够阈值自动转公共（ADR-0007）
+    await maybeAutoPromote(db, sg.documentId);
     return { ok: true, data: outcome };
   } catch (err) {
     return fail(err instanceof Error ? err.message : '合入失败，请稍后重试');

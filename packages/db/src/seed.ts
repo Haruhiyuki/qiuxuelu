@@ -61,13 +61,20 @@ async function main(): Promise<void> {
 
   await db
     .insert(siteSettings)
-    .values({
-      key: 'trust.thresholds',
-      value: TRUST_THRESHOLDS_COLD_START,
-    })
+    .values([
+      {
+        key: 'trust.thresholds',
+        value: TRUST_THRESHOLDS_COLD_START,
+      },
+      {
+        // 私有→公共自动升级阈值（他人贡献累计数，ADR-0007）；治理阈值入配置不硬编码
+        key: 'doc.publicize',
+        value: { threshold: 20, note: '私有页累计他人贡献（建议+评论+他人直编）超此数自动转公共' },
+      },
+    ])
     .onConflictDoNothing({ target: siteSettings.key });
 
-  console.log('种子数据写入完成（幂等）：4 个板块 + trust.thresholds 冷启动档');
+  console.log('种子数据写入完成（幂等）：4 个板块 + trust.thresholds + doc.publicize 阈值');
 }
 
 main()

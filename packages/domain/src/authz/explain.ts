@@ -17,6 +17,7 @@ const CAP_LABELS: Record<Capability, string> = {
   'doc.unpublish': '下线文章',
   'doc.protect': '设置保护级',
   'doc.feature': '精选文章',
+  'doc.set_visibility': '转为公共页面',
   'doc.rollback': '回滚版本',
   'flag.create': '提交举报',
   'flag.review': '处理举报',

@@ -200,31 +200,20 @@ describe('can() —— 所有权特例', () => {
   });
 });
 
-describe('can() —— edit_policy 四档 × 信任楼层', () => {
-  it('suggest_only：非作者 TL4 直编被拒（policy_locked）', () => {
+describe('can() —— 页面模式（私有/公共）× 信任楼层（ADR-0007）', () => {
+  it('私有页：非作者 TL4 直编被拒（policy_locked，引导改提建议）', () => {
+    const doc = makeDoc({ visibility: 'private' });
+    const d = can(makeActor({ trustLevel: 4 }), 'doc.edit_direct', { doc }, NOW);
+    expect(d).toEqual({ allow: false, reason: { kind: 'policy_locked' } });
+  });
+
+  it('缺 visibility（旧数据）按最严私有处理：非作者直编被拒', () => {
     const d = can(makeActor({ trustLevel: 4 }), 'doc.edit_direct', { doc: makeDoc() }, NOW);
     expect(d).toEqual({ allow: false, reason: { kind: 'policy_locked' } });
   });
 
-  it('open：TL2 直编允许且附 enqueue_patrol 义务', () => {
-    const doc = makeDoc({ editPolicy: 'open' });
-    expect(can(makeActor({ trustLevel: 2 }), 'doc.edit_direct', { doc }, NOW)).toEqual({
-      allow: true,
-      via: 'trust',
-      obligations: [{ type: 'enqueue_patrol' }],
-    });
-  });
-
-  it('open：TL1 直编被拒，required=2', () => {
-    const doc = makeDoc({ editPolicy: 'open' });
-    expect(can(makeActor({ trustLevel: 1 }), 'doc.edit_direct', { doc }, NOW)).toEqual({
-      allow: false,
-      reason: { kind: 'insufficient_trust', required: 2, capability: 'doc.edit_direct' },
-    });
-  });
-
-  it('semi：TL3 允许 + enqueue_patrol；TL2 被拒 required=3', () => {
-    const doc = makeDoc({ editPolicy: 'semi' });
+  it('公共页：TL3 直编（申请）允许 + enqueue_patrol；TL2 被拒 required=3', () => {
+    const doc = makeDoc({ visibility: 'public' });
     expect(can(makeActor({ trustLevel: 3 }), 'doc.edit_direct', { doc }, NOW)).toEqual({
       allow: true,
       via: 'trust',
@@ -236,11 +225,70 @@ describe('can() —— edit_policy 四档 × 信任楼层', () => {
     });
   });
 
-  it('locked：非作者无角色被拒（policy_locked）', () => {
-    const doc = makeDoc({ editPolicy: 'locked' });
+  it('管理员冻结（editPolicy=locked）压过页面模式：公共页 TL4 也被拒', () => {
+    const doc = makeDoc({ visibility: 'public', editPolicy: 'locked' });
     expect(can(makeActor({ trustLevel: 4 }), 'doc.edit_direct', { doc }, NOW)).toEqual({
       allow: false,
       reason: { kind: 'policy_locked' },
+    });
+  });
+
+  it('私有页：板块编辑可直编（申请，via role）', () => {
+    const editor = makeActor({ trustLevel: 1, roles: [{ role: 'editor', sectionId: 's1' }] });
+    const doc = makeDoc({ visibility: 'private' });
+    expect(can(editor, 'doc.edit_direct', { sectionId: 's1', doc }, NOW)).toEqual({
+      allow: true,
+      via: 'role',
+      obligations: [],
+    });
+  });
+});
+
+describe('can() —— 页面模式：审核/合并的管理权归属（ADR-0007）', () => {
+  const editor = makeActor({ trustLevel: 1, roles: [{ role: 'editor', sectionId: 's1' }] });
+  const sectionMod = makeActor({
+    trustLevel: 1,
+    roles: [{ role: 'section_mod', sectionId: 's1' }],
+  });
+
+  it('私有页：责任编辑无审核/合并权（管理权归所有者），落入信任线拒因', () => {
+    const doc = makeDoc({ visibility: 'private' });
+    const review = can(editor, 'suggestion.review', { sectionId: 's1', doc }, NOW);
+    expect(review).toEqual({
+      allow: false,
+      reason: { kind: 'insufficient_trust', required: 4, capability: 'suggestion.review' },
+    });
+  });
+
+  it('公共页：责任编辑获审核/合并权（via role）', () => {
+    const doc = makeDoc({ visibility: 'public' });
+    expect(can(editor, 'suggestion.review', { sectionId: 's1', doc }, NOW)).toEqual({
+      allow: true,
+      via: 'role',
+      obligations: [],
+    });
+    expect(can(editor, 'suggestion.merge', { sectionId: 's1', doc }, NOW)).toEqual({
+      allow: true,
+      via: 'role',
+      obligations: [],
+    });
+  });
+
+  it('私有页：板块版主保留审核权（治理监督不受页面模式限制）', () => {
+    const doc = makeDoc({ visibility: 'private' });
+    expect(can(sectionMod, 'suggestion.review', { sectionId: 's1', doc }, NOW)).toEqual({
+      allow: true,
+      via: 'role',
+      obligations: [],
+    });
+  });
+
+  it('私有页：所有者保留审核/合并权（TL2+）', () => {
+    const doc = makeDoc({ ownerId: 'u1', visibility: 'private' });
+    expect(can(makeActor({ trustLevel: 2 }), 'suggestion.review', { doc }, NOW)).toEqual({
+      allow: true,
+      via: 'owner',
+      obligations: [],
     });
   });
 });

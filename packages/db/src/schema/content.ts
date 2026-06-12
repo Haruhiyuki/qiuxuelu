@@ -32,6 +32,12 @@ export const documents = pgTable(
     ownerId: text('owner_id').references(() => user.id),
     status: text('status').notNull().default('draft'),
     editPolicy: text('edit_policy').notNull().default('suggest_only'),
+    // 页面模式（ADR-0007）：private=所有者控制（默认）；public=被认可有公共价值，编辑接管管理。
+    // 私有→公共是升级：累计他人贡献超阈值自动转、或管理员手动转；原作者身份（ownerId）始终保留。
+    visibility: text('visibility').notNull().default('private'),
+    // 转公共时刻 + 触发方（'auto' = 阈值自动 / 某用户 id = 管理员手动），null = 仍私有
+    publicizedAt: timestamp('publicized_at', { withTimezone: true }),
+    publicizedBy: text('publicized_by'),
     // 精选/置顶（板块管理员+ 设置）：首页与板块页优先展示
     featured: boolean('featured').notNull().default(false),
     // ProseMirror schema 版本：旧文档渲染/对比时按迁移函数链升级
@@ -48,6 +54,7 @@ export const documents = pgTable(
       'documents_edit_policy_check',
       sql`${t.editPolicy} in ('suggest_only', 'open', 'semi', 'locked')`,
     ),
+    check('documents_visibility_check', sql`${t.visibility} in ('private', 'public')`),
   ],
 );
 

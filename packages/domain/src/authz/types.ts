@@ -40,11 +40,20 @@ export type EditPolicy = 'suggest_only' | 'open' | 'semi' | 'locked';
 
 export type DocStatus = 'draft' | 'published' | 'archived';
 
+/**
+ * 页面模式（ADR-0007）：私有=所有者控制（他人只能提建议，编辑可直编申请）；
+ * 公共=内容被认可有公共价值，编辑接管审核管理、TL3 可直编申请。私有→公共是升级，
+ * 累计他人贡献超阈值自动转、或管理员手动转；原作者身份保留。
+ */
+export type Visibility = 'private' | 'public';
+
 export interface DocCtx {
   id: string;
   ownerId: string;
   editPolicy: EditPolicy;
   status: DocStatus;
+  /** 页面模式：缺省视为 private（旧数据/未携带时按最严的所有者控制） */
+  visibility?: Visibility;
 }
 
 export interface ResourceCtx {

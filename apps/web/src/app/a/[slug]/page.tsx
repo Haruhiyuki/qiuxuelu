@@ -54,6 +54,7 @@ async function loadArticle(slug: string) {
       sectionId: documents.sectionId,
       ownerId: documents.ownerId,
       editPolicy: documents.editPolicy,
+      visibility: documents.visibility,
       featured: documents.featured,
       slug: documents.slug,
       title: documents.title,
@@ -187,6 +188,7 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
   let canSuggest = false;
   let canFeature = false;
   let canProtect = false;
+  let canPublicize = false;
   if (session) {
     const actor = await loadActor(session.user.id);
     if (actor !== null) {
@@ -198,6 +200,7 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
             ownerId: article.ownerId ?? '',
             editPolicy: article.editPolicy as 'suggest_only' | 'open' | 'semi' | 'locked',
             status: 'published',
+            visibility: article.visibility as 'private' | 'public',
           },
         }).allow;
         canSuggest = can(actor, 'suggestion.create', { sectionId: article.sectionId }).allow;
@@ -210,10 +213,13 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
           ownerId: article.ownerId ?? '',
           editPolicy: article.editPolicy as 'suggest_only' | 'open' | 'semi' | 'locked',
           status: 'published',
+          visibility: article.visibility as 'private' | 'public',
         },
       }).allow;
+      canPublicize = can(actor, 'doc.set_visibility', { sectionId: article.sectionId }).allow;
     }
   }
+  const isPublic = article.visibility === 'public';
   const inlineRows = await db
     .select({
       id: comments.id,
@@ -356,6 +362,8 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
               >
                 {(article.authorName ?? '佚').charAt(0)}
               </span>
+              {/* 公共页保留并彰显原始作者身份（ADR-0007） */}
+              {isPublic ? <span className="text-ink-400 text-xs">原作者</span> : null}
               {article.ownerId !== null ? (
                 <Link
                   href={`/u/${article.ownerId}`}
@@ -394,14 +402,21 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
             </span>
             <span>约 {readingMinutes} 分钟</span>
             {article.featured ? <Badge variant="brand">精选</Badge> : null}
+            {isPublic ? (
+              <Badge variant="accent" title="经社区认可、转为公共维护的页面">
+                公共页面
+              </Badge>
+            ) : null}
           </div>
-          {canFeature || canProtect ? (
+          {canFeature || canProtect || canPublicize ? (
             <ModerationBar
               docId={article.docId}
               featured={article.featured}
               editPolicy={article.editPolicy}
+              visibility={article.visibility}
               canFeature={canFeature}
               canProtect={canProtect}
+              canPublicize={canPublicize}
             />
           ) : null}
           {/* 文武线：标题区与正文之间的书版分隔 */}

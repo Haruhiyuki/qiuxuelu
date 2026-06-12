@@ -71,6 +71,11 @@ function describe(kind: string, p: PayloadShape): { text: string; href: string }
         text: `你对《${title}》的编辑建议被要求修改`,
         href: `/suggestions/${p.suggestionId ?? ''}`,
       };
+    case 'doc_promoted':
+      return {
+        text: `🎉 恭喜！你的文章《${title}》已被认可有公共价值，升级为公共页面——你仍是它的原作者`,
+        href: `/a/${p.slug ?? ''}`,
+      };
     default:
       return { text: '你有一条新通知', href: '/' };
   }

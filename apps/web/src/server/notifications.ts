@@ -17,7 +17,9 @@ export type NotificationKind =
   | 'suggestion_received'
   | 'suggestion_merged'
   | 'suggestion_rejected'
-  | 'suggestion_changes';
+  | 'suggestion_changes'
+  // 文章从私有升级为公共（祝贺原作者，ADR-0007）
+  | 'doc_promoted';
 
 type TxLike = Pick<Database, 'insert'>;
 type ReadLike = Pick<Database, 'select'>;

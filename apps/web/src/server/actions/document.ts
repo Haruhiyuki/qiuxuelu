@@ -77,6 +77,7 @@ interface DocRow {
   status: string;
   slug: string;
   title: string;
+  visibility: string;
 }
 
 function toDocCtx(row: DocRow): DocCtx {
@@ -86,6 +87,7 @@ function toDocCtx(row: DocRow): DocCtx {
     editPolicy: row.editPolicy as DocCtx['editPolicy'],
     // db 比 domain 多一个 'pending'（审批中）状态，对鉴权语义等同草稿期
     status: (row.status === 'pending' ? 'draft' : row.status) as DocCtx['status'],
+    visibility: row.visibility as DocCtx['visibility'],
   };
 }
 
@@ -108,6 +110,7 @@ async function findDoc(docId: string): Promise<DocRow | undefined> {
       status: documents.status,
       slug: documents.slug,
       title: documents.title,
+      visibility: documents.visibility,
     })
     .from(documents)
     .where(eq(documents.id, docId))

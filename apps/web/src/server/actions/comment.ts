@@ -22,6 +22,7 @@ import type { ActionResult } from '@/server/action-result';
 import { loadActor } from '@/server/actors';
 import { consentGate } from '@/server/consent';
 import { insertNotification, notifyMentions } from '@/server/notifications';
+import { maybeAutoPromote } from '@/server/promote';
 import { emitTrustEvent, recomputeTrust } from '@/server/trust';
 
 function fail(error: string): { ok: false; error: string } {
@@ -188,6 +189,8 @@ export async function createComment(
       await recomputeTrust(tx, actor.id);
       return comment.id;
     });
+    // 评论是「他人贡献」之一：评论落库后检查是否够阈值自动转公共（ADR-0007，失败不连累主流程）
+    await maybeAutoPromote(getDb(), rawDocId);
     return { ok: true, data: { commentId } };
   } catch {
     return fail('评论提交失败，请稍后重试');
@@ -383,6 +386,7 @@ export async function createInlineComment(
       });
       return comment.id;
     });
+    await maybeAutoPromote(getDb(), rawDocId);
     return { ok: true, data: { commentId } };
   } catch {
     return fail('行内批注提交失败，请稍后重试');

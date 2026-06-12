@@ -95,6 +95,8 @@ export function can(
     return deny({ kind: 'sanction', until: worstUntil(activeHits) });
   }
 
+  const doc = resource.doc;
+
   // ── 2. 角色线：板块域角色要求作用域精确命中；admin/superadmin 全局
   for (const grant of actor.roles) {
     if (!ROLE_CAPS[grant.role].includes(capability)) {
@@ -106,10 +108,18 @@ export function can(
         continue;
       }
     }
+    // 页面模式红线（ADR-0007）：私有页的「审核/合并建议」只归所有者，责任编辑不获管理权
+    // （编辑在私有页只能直编申请，见 4a）。板块版主及以上保留治理监督权，不受此限。
+    if (
+      grant.role === 'editor' &&
+      (capability === 'suggestion.review' || capability === 'suggestion.merge') &&
+      doc !== undefined &&
+      doc.visibility !== 'public'
+    ) {
+      continue;
+    }
     return allow('role');
   }
-
-  const doc = resource.doc;
 
   // ── 3. 所有权特例：作者对自有文档（locked 不豁免——管理员强制保护压过作者自主权）
   if (doc !== undefined && doc.ownerId === actor.id) {
@@ -128,25 +138,25 @@ export function can(
     return deny({ kind: 'role_required', roles: rolesGranting(capability) });
   }
 
-  // 4a. doc.edit_direct 受 edit_policy 楼层约束（覆盖 TRUST_CAPS 的基础楼层 TL3）。
-  // 缺文档上下文一律 fail-close：否则信任线会绕过 edit_policy 楼层且丢失巡查义务。
+  // 4a. doc.edit_direct 信任线楼层（ADR-0007）：由页面模式驱动，editPolicy='locked' 是管理员
+  //     最高冻结仍优先。role/owner 已在前面放行；走到这里的是「非角色、非所有者」的信任线用户。
+  // 缺文档上下文一律 fail-close：否则信任线会绕过楼层且丢失巡查义务。
   if (capability === 'doc.edit_direct') {
     if (doc === undefined) {
       return deny({ kind: 'policy_locked' });
     }
-    switch (doc.editPolicy) {
-      case 'suggest_only':
-      case 'locked':
-        return deny({ kind: 'policy_locked' });
-      case 'open':
-        return actor.trustLevel >= 2
-          ? allow('trust', [{ type: 'enqueue_patrol' }])
-          : deny({ kind: 'insufficient_trust', required: 2, capability });
-      case 'semi':
-        return actor.trustLevel >= 3
-          ? allow('trust', [{ type: 'enqueue_patrol' }])
-          : deny({ kind: 'insufficient_trust', required: 3, capability });
+    // 管理员强制保护：冻结后谁都不能直编（压过页面模式）
+    if (doc.editPolicy === 'locked') {
+      return deny({ kind: 'policy_locked' });
     }
+    if (doc.visibility === 'public') {
+      // 公共页：TL3+ 直编（申请）即时生效但进巡查；否则提示晋升
+      return actor.trustLevel >= 3
+        ? allow('trust', [{ type: 'enqueue_patrol' }])
+        : deny({ kind: 'insufficient_trust', required: 3, capability });
+    }
+    // 私有页：信任线不得直编——TL3 只能提建议（policy_locked 文案已引导「提交编辑建议」）
+    return deny({ kind: 'policy_locked' });
   }
 
   // 4b. 评论的预审/限速梯度：TL0 允许但首帖预审+限速（拒绝变引导的最前线），TL1 限速

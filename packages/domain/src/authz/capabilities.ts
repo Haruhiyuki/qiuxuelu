@@ -15,6 +15,7 @@ export type Capability =
   | 'doc.unpublish'
   | 'doc.protect'
   | 'doc.feature'
+  | 'doc.set_visibility'
   | 'doc.rollback'
   | 'flag.create'
   | 'flag.review'
@@ -56,6 +57,8 @@ const SECTION_MOD_CAPS: readonly Capability[] = [
   'doc.unpublish',
   'doc.protect',
   'doc.feature',
+  // 手动把私有页升级为公共页（自动阈值之外的人工通道，ADR-0007）
+  'doc.set_visibility',
 ];
 
 const ADMIN_CAPS: readonly Capability[] = [
@@ -111,6 +114,7 @@ export const ROLE_ONLY_CAPS: ReadonlySet<Capability> = new Set([
   'doc.unpublish',
   'doc.protect',
   'doc.feature',
+  'doc.set_visibility',
   'user.suspend',
   'user.trust_adjust',
   'role.grant_section',
