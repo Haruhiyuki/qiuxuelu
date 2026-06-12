@@ -108,9 +108,26 @@
   animation: overlay-in 0.2s ease-out both;
 }
 
+/* 居中弹窗：淡入 + 轻微上浮放大 */
+@keyframes pop-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.pop-in {
+  animation: pop-in 0.18s ease-out both;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .drawer-in,
-  .overlay-in {
+  .overlay-in,
+  .pop-in {
     animation: none;
   }
 }

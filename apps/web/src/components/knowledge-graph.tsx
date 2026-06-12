@@ -10,8 +10,13 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { fetchDocGraph } from '@/server/actions/graph';
 import type { LayeredGraph, LayeredNode } from '@/server/references';
 
-const PAD = 60; // viewBox 四周留白（含标签）
 const NODE_R = [30, 20, 15, 12]; // 各 depth 的节点半径
+// 固定取景框 + 包围盒等比拟合（居中）：节点尺寸恒定、viewBox 恒定 → 换中心/切层级时整体比例
+// 稳定（不忽大忽小）；按内容包围盒充满取景框，路径状图谱也不至于缩在角落。
+const VB_HALF = 450; // 取景框半宽
+const FIT_MARGIN = 92; // 四周留白（给节点半径 + 标签）
+const MAX_SCALE = 2.4; // 缩放上限：节点很少时不至于把间距撑得离谱
+const FIXED_VIEWBOX = `${-VB_HALF} ${-VB_HALF} ${VB_HALF * 2} ${VB_HALF * 2}`;
 // 力导向布局参数（Fruchterman–Reingold + 按 depth 的径向偏置；确定性、无随机）
 const FR_K = 116; // 理想边长 / 斥力尺度
 const FR_ITERS = 440;
@@ -39,6 +44,8 @@ interface Layout {
   nodes: PlacedNode[];
   edges: { source: string; target: string }[];
   posMap: Map<string, PlacedNode>;
+  /** 包围盒拟合缩放系数：导引环半径需同步乘它 */
+  scale: number;
   viewBox: string;
 }
 
@@ -155,33 +162,49 @@ function computeLayout(graph: LayeredGraph, maxDepth: number): Layout {
     }
   }
 
+  // 包围盒等比拟合到固定取景框并居中：节点半径恒定 + viewBox 恒定 → 屏上节点尺寸恒定、
+  // 整体比例稳定；按包围盒充满画面，路径状图谱也铺得开。
+  let minX = Number.POSITIVE_INFINITY;
+  let minY = Number.POSITIVE_INFINITY;
+  let maxX = Number.NEGATIVE_INFINITY;
+  let maxY = Number.NEGATIVE_INFINITY;
+  for (let i = 0; i < n; i++) {
+    const r = NODE_R[Math.min(nodes[i]?.depth ?? 0, NODE_R.length - 1)] ?? 12;
+    const x = px[i] ?? 0;
+    const y = py[i] ?? 0;
+    minX = Math.min(minX, x - r);
+    maxX = Math.max(maxX, x + r);
+    minY = Math.min(minY, y - r);
+    maxY = Math.max(maxY, y + r);
+  }
+  if (!Number.isFinite(minX)) {
+    minX = -1;
+    minY = -1;
+    maxX = 1;
+    maxY = 1;
+  }
+  const cx = (minX + maxX) / 2;
+  const cy = (minY + maxY) / 2;
+  const usable = (VB_HALF - FIT_MARGIN) * 2;
+  const scale = Math.min(
+    MAX_SCALE,
+    usable / Math.max(1, maxX - minX),
+    usable / Math.max(1, maxY - minY),
+  );
+
   const placed: PlacedNode[] = nodes.map((nd, i) => ({
     ...nd,
-    x: px[i] ?? 0,
-    y: py[i] ?? 0,
+    x: ((px[i] ?? 0) - cx) * scale,
+    y: ((py[i] ?? 0) - cy) * scale,
     r: NODE_R[Math.min(nd.depth, NODE_R.length - 1)] ?? 12,
   }));
-
-  let minX = 0;
-  let maxX = 0;
-  let minY = 0;
-  let maxY = 0;
-  for (const p of placed) {
-    minX = Math.min(minX, p.x - p.r);
-    maxX = Math.max(maxX, p.x + p.r);
-    minY = Math.min(minY, p.y - p.r);
-    maxY = Math.max(maxY, p.y + p.r);
-  }
-  minX -= PAD;
-  minY -= PAD;
-  maxX += PAD;
-  maxY += PAD;
 
   return {
     nodes: placed,
     edges,
     posMap: new Map(placed.map((p) => [p.id, p])),
-    viewBox: `${minX} ${minY} ${maxX - minX} ${maxY - minY}`,
+    scale,
+    viewBox: FIXED_VIEWBOX,
   };
 }
 
@@ -275,12 +298,13 @@ export function KnowledgeGraph({ initialGraph }: { initialGraph: LayeredGraph })
   }
 
   const at = (id: string) => pos.get(id) ?? target.posMap.get(id) ?? { x: 0, y: 0 };
+  const ringCenter = at(graph.centerId); // 导引环绕中心节点（包围盒居中后中心不在原点）
   const nodeDim = (id: string) => connected !== null && !connected.has(id);
   const showLabel = (n: PlacedNode) =>
     n.depth <= 1 || target.nodes.length <= 22 || (connected?.has(n.id) ?? false);
 
   return (
-    <div className="rounded-md border border-ink-200 bg-paper-50 shadow-paper">
+    <div className="flex h-full flex-col">
       {/* 工具条：当前中心 + 打开文章 / 层级切换 / 返回本帖 */}
       <div className="flex flex-wrap items-center justify-between gap-3 border-ink-200/70 border-b px-4 py-2.5">
         <div className="flex min-w-0 items-center gap-2">
@@ -338,12 +362,11 @@ export function KnowledgeGraph({ initialGraph }: { initialGraph: LayeredGraph })
         </div>
       </div>
 
-      <div className="relative">
+      <div className="relative min-h-0 flex-1">
         <svg
           viewBox={target.viewBox}
           preserveAspectRatio="xMidYMid meet"
-          className="block h-auto w-full select-none"
-          style={{ maxHeight: 'min(68vh, 560px)' }}
+          className="block h-full w-full select-none"
           role="img"
           aria-label={`以「${center?.title ?? ''}」为中心、最多 ${shownDepth} 层的站内提及关系图`}
         >
@@ -370,13 +393,13 @@ export function KnowledgeGraph({ initialGraph }: { initialGraph: LayeredGraph })
             </filter>
           </defs>
 
-          {/* 层级导引环（淡虚线，对齐径向偏置半径）：暗示「由内向外分层」 */}
+          {/* 层级导引环（淡虚线，对齐径向偏置半径×拟合系数）：暗示「由内向外分层」 */}
           {Array.from({ length: shownDepth }, (_, i) => i + 1).map((d) => (
             <circle
               key={`ring-${d}`}
-              cx={0}
-              cy={0}
-              r={d * FR_RING}
+              cx={ringCenter.x}
+              cy={ringCenter.y}
+              r={d * FR_RING * target.scale}
               fill="none"
               stroke="var(--color-ink-200)"
               strokeWidth={1}

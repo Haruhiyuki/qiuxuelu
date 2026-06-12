@@ -26,7 +26,7 @@ import { CodeCopy } from '@/components/code-copy';
 import { CommentSection } from '@/components/comments/comment-section';
 import { InlineComments, type InlineCommentView } from '@/components/comments/inline-comments';
 import { MentionText } from '@/components/comments/mention-text';
-import { KnowledgeGraph } from '@/components/knowledge-graph';
+import { KnowledgeGraphButton } from '@/components/knowledge-graph-modal';
 import { ModerationBar } from '@/components/moderation-bar';
 import { ReactionBar } from '@/components/reaction-bar';
 import { ReadingProgress } from '@/components/reading-progress';
@@ -418,6 +418,8 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
                 公共页面
               </Badge>
             ) : null}
+            {/* 知识图谱入口：点击弹窗专门展示（仅在有相关帖子时出现） */}
+            {hasGraph ? <KnowledgeGraphButton initialGraph={graph} /> : null}
           </div>
           {canFeature || canProtect || canPublicize ? (
             <ModerationBar
@@ -538,18 +540,6 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
               ))}
             </ul>
           </details>
-        ) : null}
-
-        {/* 知识图谱：本帖与相关帖子的提及关系网（最多三层，可点节点切换中心） */}
-        {hasGraph ? (
-          <section className="mt-14">
-            <div className="mb-4 flex items-baseline gap-3 border-ink-200 border-b pb-4">
-              <span aria-hidden className="h-4 w-1 self-center rounded-xs bg-accent-600" />
-              <h2 className="font-semibold font-serif text-ink-900 text-xl">知识图谱</h2>
-              <p className="text-ink-400 text-sm">本帖邻域的提及关系 · 点节点可换中心</p>
-            </div>
-            <KnowledgeGraph initialGraph={graph} />
-          </section>
         ) : null}
 
         <CommentSection docId={article.docId} sectionId={article.sectionId} />
