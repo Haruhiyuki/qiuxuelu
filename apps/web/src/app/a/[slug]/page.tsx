@@ -18,6 +18,7 @@ import type { ImageMetaMap, TocEntry } from '@harublog/renderer';
 import { ArticleRenderer, extractToc, mediaHashFromSrc } from '@harublog/renderer';
 import { Badge } from '@harublog/ui';
 import { and, asc, eq, inArray } from 'drizzle-orm';
+import { Lightbulb, PenLine } from 'lucide-react';
 import type { Metadata } from 'next';
 import { unstable_cache } from 'next/cache';
 import Link from 'next/link';
@@ -418,6 +419,25 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
                 公共页面
               </Badge>
             ) : null}
+            {/* 协作入口（仅有权者可见）：直接协作编辑 / 提编辑建议，从信息栏触手可及 */}
+            {canCollabEdit ? (
+              <Link
+                href={`/a/${article.slug}/edit`}
+                className="inline-flex items-center gap-1.5 rounded-full border border-ink-200 px-2.5 py-0.5 text-ink-600 text-xs transition-colors hover:border-brand-300 hover:bg-brand-50 hover:text-brand-700"
+              >
+                <PenLine className="h-3.5 w-3.5" aria-hidden />
+                协作编辑
+              </Link>
+            ) : null}
+            {canSuggest ? (
+              <Link
+                href={`/a/${article.slug}/suggest`}
+                className="inline-flex items-center gap-1.5 rounded-full border border-ink-200 px-2.5 py-0.5 text-ink-600 text-xs transition-colors hover:border-brand-300 hover:bg-brand-50 hover:text-brand-700"
+              >
+                <Lightbulb className="h-3.5 w-3.5" aria-hidden />
+                提建议
+              </Link>
+            ) : null}
             {/* 知识图谱入口：点击弹窗专门展示（仅在有相关帖子时出现） */}
             {hasGraph ? <KnowledgeGraphButton initialGraph={graph} /> : null}
           </div>
@@ -494,29 +514,13 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
             </a>{' '}
             协议发布：转载请署名并注明出处，演绎版本须以相同协议共享。
           </p>
-          <p className="mt-3 flex flex-wrap gap-x-5 gap-y-1.5">
+          <p className="mt-3">
             <Link
               href={`/a/${article.slug}/history`}
               className="text-brand-700 transition-colors hover:text-brand-900"
             >
               查看修订历史 →
             </Link>
-            {canCollabEdit ? (
-              <Link
-                href={`/a/${article.slug}/edit`}
-                className="text-brand-700 transition-colors hover:text-brand-900"
-              >
-                协作编辑这篇文章 →
-              </Link>
-            ) : null}
-            {canSuggest ? (
-              <Link
-                href={`/a/${article.slug}/suggest`}
-                className="text-brand-700 transition-colors hover:text-brand-900"
-              >
-                提出编辑建议 →
-              </Link>
-            ) : null}
           </p>
         </footer>
 
