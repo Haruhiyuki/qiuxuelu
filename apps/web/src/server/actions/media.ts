@@ -5,7 +5,6 @@
 import { createHash } from 'node:crypto';
 import { getDb, media } from '@harublog/db';
 import { can, explainDeny } from '@harublog/domain';
-import sharp from 'sharp';
 import { getSession } from '@/lib/session';
 import type { ActionResult } from '@/server/action-result';
 import { loadActor } from '@/server/actors';
@@ -49,6 +48,10 @@ export async function uploadMedia(formData: FormData): Promise<ActionResult<Uplo
     return fail(`文件过大（上限 ${Math.floor(MAX_BYTES / 1024 / 1024)}MB）`);
   }
   const input = Buffer.from(await file.arrayBuffer());
+
+  // sharp 是带原生 libvips 的重模块：延迟到真正用时再加载，避免「服务端动作打包到同一 chunk」
+  // 时连累其它动作（如建文档/存草稿）——尤其在未部署媒体栈的环境里 sharp 可能根本加载不了。
+  const sharp = (await import('sharp')).default;
 
   let out: Buffer;
   let width: number;
