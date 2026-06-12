@@ -3,7 +3,8 @@ import type { DocJson } from '@harublog/kernel';
 import { asc } from 'drizzle-orm';
 import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
-import { ArticleComposer, type SectionOption } from '@/components/editor/article-composer';
+import type { SectionOption } from '@/components/editor/article-composer';
+import { ComposerClient } from '@/components/editor/composer-client';
 import { getSession } from '@/lib/session';
 
 export const dynamic = 'force-dynamic';
@@ -25,7 +26,7 @@ export default async function NewDocumentPage() {
   const sectionOptions: SectionOption[] = sectionRows;
 
   return (
-    <ArticleComposer
+    <ComposerClient
       docId={null}
       sections={sectionOptions}
       initialTitle=""

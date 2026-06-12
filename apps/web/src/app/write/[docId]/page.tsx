@@ -6,7 +6,8 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import { z } from 'zod';
-import { ArticleComposer, type SectionOption } from '@/components/editor/article-composer';
+import type { SectionOption } from '@/components/editor/article-composer';
+import { ComposerClient } from '@/components/editor/composer-client';
 import { getSession } from '@/lib/session';
 import { getDocumentTags } from '@/server/actions/tags';
 import { loadRevisionDoc } from '@/server/revision-doc';
@@ -109,7 +110,7 @@ export default async function EditDocumentPage({ params }: EditPageProps) {
   const sectionOptions: SectionOption[] = sectionRows;
 
   return (
-    <ArticleComposer
+    <ComposerClient
       docId={doc.id}
       sections={sectionOptions}
       initialTitle={doc.title}
