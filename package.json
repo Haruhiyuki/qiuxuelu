@@ -15,7 +15,8 @@
     "boundaries": "depcruise apps packages --config .dependency-cruiser.cjs",
     "db:generate": "pnpm --filter @harublog/db db:generate",
     "db:migrate": "pnpm --filter @harublog/db db:migrate",
-    "db:seed": "pnpm --filter @harublog/db db:seed"
+    "db:seed": "pnpm --filter @harublog/db db:seed",
+    "db:seed-demo": "pnpm --filter @harublog/db db:seed-demo"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.4.16",
