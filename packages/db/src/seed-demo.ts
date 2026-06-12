@@ -27,6 +27,30 @@ import {
 } from './schema/content';
 import { docReactions } from './schema/engagement';
 import { sections } from './schema/sections';
+import { documentTags, tags } from './schema/tags';
+
+/** 幂等同步一篇文档的标签：建标签（全局唯一）+ 重建 document_tags 关联。 */
+async function syncTags(
+  db: ReturnType<typeof getDb>,
+  docId: string,
+  names: string[],
+): Promise<void> {
+  if (names.length === 0) {
+    return;
+  }
+  await db
+    .insert(tags)
+    .values(names.map((name) => ({ name })))
+    .onConflictDoNothing({ target: tags.name });
+  const rows = await db.select({ id: tags.id }).from(tags).where(inArray(tags.name, names));
+  await db.delete(documentTags).where(eq(documentTags.documentId, docId));
+  if (rows.length > 0) {
+    await db
+      .insert(documentTags)
+      .values(rows.map((r) => ({ documentId: docId, tagId: r.id })))
+      .onConflictDoNothing();
+  }
+}
 
 // —— 文档 JSON 构造（attrs.blockId 直接用库内 uuid，DOM 锚点与 blocks.id 同源）——
 const uid = () => randomUUID();
@@ -80,6 +104,16 @@ const A = 'admin-test@harublog.dev';
 const E = 'editor-test@harublog.dev';
 const S = 'senior-test@harublog.dev';
 const J = 'junior-test@harublog.dev';
+
+// 演示标签（板块内分类依据）：高中板块刻意让「复习方法」横跨两篇，体现聚合计数。
+const DEMO_TAGS: Record<string, string[]> = {
+  'demo-gaokao-100days': ['复习方法', '高考', '心态'],
+  'demo-wrong-answer-notebook': ['复习方法', '错题本'],
+  'demo-college-course-selection': ['选课', '大学生活'],
+  'demo-how-to-read-papers': ['科研入门', '论文'],
+  'demo-zhongkao-mindset': ['心态', '中考'],
+  'demo-pomodoro-two-years': ['时间管理', '效率工具'],
+};
 
 const ARTICLES: DemoArticle[] = [
   {
@@ -379,7 +413,9 @@ async function main(): Promise<void> {
       .where(eq(documents.slug, art.slug))
       .limit(1);
     if (exists.length > 0) {
-      console.log(`[skip] ${art.slug} 已存在`);
+      // 文章已存在：仍幂等补齐标签（让旧种子数据也获得分类标签）
+      await syncTags(db, exists[0]?.id as string, DEMO_TAGS[art.slug] ?? []);
+      console.log(`[skip] ${art.slug} 已存在（已补标签）`);
       continue;
     }
     const sectionId = sectionBySlug.get(art.sectionSlug);
@@ -551,6 +587,15 @@ async function main(): Promise<void> {
         });
       }
     });
+    // 标签在事务外补齐（独立于文章主体；幂等可重跑）
+    const created = await db
+      .select({ id: documents.id })
+      .from(documents)
+      .where(eq(documents.slug, art.slug))
+      .limit(1);
+    if (created[0]) {
+      await syncTags(db, created[0].id, DEMO_TAGS[art.slug] ?? []);
+    }
     console.log(`[ok] ${art.slug}`);
   }
   console.log('演示数据完成');

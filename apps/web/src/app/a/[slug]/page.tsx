@@ -443,7 +443,8 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
             {docTags.map((t) => (
               <Link
                 key={t.name}
-                href={`/t/${encodeURIComponent(t.name)}`}
+                // 指向同板块的标签筛选（标签在板块内做分类）；跨板块全局视图见 /t/<name>
+                href={`/s/${article.sectionSlug}?tag=${encodeURIComponent(t.name)}`}
                 className="rounded-full border border-ink-200 bg-paper-50 px-3 py-0.5 text-ink-600 text-sm transition-colors hover:border-brand-300 hover:text-brand-700"
               >
                 #{t.name}
