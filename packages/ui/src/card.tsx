@@ -6,7 +6,10 @@ export type CardProps = ComponentProps<'div'>;
 export function Card({ className, ...props }: CardProps) {
   return (
     <div
-      className={cn('rounded-md border border-ink-200 bg-paper-50 text-ink-900', className)}
+      className={cn(
+        'rounded-md border border-ink-200 bg-paper-50 text-ink-900 shadow-paper',
+        className,
+      )}
       {...props}
     />
   );

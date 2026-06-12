@@ -1,11 +1,13 @@
-import { getDb, user as userTable } from '@harublog/db';
-import { eq } from 'drizzle-orm';
+import { getDb, userNameHistory, user as userTable } from '@harublog/db';
+import { and, count, eq, gte } from 'drizzle-orm';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { Breadcrumb } from '@/components/breadcrumb';
 import { getSession } from '@/lib/session';
 import { AccountForm } from './account-form';
+import { PasskeySection } from './passkey-section';
+import { TwoFactorSection } from './two-factor-section';
 
 export const dynamic = 'force-dynamic';
 export const metadata: Metadata = { title: '账户设置', robots: { index: false } };
@@ -15,19 +17,36 @@ export default async function AccountPage() {
   if (!session) {
     redirect('/login');
   }
+  const db = getDb();
   const prefRow = (
-    await getDb()
+    await db
       .select({
         emailNotifications: userTable.emailNotifications,
         bio: userTable.bio,
         educationStage: userTable.educationStage,
         image: userTable.image,
-        username: userTable.username,
+        twoFactorEnabled: userTable.twoFactorEnabled,
       })
       .from(userTable)
       .where(eq(userTable.id, session.user.id))
       .limit(1)
   )[0];
+
+  // 改名配额：7 天滚动窗口内最多 2 次（与 renameUser 同口径）
+  const RENAME_WINDOW_DAYS = 7;
+  const RENAME_LIMIT = 2;
+  const windowStart = new Date(Date.now() - RENAME_WINDOW_DAYS * 86_400_000);
+  const renameRows = await db
+    .select({ n: count() })
+    .from(userNameHistory)
+    .where(
+      and(eq(userNameHistory.userId, session.user.id), gte(userNameHistory.changedAt, windowStart)),
+    );
+  const renameQuota = {
+    remaining: Math.max(0, RENAME_LIMIT - Number(renameRows[0]?.n ?? 0)),
+    limit: RENAME_LIMIT,
+    windowDays: RENAME_WINDOW_DAYS,
+  };
   return (
     <div className="mx-auto w-full max-w-xl px-6 py-10">
       <Breadcrumb items={[{ label: '首页', href: '/' }, { label: '账户设置' }]} />
@@ -48,8 +67,14 @@ export default async function AccountPage() {
         initialBio={prefRow?.bio ?? ''}
         initialEducationStage={prefRow?.educationStage ?? ''}
         initialImage={prefRow?.image ?? ''}
-        initialUsername={prefRow?.username ?? ''}
+        renameQuota={renameQuota}
       />
+      <div className="mt-8">
+        <TwoFactorSection enabled={prefRow?.twoFactorEnabled ?? false} />
+      </div>
+      <div className="mt-8">
+        <PasskeySection />
+      </div>
     </div>
   );
 }

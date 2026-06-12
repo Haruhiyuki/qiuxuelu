@@ -75,16 +75,24 @@ function CommentBody({
   canFlag: boolean;
 }) {
   return (
-    <div>
-      <div className="flex items-center gap-2 text-sm">
-        <span className="font-medium text-ink-800">{view.authorName}</span>
-        <span className="text-ink-400">{view.createdAtLabel}</span>
-        {canModerate ? <HideButton commentId={view.id} /> : null}
-        {canFlag ? <FlagButton subjectType="comment" subjectId={view.id} /> : null}
+    <div className="flex gap-3">
+      <span
+        aria-hidden
+        className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-brand-100 font-serif text-brand-800 text-xs"
+      >
+        {view.authorName.charAt(0)}
+      </span>
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-2 text-sm">
+          <span className="font-medium text-ink-800">{view.authorName}</span>
+          <span className="text-ink-400 text-xs">{view.createdAtLabel}</span>
+          {canModerate ? <HideButton commentId={view.id} /> : null}
+          {canFlag ? <FlagButton subjectType="comment" subjectId={view.id} /> : null}
+        </div>
+        <p className="mt-1 whitespace-pre-wrap text-ink-700 text-sm leading-relaxed">
+          <MentionText text={view.text} />
+        </p>
       </div>
-      <p className="mt-1 whitespace-pre-wrap text-sm leading-relaxed text-ink-700">
-        <MentionText text={view.text} />
-      </p>
     </div>
   );
 }
@@ -100,19 +108,20 @@ export function CommentThread({
   return (
     <li className="py-5">
       <CommentBody view={comment} canModerate={canModerate} canFlag={canReply} />
-      <div className="mt-2 flex items-center gap-3 text-xs">
+      <div className="mt-2 flex items-center gap-3 pl-10 text-xs">
         {canReply ? (
           <button
             type="button"
             onClick={() => setReplying((v) => !v)}
-            className="text-ink-500 hover:text-brand-700"
+            className="text-ink-500 transition-colors hover:text-brand-700"
           >
             {replying ? '收起' : '回复'}
           </button>
         ) : null}
       </div>
+      {/* 嵌套线从头像正下方穿过（头像宽 28px，线缩进至其中线） */}
       {replying ? (
-        <div className="mt-3 border-l-2 border-ink-100 pl-4">
+        <div className="mt-3 ml-3.5 border-ink-200 border-l-2 pl-6">
           <CommentForm
             docId={docId}
             parentId={comment.id}
@@ -123,7 +132,7 @@ export function CommentThread({
         </div>
       ) : null}
       {replies.length > 0 ? (
-        <ul className="mt-4 flex flex-col gap-4 border-l-2 border-ink-100 pl-4">
+        <ul className="mt-4 ml-3.5 flex flex-col gap-4 border-ink-200 border-l-2 pl-6">
           {replies.map((reply) => (
             <li key={reply.id}>
               <CommentBody view={reply} canModerate={canModerate} canFlag={canReply} />

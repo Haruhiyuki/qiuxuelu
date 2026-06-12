@@ -35,6 +35,7 @@
     "@tiptap/react": "catalog:",
     "@tiptap/starter-kit": "catalog:",
     "@tiptap/suggestion": "catalog:",
+    "@better-auth/passkey": "catalog:",
     "better-auth": "catalog:",
     "sharp": "catalog:",
     "shiki": "catalog:",
@@ -50,6 +51,7 @@
     "react-dom": "catalog:",
     "resend": "catalog:",
     "tailwind-merge": "catalog:",
+    "uqr": "catalog:",
     "zod": "catalog:"
   },
   "devDependencies": {

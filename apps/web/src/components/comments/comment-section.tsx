@@ -66,14 +66,18 @@ export async function CommentSection({ docId, sectionId }: CommentSectionProps) 
   const total = rows.length;
 
   return (
-    <section id="comments" className="mt-12 border-t border-ink-200 pt-8">
-      <h2 className="font-serif text-xl font-semibold text-ink-900">讨论（{total}）</h2>
+    <section id="comments" className="mt-14">
+      <div className="flex items-baseline gap-3 border-ink-200 border-b pb-4">
+        <span aria-hidden className="h-4 w-1 self-center rounded-xs bg-accent-600" />
+        <h2 className="font-semibold font-serif text-ink-900 text-xl">讨论</h2>
+        <p className="text-ink-400 text-sm">{total} 条</p>
+      </div>
 
-      <div className="mt-6">
+      <div className="mt-6 rounded-md border border-ink-200 bg-paper-50 p-4 shadow-paper">
         {canReply ? (
           <CommentForm docId={docId} />
         ) : (
-          <p className="text-sm text-ink-500">
+          <p className="text-ink-500 text-sm">
             <Link href="/login" className="text-brand-700 hover:text-brand-900">
               登录
             </Link>
@@ -83,7 +87,7 @@ export async function CommentSection({ docId, sectionId }: CommentSectionProps) 
       </div>
 
       {topLevel.length > 0 ? (
-        <ul className="mt-4 divide-y divide-ink-100">
+        <ul className="mt-2 divide-y divide-ink-100">
           {topLevel.map((r) => (
             <CommentThread
               key={r.id}
@@ -96,7 +100,7 @@ export async function CommentSection({ docId, sectionId }: CommentSectionProps) 
           ))}
         </ul>
       ) : (
-        <p className="mt-6 text-sm text-ink-400">还没有评论，来做第一个分享想法的人。</p>
+        <p className="mt-6 text-ink-400 text-sm">还没有评论，来做第一个分享想法的人。</p>
       )}
     </section>
   );

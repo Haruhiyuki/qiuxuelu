@@ -78,6 +78,41 @@
       "when": 1781182122131,
       "tag": "0010_lethal_microchip",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1781243204184,
+      "tag": "0011_nasty_psynapse",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1781243520047,
+      "tag": "0012_certain_leopardon",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1781246654707,
+      "tag": "0013_strange_carnage",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1781254576682,
+      "tag": "0014_eager_taskmaster",
+      "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "7",
+      "when": 1781255568249,
+      "tag": "0015_charming_maelstrom",
+      "breakpoints": true
     }
   ]
 }

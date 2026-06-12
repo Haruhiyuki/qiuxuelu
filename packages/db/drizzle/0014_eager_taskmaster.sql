@@ -1,0 +1,2 @@
+ALTER TABLE "doc_reactions" DROP CONSTRAINT "doc_reactions_kind_check";--> statement-breakpoint
+ALTER TABLE "doc_reactions" ADD CONSTRAINT "doc_reactions_kind_check" CHECK ("doc_reactions"."kind" in ('like', 'dislike', 'bookmark'));

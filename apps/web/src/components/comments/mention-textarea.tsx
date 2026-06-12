@@ -1,17 +1,17 @@
 'use client';
 
 // 带 @提及自动补全的文本域：打 @ + 字符时弹出用户候选，↑↓ 选择、Enter/Tab 确认、Esc 关闭。
-// 受控组件（value/onChange 同 <textarea>）。候选来自 /api/users/search（仅含已设用户名的用户）。
+// 受控组件（value/onChange 同 <textarea>）。统一身份：候选与插入都用 name（允许中文）。
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 interface Candidate {
-  username: string;
   name: string;
   image: string | null;
 }
 
-// 光标前「正在输入的 @token」：@ 前是行首或空白，token 体为 0–20 位用户名字符
-const TOKEN_RE = /(^|\s)@([a-zA-Z0-9_]{0,20})$/;
+// 光标前「正在输入的 @token」：@ 前不能是 ASCII 邮箱本地段字符（行首/空白/CJK 后都可触发），
+// token 体为 0–20 位名字字符（任意文字字母/数字/_/-，允许中文）
+const TOKEN_RE = /(^|[^A-Za-z0-9._%+-])@([\p{L}\p{N}_-]{0,20})$/u;
 
 export interface MentionTextareaProps {
   value: string;
@@ -91,11 +91,12 @@ export function MentionTextarea({
       return;
     }
     const cursor = el.selectionStart ?? value.length;
-    const next = `${value.slice(0, start)}@${c.username} ${value.slice(cursor)}`;
+    // 尾随空格是 CJK 提及的词界：渲染与解析据此精确切分名字
+    const next = `${value.slice(0, start)}@${c.name} ${value.slice(cursor)}`;
     onChange(next);
     closeMenu();
     // 把光标移到插入内容之后
-    const pos = start + c.username.length + 2;
+    const pos = start + c.name.length + 2;
     requestAnimationFrame(() => {
       el.focus();
       el.setSelectionRange(pos, pos);
@@ -145,7 +146,7 @@ export function MentionTextarea({
       {open ? (
         <ul className="absolute z-30 mt-1 max-h-60 w-64 overflow-auto rounded-sm border border-ink-200 bg-paper-50 py-1 shadow-lg">
           {items.map((c, i) => (
-            <li key={c.username}>
+            <li key={c.name}>
               <button
                 type="button"
                 // onMouseDown 早于 textarea 的 onBlur，避免菜单先被关掉
@@ -157,8 +158,14 @@ export function MentionTextarea({
                   i === active ? 'bg-brand-50 text-brand-800' : 'text-ink-700 hover:bg-paper-200'
                 }`}
               >
-                <span className="font-medium">@{c.username}</span>
-                <span className="truncate text-ink-400 text-xs">{c.name}</span>
+                {c.image !== null ? (
+                  <img src={c.image} alt="" className="h-5 w-5 rounded-full object-cover" />
+                ) : (
+                  <span className="flex h-5 w-5 items-center justify-center rounded-full bg-brand-100 font-serif text-[10px] text-brand-800">
+                    {c.name.charAt(0)}
+                  </span>
+                )}
+                <span className="font-medium">@{c.name}</span>
               </button>
             </li>
           ))}

@@ -2,12 +2,24 @@
 // （单数表名 + camelCase 列名，id 为 text）；adapter 按 fieldName 取列，不得改名。
 // user 表在官方必需列之外追加业务列 username/bio/status。
 import { sql } from 'drizzle-orm';
-import { boolean, check, index, pgTable, text, timestamp } from 'drizzle-orm/pg-core';
+import {
+  boolean,
+  check,
+  index,
+  integer,
+  pgTable,
+  text,
+  timestamp,
+  uniqueIndex,
+  uuid,
+} from 'drizzle-orm/pg-core';
 
 export const user = pgTable(
   'user',
   {
     id: text('id').primaryKey(),
+    // 统一身份：name 既是署名也是 @提及句柄，全站唯一（lower 唯一索引），允许中文。
+    // 格式由应用层把关（2–20 位任意文字字母/数字/_/-，无空白）；改名走 renameUser（限频+留痕）。
     name: text('name').notNull(),
     email: text('email').notNull().unique(),
     emailVerified: boolean('emailVerified').notNull().default(false),
@@ -15,7 +27,6 @@ export const user = pgTable(
     createdAt: timestamp('createdAt', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updatedAt', { withTimezone: true }).notNull().defaultNow(),
     // —— 以下为业务追加列（better-auth additionalFields 对接）——
-    username: text('username').unique(),
     bio: text('bio'),
     // 教育阶段标签（自愿填写，公开展示）：初中/高中/大学/毕业/其他
     educationStage: text('education_stage'),
@@ -28,8 +39,48 @@ export const user = pgTable(
     // 存协议版本号，同意时间即 createdAt——平台对 CC BY-SA 授权必须可举证，缺失即拒绝注册。
     licenseConsentVersion: text('licenseConsentVersion').notNull().default(''),
     covenantConsentVersion: text('covenantConsentVersion').notNull().default(''),
+    // 两步验证开关（better-auth twoFactor 插件必需列）：仅在 TOTP 首次校验通过后置真
+    twoFactorEnabled: boolean('twoFactorEnabled').notNull().default(false),
   },
-  (t) => [check('user_status_check', sql`${t.status} in ('active', 'suspended')`)],
+  (t) => [
+    check('user_status_check', sql`${t.status} in ('active', 'suspended')`),
+    // 名字唯一性按小写比较（拉丁字母不区分大小写；CJK 不受影响）
+    uniqueIndex('user_name_lower_uq').on(sql`lower(${t.name})`),
+  ],
+);
+
+// 改名历史：旧名 → 用户（隐藏稳定标识符 user.id）。双职：
+// ① 旧 @提及 的重定向解析（同名多行取最近一次让渡）；② 改名限频的滚动窗口计数。
+export const userNameHistory = pgTable(
+  'user_name_history',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: text('user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    oldName: text('old_name').notNull(),
+    changedAt: timestamp('changed_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index('user_name_history_old_name_idx').on(t.oldName),
+    index('user_name_history_user_id_idx').on(t.userId, t.changedAt),
+  ],
+);
+
+// better-auth twoFactor 插件表：TOTP 密钥与备用恢复码（均由插件加密/哈希后存储）；
+// verified = 首个 TOTP 校验是否已通过（未通过前 2FA 不生效）
+export const twoFactor = pgTable(
+  'twoFactor',
+  {
+    id: text('id').primaryKey(),
+    secret: text('secret').notNull(),
+    backupCodes: text('backupCodes').notNull(),
+    verified: boolean('verified').notNull().default(false),
+    userId: text('userId')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+  },
+  (t) => [index('two_factor_user_id_idx').on(t.userId)],
 );
 
 export const session = pgTable(
@@ -73,6 +124,34 @@ export const account = pgTable(
     updatedAt: timestamp('updatedAt', { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [index('account_user_id_idx').on(t.userId)],
+);
+
+// @better-auth/passkey 插件表：WebAuthn 凭证（仅存公钥与签名计数器，私钥永远留在用户设备/云钥匙串）
+export const passkey = pgTable(
+  'passkey',
+  {
+    id: text('id').primaryKey(),
+    // 用户给凭证起的标识名（如「我的 iPhone」），可空
+    name: text('name'),
+    publicKey: text('publicKey').notNull(),
+    userId: text('userId')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    credentialID: text('credentialID').notNull(),
+    // 签名计数器：防凭证克隆重放
+    counter: integer('counter').notNull(),
+    // singleDevice | multiDevice（多设备 = 可云同步的通行密钥）
+    deviceType: text('deviceType').notNull(),
+    backedUp: boolean('backedUp').notNull(),
+    transports: text('transports'),
+    createdAt: timestamp('createdAt', { withTimezone: true }).defaultNow(),
+    // 验证器型号标识（Apple 默认置零 AAGUID，可空）
+    aaguid: text('aaguid'),
+  },
+  (t) => [
+    index('passkey_user_id_idx').on(t.userId),
+    index('passkey_credential_id_idx').on(t.credentialID),
+  ],
 );
 
 export const verification = pgTable(

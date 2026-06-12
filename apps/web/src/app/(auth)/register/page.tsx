@@ -2,20 +2,19 @@
 
 import { Alert, Button, Input, Label } from '@harublog/ui';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import type { FormEvent } from 'react';
 import { useState } from 'react';
 import { OAuthButtons } from '@/components/auth/oauth-buttons';
 import { authClient } from '@/lib/auth-client';
 import { translateAuthError } from '@/lib/auth-errors';
 import { COVENANT_CONSENT_VERSION, LICENSE_CONSENT_VERSION } from '@/lib/consent';
+import { validateName } from '@/lib/identity';
 
 const EMAIL_PATTERN = /^\S+@\S+\.\S+$/;
 // 与 better-auth 服务端默认值（minPasswordLength = 8）保持一致
 const MIN_PASSWORD_LENGTH = 8;
 
 export default function RegisterPage() {
-  const router = useRouter();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -23,13 +22,17 @@ export default function RegisterPage() {
   const [covenantAccepted, setCovenantAccepted] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
+  // 注册成功后进入「查收验证邮件」状态（强制邮箱验证：此时尚无会话，验证链接点击后自动登录）
+  const [registeredEmail, setRegisteredEmail] = useState<string | null>(null);
+  const [resend, setResend] = useState<'idle' | 'sending' | 'sent'>('idle');
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError(null);
 
-    if (name.trim().length === 0) {
-      setError('请输入昵称');
+    const nameError = validateName(name);
+    if (nameError !== null) {
+      setError(nameError);
       return;
     }
     if (!EMAIL_PATTERN.test(email)) {
@@ -60,13 +63,57 @@ export default function RegisterPage() {
       covenantConsentVersion: COVENANT_CONSENT_VERSION,
     });
     if (authError) {
-      setError(translateAuthError(authError.code));
+      setError(translateAuthError(authError.code, authError.message));
       setPending(false);
       return;
     }
-    // 跳首页并刷新：让服务端组件（顶部导航等）重新读取会话
-    router.push('/');
-    router.refresh();
+    // 强制邮箱验证下注册不建会话：留在本页提示查收验证邮件
+    setRegisteredEmail(email);
+    setPending(false);
+  }
+
+  async function handleResend() {
+    if (registeredEmail === null || resend === 'sending') {
+      return;
+    }
+    setResend('sending');
+    await authClient.sendVerificationEmail({ email: registeredEmail, callbackURL: '/' });
+    setResend('sent');
+  }
+
+  if (registeredEmail !== null) {
+    return (
+      <div>
+        <h1 className="font-semibold font-serif text-2xl text-ink-900">查收验证邮件</h1>
+        <p className="mt-3 text-ink-600 text-sm leading-relaxed">
+          验证邮件已发送至 <span className="font-medium text-ink-800">{registeredEmail}</span>
+          ，点击邮件中的链接即可完成验证并自动登录。
+        </p>
+        <p className="mt-2 text-ink-400 text-xs leading-relaxed">
+          没收到？请检查垃圾邮件文件夹，或稍候片刻再重新发送。
+        </p>
+        <div className="mt-6 flex items-center gap-4">
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={handleResend}
+            disabled={resend !== 'idle'}
+          >
+            {resend === 'sending'
+              ? '发送中…'
+              : resend === 'sent'
+                ? '已重新发送'
+                : '重新发送验证邮件'}
+          </Button>
+          <Link
+            href="/login"
+            className="text-brand-700 text-sm underline decoration-brand-300 underline-offset-2 hover:text-brand-900"
+          >
+            去登录
+          </Link>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -80,16 +127,17 @@ export default function RegisterPage() {
         {error !== null ? <Alert variant="danger">{error}</Alert> : null}
 
         <div className="flex flex-col gap-1.5">
-          <Label htmlFor="name">昵称</Label>
+          <Label htmlFor="name">名字</Label>
           <Input
             id="name"
             type="text"
             autoComplete="nickname"
             value={name}
             onChange={(e) => setName(e.target.value)}
-            placeholder="将作为署名展示"
+            placeholder="2–20 字，可中文，全站唯一"
             required
           />
+          <p className="text-ink-400 text-xs">署名与 @提及都用它；注册后 7 天内最多改 2 次。</p>
         </div>
 
         <div className="flex flex-col gap-1.5">

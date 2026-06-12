@@ -6,10 +6,12 @@ import {
   auditLog,
   getDb,
   session as sessionTable,
+  userNameHistory,
   user as userTable,
 } from '@harublog/db';
-import { eq } from 'drizzle-orm';
+import { and, count, eq, gte, inArray, ne, sql } from 'drizzle-orm';
 import { z } from 'zod';
+import { validateName } from '@/lib/identity';
 import { getSession } from '@/lib/session';
 import type { ActionResult } from '@/server/action-result';
 
@@ -64,39 +66,101 @@ export async function updateProfile(input: {
   return { ok: true, data: null };
 }
 
-const usernameSchema = z
-  .string()
-  .regex(/^[a-zA-Z0-9_]{3,20}$/, '用户名为 3–20 位字母、数字或下划线');
+/** 改名滚动窗口（天）与窗口内上限 */
+const RENAME_WINDOW_DAYS = 7;
+const RENAME_LIMIT = 2;
+const MS_PER_DAY = 86_400_000;
 
-/** 设置/清空用户名（@提及的唯一标识）：空字符串=清空；校验格式 + 唯一性（排除自己）。 */
-export async function setUsername(raw: string): Promise<ActionResult> {
+/** 查询窗口内剩余改名次数（账户设置页展示用）。 */
+export async function getRenameQuota(): Promise<
+  ActionResult<{ remaining: number; limit: number; windowDays: number }>
+> {
   const session = await getSession();
   if (!session) {
     return { ok: false, error: '请先登录' };
   }
+  const windowStart = new Date(Date.now() - RENAME_WINDOW_DAYS * MS_PER_DAY);
+  const rows = await getDb()
+    .select({ n: count() })
+    .from(userNameHistory)
+    .where(
+      and(eq(userNameHistory.userId, session.user.id), gte(userNameHistory.changedAt, windowStart)),
+    );
+  const used = Number(rows[0]?.n ?? 0);
+  return {
+    ok: true,
+    data: {
+      remaining: Math.max(0, RENAME_LIMIT - used),
+      limit: RENAME_LIMIT,
+      windowDays: RENAME_WINDOW_DAYS,
+    },
+  };
+}
+
+/**
+ * 改名（name 是统一身份：署名 = @提及句柄）：
+ * 校验格式 → 唯一性（小写比较，排除自己）→ 7 天窗口限频 → 事务内留痕旧名 + 更新。
+ * 旧名进 user_name_history，旧 @提及 据此重定向到 user.id（隐藏稳定标识符）。
+ */
+export async function renameUser(raw: string): Promise<ActionResult<{ name: string }>> {
+  const session = await getSession();
+  if (!session) {
+    return { ok: false, error: '请先登录' };
+  }
+  const name = raw.trim();
+  const formatError = validateName(name);
+  if (formatError !== null) {
+    return { ok: false, error: formatError };
+  }
+  if (name === session.user.name) {
+    return { ok: true, data: { name } };
+  }
   const db = getDb();
-  const trimmed = raw.trim();
-  if (trimmed.length === 0) {
-    await db.update(userTable).set({ username: null }).where(eq(userTable.id, session.user.id));
-    return { ok: true, data: null };
-  }
-  const parsed = usernameSchema.safeParse(trimmed);
-  if (!parsed.success) {
-    return { ok: false, error: parsed.error.issues[0]?.message ?? '用户名非法' };
-  }
+  const uid = session.user.id;
+
+  // 唯一性（大小写不敏感；同名仅大小写变化的「自改」放行，不计入限频之外的占用）
   const taken = await db
     .select({ id: userTable.id })
     .from(userTable)
-    .where(eq(userTable.username, parsed.data))
+    .where(and(inArray(sql`lower(${userTable.name})`, [name.toLowerCase()]), ne(userTable.id, uid)))
     .limit(1);
-  if (taken[0] !== undefined && taken[0].id !== session.user.id) {
-    return { ok: false, error: '该用户名已被占用' };
+  if (taken.length > 0) {
+    return { ok: false, error: '这个名字已被使用，换一个试试' };
   }
-  await db
-    .update(userTable)
-    .set({ username: parsed.data })
-    .where(eq(userTable.id, session.user.id));
-  return { ok: true, data: null };
+
+  try {
+    const newName = await db.transaction(async (tx) => {
+      // 限频在事务内复核，防并发连点绕过
+      const windowStart = new Date(Date.now() - RENAME_WINDOW_DAYS * MS_PER_DAY);
+      const used = await tx
+        .select({ n: count() })
+        .from(userNameHistory)
+        .where(and(eq(userNameHistory.userId, uid), gte(userNameHistory.changedAt, windowStart)));
+      if (Number(used[0]?.n ?? 0) >= RENAME_LIMIT) {
+        throw new Error(`${RENAME_WINDOW_DAYS} 天内最多改名 ${RENAME_LIMIT} 次，请稍后再试`);
+      }
+      const current = await tx
+        .select({ name: userTable.name })
+        .from(userTable)
+        .where(eq(userTable.id, uid))
+        .limit(1);
+      const oldName = current[0]?.name ?? session.user.name;
+      await tx.insert(userNameHistory).values({ userId: uid, oldName });
+      await tx.update(userTable).set({ name, updatedAt: new Date() }).where(eq(userTable.id, uid));
+      return name;
+    });
+    return { ok: true, data: { name: newName } };
+  } catch (err) {
+    // 唯一索引兜底（并发抢名）与限频错误统一回中文
+    const msg = err instanceof Error ? err.message : '';
+    if (msg.includes('user_name_lower_uq')) {
+      return { ok: false, error: '这个名字刚被别人抢先使用了，换一个试试' };
+    }
+    return {
+      ok: false,
+      error: msg.length > 0 && /[一-鿿]/.test(msg) ? msg : '改名失败，请稍后重试',
+    };
+  }
 }
 
 /**
@@ -118,13 +182,13 @@ export async function deleteMyAccount(confirmText: string): Promise<ActionResult
     await tx
       .update(userTable)
       .set({
-        name: '已注销用户',
+        // name 全站唯一：注销名带 id 片段避免互撞（展示上仍以「已注销」开头）
+        name: `已注销-${uid.slice(0, 8)}`,
         email: `deleted+${uid}@deleted.local`,
         emailVerified: false,
         image: null,
         bio: null,
         educationStage: null,
-        username: null,
         status: 'suspended',
         deletedAt: now,
       })

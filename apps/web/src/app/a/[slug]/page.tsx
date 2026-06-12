@@ -25,6 +25,7 @@ import { notFound } from 'next/navigation';
 import { CodeCopy } from '@/components/code-copy';
 import { CommentSection } from '@/components/comments/comment-section';
 import { InlineComments, type InlineCommentView } from '@/components/comments/inline-comments';
+import { MentionText } from '@/components/comments/mention-text';
 import { ModerationBar } from '@/components/moderation-bar';
 import { ReactionBar } from '@/components/reaction-bar';
 import { ReadingProgress } from '@/components/reading-progress';
@@ -251,6 +252,10 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
     createdAtLabel: formatDateTime(r.createdAt),
   }));
 
+  // 失锚批注没有可对齐的正文锚点：不进边注栏，在文末折叠展示（服务端渲染，无需 JS）
+  const anchored = inlineComments.filter((c) => c.state !== 'orphaned');
+  const orphaned = inlineComments.filter((c) => c.state === 'orphaned');
+
   const docTags = await db
     .select({ name: tagsTable.name })
     .from(documentTags)
@@ -270,8 +275,14 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
         }
       : { '@type': 'Person', name: article.authorName ?? '佚名' };
 
+  // 无目录时不留左栏（空栏会让正文不对称偏右）；批注栏只在 xl+ 出现
+  const gridCols =
+    toc.length > 0
+      ? 'lg:grid lg:grid-cols-[200px_minmax(0,1fr)] xl:grid-cols-[200px_minmax(0,1fr)_280px]'
+      : 'xl:grid xl:grid-cols-[minmax(0,1fr)_280px]';
+
   return (
-    <div className="mx-auto w-full max-w-6xl px-6 py-10 lg:grid lg:grid-cols-[minmax(0,1fr)_220px] lg:gap-12">
+    <div className={`mx-auto w-full max-w-7xl px-6 py-10 lg:gap-x-10 xl:gap-x-12 ${gridCols}`}>
       <ReadingProgress />
       <JsonLd
         data={{
@@ -304,40 +315,83 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
           ],
         }}
       />
-      <article>
-        <header className="border-b border-ink-200 pb-8">
-          <nav aria-label="面包屑" className="text-sm text-ink-500">
-            <Link href="/" className="hover:text-brand-700">
+      {/* 左栏：目录（lg+），吸顶随读；无目录时整栏不渲染 */}
+      {toc.length > 0 ? (
+        <aside className="hidden lg:block">
+          <nav
+            aria-label="目录"
+            className="sticky top-24 max-h-[calc(100vh-7rem)] overflow-y-auto pr-1 text-sm"
+          >
+            <p className="font-medium text-ink-400 text-xs tracking-[0.3em]">目录</p>
+            <TocNav items={toc} />
+          </nav>
+        </aside>
+      ) : null}
+
+      {/* 中栏：正文。内容整体收在与 .prose-zh 同宽的列里，标题/讨论与正文左缘对齐 */}
+      <article className="mx-auto w-full min-w-0 max-w-[38em]">
+        <header className="rise-in">
+          <nav aria-label="面包屑" className="text-ink-500 text-sm">
+            <Link href="/" className="transition-colors hover:text-brand-700">
               首页
             </Link>
-            <span className="mx-2" aria-hidden>
+            <span className="mx-2 text-ink-300" aria-hidden>
               /
             </span>
-            <Link href={`/s/${article.sectionSlug}`} className="hover:text-brand-700">
+            <Link
+              href={`/s/${article.sectionSlug}`}
+              className="text-brand-700 transition-colors hover:text-brand-900"
+            >
               {article.sectionName}
             </Link>
           </nav>
-          <h1 className="mt-4 font-serif text-3xl font-semibold leading-snug text-ink-900 sm:text-4xl">
+          <h1 className="mt-5 font-semibold font-serif text-3xl text-ink-900 leading-snug tracking-wide sm:text-4xl sm:leading-snug">
             {article.title}
           </h1>
-          <div className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-ink-500">
-            {article.ownerId !== null ? (
-              <Link
-                href={`/u/${article.ownerId}`}
-                className="font-medium text-ink-700 hover:text-brand-700"
+          <div className="mt-5 flex flex-wrap items-center gap-x-3 gap-y-2 text-ink-500 text-sm">
+            <span className="flex items-center gap-2">
+              <span
+                aria-hidden
+                className="flex h-6 w-6 items-center justify-center rounded-full bg-brand-100 font-serif text-brand-800 text-xs"
               >
-                {article.authorName ?? '佚名'}
-              </Link>
-            ) : (
-              <span className="font-medium text-ink-700">{article.authorName ?? '佚名'}</span>
-            )}
+                {(article.authorName ?? '佚').charAt(0)}
+              </span>
+              {article.ownerId !== null ? (
+                <Link
+                  href={`/u/${article.ownerId}`}
+                  className="font-medium text-ink-700 transition-colors hover:text-brand-700"
+                >
+                  {article.authorName ?? '佚名'}
+                </Link>
+              ) : (
+                <span className="font-medium text-ink-700">{article.authorName ?? '佚名'}</span>
+              )}
+            </span>
+            <span aria-hidden className="text-ink-300">
+              ·
+            </span>
             <time dateTime={article.publishedAt.toISOString()}>
-              发布于 {formatDate(article.publishedAt)}
+              {formatDate(article.publishedAt)} 发布
             </time>
+            <span aria-hidden className="text-ink-300">
+              ·
+            </span>
             <time dateTime={article.revisedAt.toISOString()}>
-              内容更新于 {formatDate(article.revisedAt)}
+              {formatDate(article.revisedAt)} 更新
             </time>
-            <span>第 {article.seq} 号修订</span>
+            <span aria-hidden className="text-ink-300">
+              ·
+            </span>
+            <Link
+              href={`/a/${article.slug}/history`}
+              className="transition-colors hover:text-brand-700"
+              title="查看修订历史"
+            >
+              第 {article.seq} 号修订
+            </Link>
+            <span aria-hidden className="text-ink-300">
+              ·
+            </span>
             <span>约 {readingMinutes} 分钟</span>
             {article.featured ? <Badge variant="brand">精选</Badge> : null}
           </div>
@@ -350,9 +404,11 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
               canProtect={canProtect}
             />
           ) : null}
+          {/* 文武线：标题区与正文之间的书版分隔 */}
+          <div aria-hidden className="rule-double mt-8" />
         </header>
 
-        <div className="prose-zh py-8">
+        <div id="article-body" className="prose-zh py-10">
           <ArticleRenderer
             doc={content}
             codeHighlights={codeHighlights}
@@ -362,23 +418,33 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
           <CodeCopy />
         </div>
 
-        <div className="border-ink-200 border-t py-6">
+        {/* 卷末朱印：全文终了的视觉句点 */}
+        <div aria-hidden className="flex items-center justify-center gap-4 pt-2">
+          <span className="h-px w-12 bg-ink-200" />
+          <span className="flex h-8 w-8 rotate-3 items-center justify-center rounded-xs bg-danger-fill font-serif text-on-fill text-sm shadow-paper">
+            完
+          </span>
+          <span className="h-px w-12 bg-ink-200" />
+        </div>
+
+        <div className="flex justify-center py-6">
           <ReactionBar
             docId={article.docId}
             initialLikeCount={reactions.likeCount}
-            initialLiked={reactions.liked}
+            initialDislikeCount={reactions.dislikeCount}
+            initialMyVote={reactions.myVote}
             initialBookmarked={reactions.bookmarked}
             loggedIn={session !== null}
           />
         </div>
 
         {docTags.length > 0 ? (
-          <div className="flex flex-wrap items-center gap-2 pb-6">
+          <div className="flex flex-wrap items-center justify-center gap-2 pb-6">
             {docTags.map((t) => (
               <Link
                 key={t.name}
                 href={`/t/${encodeURIComponent(t.name)}`}
-                className="rounded-sm bg-paper-200 px-2 py-0.5 text-ink-600 text-sm hover:text-brand-700"
+                className="rounded-full border border-ink-200 bg-paper-50 px-3 py-0.5 text-ink-600 text-sm transition-colors hover:border-brand-300 hover:text-brand-700"
               >
                 #{t.name}
               </Link>
@@ -386,7 +452,7 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
           </div>
         ) : null}
 
-        <footer className="border-t border-ink-200 pt-6 text-sm leading-relaxed text-ink-500">
+        <footer className="rounded-md border border-ink-200 bg-paper-50 p-5 text-ink-500 text-sm leading-relaxed shadow-paper">
           <p>
             本文以{' '}
             <a
@@ -399,17 +465,17 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
             </a>{' '}
             协议发布：转载请署名并注明出处，演绎版本须以相同协议共享。
           </p>
-          <p className="mt-2 flex flex-wrap gap-4">
+          <p className="mt-3 flex flex-wrap gap-x-5 gap-y-1.5">
             <Link
               href={`/a/${article.slug}/history`}
-              className="text-brand-700 hover:text-brand-900"
+              className="text-brand-700 transition-colors hover:text-brand-900"
             >
               查看修订历史 →
             </Link>
             {canCollabEdit ? (
               <Link
                 href={`/a/${article.slug}/edit`}
-                className="text-brand-700 hover:text-brand-900"
+                className="text-brand-700 transition-colors hover:text-brand-900"
               >
                 协作编辑这篇文章 →
               </Link>
@@ -417,7 +483,7 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
             {canSuggest ? (
               <Link
                 href={`/a/${article.slug}/suggest`}
-                className="text-brand-700 hover:text-brand-900"
+                className="text-brand-700 transition-colors hover:text-brand-900"
               >
                 提出编辑建议 →
               </Link>
@@ -425,23 +491,33 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
           </p>
         </footer>
 
-        <InlineComments
-          docId={article.docId}
-          canComment={session !== null}
-          comments={inlineComments}
-        />
+        {/* 失锚批注：原文已改、无处可栖的批注收进折叠区（服务端渲染） */}
+        {orphaned.length > 0 ? (
+          <details className="mt-8 rounded-md border border-ink-200 border-dashed p-4 text-sm">
+            <summary className="cursor-pointer text-ink-500 transition-colors hover:text-ink-700">
+              原文已修改的历史批注（{orphaned.length}）
+            </summary>
+            <ul className="mt-4 flex flex-col gap-4">
+              {orphaned.map((c) => (
+                <li key={c.id} className="border-ink-100 border-l-2 pl-3">
+                  <p className="text-ink-400 text-xs italic">「{c.quotedText.slice(0, 50)}」</p>
+                  <p className="mt-1 whitespace-pre-wrap text-ink-700 leading-relaxed">
+                    <MentionText text={c.text} />
+                  </p>
+                  <p className="mt-0.5 text-ink-400 text-xs">
+                    {c.authorName} · {c.createdAtLabel}
+                  </p>
+                </li>
+              ))}
+            </ul>
+          </details>
+        ) : null}
 
         <CommentSection docId={article.docId} sectionId={article.sectionId} />
       </article>
 
-      {toc.length > 0 ? (
-        <aside className="hidden lg:block">
-          <nav aria-label="目录" className="sticky top-10 border-l border-ink-200 pl-5 text-sm">
-            <p className="font-medium text-ink-800">目录</p>
-            <TocNav items={toc} />
-          </nav>
-        </aside>
-      ) : null}
+      {/* 右栏：行内批注边注栏（xl+ 对齐锚点段落；窄屏退化为点击高亮弹浮窗） */}
+      <InlineComments docId={article.docId} canComment={session !== null} comments={anchored} />
     </div>
   );
 }

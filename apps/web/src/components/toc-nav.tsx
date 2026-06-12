@@ -35,13 +35,17 @@ export function TocNav({ items }: { items: TocEntry[] }) {
   }, [items]);
 
   return (
-    <ul className="mt-3 flex flex-col gap-2">
+    <ul className="mt-4 flex flex-col border-ink-200 border-l">
       {items.map((entry) => (
-        <li key={entry.id} className={entry.level === 3 ? 'pl-3' : entry.level === 4 ? 'pl-6' : ''}>
+        <li key={entry.id}>
           <a
             href={`#${entry.id}`}
-            className={`transition-colors hover:text-brand-700 ${
-              active === entry.id ? 'font-medium text-brand-700' : 'text-ink-500'
+            className={`-ml-px block border-l-2 py-1 leading-relaxed transition-colors hover:text-brand-700 ${
+              entry.level === 3 ? 'pl-6' : entry.level === 4 ? 'pl-9' : 'pl-3'
+            } ${
+              active === entry.id
+                ? 'border-accent-600 font-medium text-ink-900'
+                : 'border-transparent text-ink-500'
             }`}
           >
             {entry.text}

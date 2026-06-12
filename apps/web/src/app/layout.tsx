@@ -21,7 +21,8 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="zh-CN">
+    // data-scroll-behavior：告知 Next 16 路由切换时绕过 CSS 平滑滚动，瞬时复位滚动条
+    <html lang="zh-CN" data-scroll-behavior="smooth">
       <body className="flex min-h-svh flex-col antialiased">
         {/* 首帧前设好明暗 class，避免主题闪烁（FOUC）。内联同步执行，先于内容绘制。 */}
         <script

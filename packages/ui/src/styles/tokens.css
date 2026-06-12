@@ -93,6 +93,12 @@
   --radius-sm: 4px;
   --radius-md: 6px;
   --radius-lg: 8px;
+
+  /* 阴影：纸张抬升三档（暖墨色而非纯黑，避免「程序员灰」）。
+   * paper=静置卡片的纸厚感；lift=hover 抬升；float=浮窗/弹层 */
+  --shadow-paper: 0 1px 2px rgb(38 40 43 / 0.05), 0 1px 1px rgb(38 40 43 / 0.03);
+  --shadow-lift: 0 2px 8px -2px rgb(38 40 43 / 0.1), 0 6px 20px -6px rgb(38 40 43 / 0.08);
+  --shadow-float: 0 4px 12px -2px rgb(38 40 43 / 0.12), 0 16px 40px -12px rgb(38 40 43 / 0.18);
 }
 
 /*
@@ -170,4 +176,9 @@
   --color-overlay: #34383c;
   --color-overlay-hover: #43484e;
   --color-on-overlay: #f1f3f5;
+
+  /* 阴影：深底下纸面不反光，改用更重的纯黑投影撑出层次 */
+  --shadow-paper: 0 1px 2px rgb(0 0 0 / 0.3), 0 1px 1px rgb(0 0 0 / 0.2);
+  --shadow-lift: 0 2px 8px -2px rgb(0 0 0 / 0.4), 0 6px 20px -6px rgb(0 0 0 / 0.35);
+  --shadow-float: 0 4px 12px -2px rgb(0 0 0 / 0.45), 0 16px 40px -12px rgb(0 0 0 / 0.5);
 }

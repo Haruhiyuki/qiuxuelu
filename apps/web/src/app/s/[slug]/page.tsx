@@ -85,11 +85,11 @@ export default async function SectionPage({ params }: SectionPageProps) {
   }
 
   return (
-    <div className="mx-auto w-full max-w-5xl px-6 pt-6">
+    <div className="mx-auto w-full max-w-5xl px-6 pt-8">
       <Breadcrumb items={[{ label: '首页', href: '/' }, { label: section.name }]} />
-      <header className="border-b border-ink-200 pb-10">
+      <header className="rise-in border-ink-200 border-b pt-2 pb-10">
         <div className="flex flex-wrap items-center gap-3">
-          <h1 className="font-serif text-2xl font-semibold text-ink-900 sm:text-3xl">
+          <h1 className="font-semibold font-serif text-3xl text-ink-900 tracking-wide sm:text-4xl">
             {section.name}
           </h1>
           <Badge variant="outline">{stageLabel(section.stage)}</Badge>
@@ -102,16 +102,20 @@ export default async function SectionPage({ params }: SectionPageProps) {
           </div>
         </div>
         {section.description !== null ? (
-          <p className="mt-3 max-w-2xl text-base leading-relaxed text-ink-600">
+          <p className="mt-4 max-w-2xl border-accent-200 border-l-2 pl-4 text-base text-ink-600 leading-relaxed">
             {section.description}
           </p>
         ) : null}
       </header>
 
       <section className="py-10">
-        <h2 className="font-serif text-lg font-semibold text-ink-900">已发布文章</h2>
+        <div className="flex items-baseline gap-3">
+          <span aria-hidden className="h-4 w-1 self-center rounded-xs bg-accent-600" />
+          <h2 className="font-semibold font-serif text-ink-900 text-xl">已发布文章</h2>
+          <p className="text-ink-400 text-sm">共 {docs.length} 篇</p>
+        </div>
         {docs.length > 0 ? (
-          <div className="mt-2">
+          <div className="mt-4">
             <DocumentList items={docs} />
           </div>
         ) : (

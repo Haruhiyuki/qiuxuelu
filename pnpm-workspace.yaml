@@ -53,3 +53,6 @@ catalog:
   nanoid: ^5.1.11
   shiki: ^3.14.0
   katex: ^0.16.25
+  uqr: ^0.1.2
+  # 与 better-auth 核心严格锁步（对等依赖按补丁版对齐），升级时两者一起动
+  '@better-auth/passkey': 1.6.15

@@ -15,7 +15,10 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { Breadcrumb } from '@/components/breadcrumb';
+import { TRUST_LEVEL_NAMES, TrustRoadmap } from '@/components/trust-roadmap';
 import { formatDate } from '@/lib/format';
+import { getSession } from '@/lib/session';
+import { computeUserStats, loadThresholds } from '@/server/trust';
 
 export const dynamic = 'force-dynamic';
 
@@ -23,21 +26,12 @@ interface ProfilePageProps {
   params: Promise<{ id: string }>;
 }
 
-const TRUST_LABEL: Record<number, string> = {
-  0: '新成员',
-  1: '已注册',
-  2: '活跃贡献者',
-  3: '资深贡献者',
-  4: '核心贡献者',
-};
-
 async function loadProfile(id: string) {
   const db = getDb();
   const rows = await db
     .select({
       id: userTable.id,
       name: userTable.name,
-      username: userTable.username,
       image: userTable.image,
       bio: userTable.bio,
       educationStage: userTable.educationStage,
@@ -96,6 +90,22 @@ export default async function ProfilePage({ params }: ProfilePageProps) {
   ]);
 
   const trustLevel = profile.trustLevel ?? 0;
+
+  // 路线图的达标进度仅本人可见：访客只看路线与当前位置，不见统计数字
+  const session = await getSession();
+  let roadmapProgress: Parameters<typeof TrustRoadmap>[0]['progress'] = null;
+  if (session?.user.id === profile.id) {
+    const thresholds = await loadThresholds(db);
+    const stats = await computeUserStats(
+      db,
+      profile.id,
+      profile.createdAt,
+      new Date(),
+      thresholds.windowDays,
+    );
+    roadmapProgress = { stats, thresholds };
+  }
+
   const mergedCount = Number(mergedRows[0]?.n ?? 0);
   const stats = [
     { label: '已发布文章', value: docs.length },
@@ -132,10 +142,9 @@ export default async function ProfilePage({ params }: ProfilePageProps) {
         </div>
         <div className="min-w-0">
           <h1 className="font-semibold font-serif text-2xl text-ink-900">{profile.name}</h1>
-          {profile.username ? <p className="text-ink-400 text-sm">@{profile.username}</p> : null}
           <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-ink-500 text-sm">
             <Badge variant="brand">
-              TL{trustLevel} · {TRUST_LABEL[trustLevel] ?? '贡献者'}
+              TL{trustLevel} · {TRUST_LEVEL_NAMES[trustLevel] ?? '贡献者'}
             </Badge>
             {profile.educationStage ? (
               <Badge variant="outline">{profile.educationStage}</Badge>
@@ -172,6 +181,10 @@ export default async function ProfilePage({ params }: ProfilePageProps) {
           </div>
         ))}
       </dl>
+
+      <div className="mt-8 border-ink-200 border-t pt-8">
+        <TrustRoadmap currentLevel={trustLevel} progress={roadmapProgress} />
+      </div>
 
       <section className="mt-8">
         <h2 className="font-medium font-serif text-ink-800 text-lg">已发布文章</h2>

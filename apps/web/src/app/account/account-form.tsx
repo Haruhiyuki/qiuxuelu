@@ -1,6 +1,6 @@
 'use client';
 
-// 账户自助：公开资料（头像/简介/阶段）、改昵称、改密码（better-auth）、通知偏好、注销。
+// 账户自助：公开资料（头像/简介/阶段）、改名（统一身份）、改密码（better-auth）、通知偏好、注销。
 import { Alert, Button, Input, Label, Textarea, usePrompt, useToast } from '@harublog/ui';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -8,10 +8,11 @@ import { type FormEvent, useRef, useState } from 'react';
 import { uploadImageFile } from '@/components/editor/upload';
 import { authClient } from '@/lib/auth-client';
 import { translateAuthError } from '@/lib/auth-errors';
+import { validateName } from '@/lib/identity';
 import {
   deleteMyAccount,
+  renameUser,
   setEmailNotifications,
-  setUsername,
   updateProfile,
 } from '@/server/actions/account';
 
@@ -27,7 +28,7 @@ export function AccountForm({
   initialBio,
   initialEducationStage,
   initialImage,
-  initialUsername,
+  renameQuota,
 }: {
   initialName: string;
   email: string;
@@ -36,7 +37,8 @@ export function AccountForm({
   initialBio: string;
   initialEducationStage: string;
   initialImage: string;
-  initialUsername: string;
+  /** 改名滚动窗口配额（服务端算好传入） */
+  renameQuota: { remaining: number; limit: number; windowDays: number };
 }) {
   const router = useRouter();
   const [name, setName] = useState(initialName);
@@ -46,7 +48,6 @@ export function AccountForm({
   const [bio, setBio] = useState(initialBio);
   const [stage, setStage] = useState(initialEducationStage);
   const [image, setImage] = useState(initialImage);
-  const [username, setUsernameField] = useState(initialUsername);
   const [profileNotice, setProfileNotice] = useState<Notice>(null);
   const [profileBusy, setProfileBusy] = useState(false);
   const avatarRef = useRef<HTMLInputElement | null>(null);
@@ -73,15 +74,6 @@ export function AccountForm({
     e.preventDefault();
     setProfileBusy(true);
     setProfileNotice(null);
-    // 先存用户名（含唯一性校验），失败则中止并提示
-    if (username.trim() !== initialUsername) {
-      const u = await setUsername(username);
-      if (!u.ok) {
-        setProfileNotice({ kind: 'danger', text: u.error });
-        setProfileBusy(false);
-        return;
-      }
-    }
     const r = await updateProfile({ bio, educationStage: stage });
     setProfileNotice(
       r.ok ? { kind: 'info', text: '资料已更新' } : { kind: 'danger', text: r.error },
@@ -141,17 +133,22 @@ export function AccountForm({
   async function saveName(e: FormEvent) {
     e.preventDefault();
     const trimmed = name.trim();
-    if (trimmed.length === 0) {
-      setNameNotice({ kind: 'danger', text: '昵称不能为空' });
+    if (trimmed === initialName) {
+      setNameNotice({ kind: 'info', text: '名字未变化' });
+      return;
+    }
+    const formatError = validateName(trimmed);
+    if (formatError !== null) {
+      setNameNotice({ kind: 'danger', text: formatError });
       return;
     }
     setNameBusy(true);
     setNameNotice(null);
-    const { error } = await authClient.updateUser({ name: trimmed });
-    if (error) {
-      setNameNotice({ kind: 'danger', text: translateAuthError(error.code) });
+    const r = await renameUser(trimmed);
+    if (!r.ok) {
+      setNameNotice({ kind: 'danger', text: r.error });
     } else {
-      setNameNotice({ kind: 'info', text: '昵称已更新' });
+      setNameNotice({ kind: 'info', text: '改名成功；指向旧名字的 @提及 会自动转到你的主页' });
       router.refresh();
     }
     setNameBusy(false);
@@ -241,23 +238,6 @@ export function AccountForm({
           </div>
         </div>
         <div className="flex flex-col gap-1.5">
-          <Label htmlFor="acc-username">用户名（@提及用）</Label>
-          <div className="flex items-center gap-2">
-            <span className="text-ink-400 text-sm">@</span>
-            <Input
-              id="acc-username"
-              value={username}
-              maxLength={20}
-              onChange={(e) => setUsernameField(e.target.value)}
-              placeholder="3–20 位字母、数字或下划线"
-              className="w-56"
-            />
-          </div>
-          <span className="text-ink-400 text-xs">
-            设置后他人可在评论中用 @你的用户名 提到你；留空表示不启用。
-          </span>
-        </div>
-        <div className="flex flex-col gap-1.5">
           <Label htmlFor="acc-bio">简介</Label>
           <Textarea
             id="acc-bio"
@@ -308,22 +288,32 @@ export function AccountForm({
       </section>
 
       <form onSubmit={saveName} className="flex flex-col gap-3 border-ink-200 border-t pt-8">
-        <h2 className="font-medium font-serif text-ink-800 text-lg">昵称</h2>
+        <h2 className="font-medium font-serif text-ink-800 text-lg">名字</h2>
         {nameNotice ? (
           <Alert variant={nameNotice.kind === 'info' ? 'info' : 'danger'}>{nameNotice.text}</Alert>
         ) : null}
         <div className="flex flex-col gap-1.5">
-          <Label htmlFor="acc-name">显示名称</Label>
+          <Label htmlFor="acc-name">名字（署名与 @提及一体，全站唯一）</Label>
           <Input
             id="acc-name"
             value={name}
-            maxLength={40}
+            maxLength={20}
             onChange={(e) => setName(e.target.value)}
+            placeholder="2–20 字，可中文"
+            className="w-56"
           />
         </div>
+        <p className="text-ink-400 text-xs">
+          {renameQuota.windowDays} 天内最多改名 {renameQuota.limit} 次（剩余 {renameQuota.remaining}{' '}
+          次）；改名后旧名字的 @提及 会自动转到你的主页。
+        </p>
         <p className="text-ink-400 text-xs">登录邮箱：{email}（暂不支持自助修改）</p>
-        <Button type="submit" disabled={nameBusy} className="self-start">
-          {nameBusy ? '保存中…' : '保存昵称'}
+        <Button
+          type="submit"
+          disabled={nameBusy || renameQuota.remaining <= 0}
+          className="self-start"
+        >
+          {nameBusy ? '保存中…' : renameQuota.remaining <= 0 ? '本周改名次数已用完' : '改名'}
         </Button>
       </form>
 

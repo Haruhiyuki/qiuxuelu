@@ -1,25 +1,107 @@
 'use server';
 
-// 点赞 / 收藏：登录即可（轻量互动，非内容贡献，不过 consent 闸）。切换式：有则删、无则增，返回新状态与计数。
+// 赞/踩/收藏：登录即可（轻量互动，非内容贡献，不过 consent 闸）。
+// 投票切换式：点同向取消、点反向改票（事务内删反向再写本向，保证一人一票）。
 import { docReactions, getDb } from '@harublog/db';
-import { and, count, eq } from 'drizzle-orm';
+import { and, count, eq, inArray } from 'drizzle-orm';
 import { z } from 'zod';
 import { getSession } from '@/lib/session';
 import type { ActionResult } from '@/server/action-result';
+import type { VoteDirection } from '@/server/reactions';
 
-type Kind = 'like' | 'bookmark';
 const uuid = z.uuid();
 
-export async function toggleReaction(
+export interface VoteResult {
+  /** 投票后的我方状态（null = 取消了投票） */
+  myVote: VoteDirection | null;
+  likeCount: number;
+  dislikeCount: number;
+}
+
+export async function voteDoc(
   docId: string,
-  kind: Kind,
-): Promise<ActionResult<{ active: boolean; count: number }>> {
+  direction: VoteDirection,
+): Promise<ActionResult<VoteResult>> {
   const session = await getSession();
   if (!session) {
     return { ok: false, error: '请先登录' };
   }
-  if (kind !== 'like' && kind !== 'bookmark') {
+  if (direction !== 'like' && direction !== 'dislike') {
     return { ok: false, error: '非法操作' };
+  }
+  if (!uuid.safeParse(docId).success) {
+    return { ok: false, error: '文档参数非法' };
+  }
+  const db = getDb();
+  const uid = session.user.id;
+  const opposite: VoteDirection = direction === 'like' ? 'dislike' : 'like';
+
+  const myVote = await db.transaction(async (tx) => {
+    const mine = await tx
+      .select({ kind: docReactions.kind })
+      .from(docReactions)
+      .where(
+        and(
+          eq(docReactions.userId, uid),
+          eq(docReactions.documentId, docId),
+          inArray(docReactions.kind, ['like', 'dislike']),
+        ),
+      );
+    const hasSame = mine.some((r) => r.kind === direction);
+    const hasOpposite = mine.some((r) => r.kind === opposite);
+    if (hasOpposite) {
+      await tx
+        .delete(docReactions)
+        .where(
+          and(
+            eq(docReactions.userId, uid),
+            eq(docReactions.documentId, docId),
+            eq(docReactions.kind, opposite),
+          ),
+        );
+    }
+    if (hasSame) {
+      // 点同向 = 取消投票
+      await tx
+        .delete(docReactions)
+        .where(
+          and(
+            eq(docReactions.userId, uid),
+            eq(docReactions.documentId, docId),
+            eq(docReactions.kind, direction),
+          ),
+        );
+      return null;
+    }
+    await tx
+      .insert(docReactions)
+      .values({ userId: uid, documentId: docId, kind: direction })
+      .onConflictDoNothing();
+    return direction;
+  });
+
+  const countRows = await db
+    .select({ kind: docReactions.kind, n: count() })
+    .from(docReactions)
+    .where(and(eq(docReactions.documentId, docId), inArray(docReactions.kind, ['like', 'dislike'])))
+    .groupBy(docReactions.kind);
+  let likeCount = 0;
+  let dislikeCount = 0;
+  for (const r of countRows) {
+    if (r.kind === 'like') {
+      likeCount = Number(r.n);
+    } else if (r.kind === 'dislike') {
+      dislikeCount = Number(r.n);
+    }
+  }
+  return { ok: true, data: { myVote, likeCount, dislikeCount } };
+}
+
+/** 收藏开关：有则删、无则增。 */
+export async function toggleBookmark(docId: string): Promise<ActionResult<{ active: boolean }>> {
+  const session = await getSession();
+  if (!session) {
+    return { ok: false, error: '请先登录' };
   }
   if (!uuid.safeParse(docId).success) {
     return { ok: false, error: '文档参数非法' };
@@ -29,27 +111,20 @@ export async function toggleReaction(
   const where = and(
     eq(docReactions.userId, uid),
     eq(docReactions.documentId, docId),
-    eq(docReactions.kind, kind),
+    eq(docReactions.kind, 'bookmark'),
   );
   const existing = await db
     .select({ k: docReactions.kind })
     .from(docReactions)
     .where(where)
     .limit(1);
-  let active: boolean;
   if (existing.length > 0) {
     await db.delete(docReactions).where(where);
-    active = false;
-  } else {
-    await db
-      .insert(docReactions)
-      .values({ userId: uid, documentId: docId, kind })
-      .onConflictDoNothing();
-    active = true;
+    return { ok: true, data: { active: false } };
   }
-  const c = await db
-    .select({ n: count() })
-    .from(docReactions)
-    .where(and(eq(docReactions.documentId, docId), eq(docReactions.kind, kind)));
-  return { ok: true, data: { active, count: Number(c[0]?.n ?? 0) } };
+  await db
+    .insert(docReactions)
+    .values({ userId: uid, documentId: docId, kind: 'bookmark' })
+    .onConflictDoNothing();
+  return { ok: true, data: { active: true } };
 }

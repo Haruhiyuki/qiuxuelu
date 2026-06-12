@@ -1,4 +1,5 @@
-// 轻量互动：点赞 / 收藏。一张表两种 kind，按 (user, document, kind) 唯一。
+// 轻量互动：赞 / 踩 / 收藏。一张表多种 kind，按 (user, document, kind) 唯一；
+// like 与 dislike 的互斥（一人一票）由投票动作在事务内保证，不靠约束。
 import { sql } from 'drizzle-orm';
 import {
   check,
@@ -22,13 +23,13 @@ export const docReactions = pgTable(
     documentId: uuid('document_id')
       .notNull()
       .references(() => documents.id, { onDelete: 'cascade' }),
-    // 'like' | 'bookmark'
+    // 'like' | 'dislike' | 'bookmark'
     kind: text('kind').notNull(),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
     primaryKey({ columns: [t.userId, t.documentId, t.kind] }),
-    check('doc_reactions_kind_check', sql`${t.kind} in ('like', 'bookmark')`),
+    check('doc_reactions_kind_check', sql`${t.kind} in ('like', 'dislike', 'bookmark')`),
   ],
 );
 

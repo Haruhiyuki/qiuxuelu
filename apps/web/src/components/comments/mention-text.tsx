@@ -1,31 +1,32 @@
-// 把评论正文里的 @用户名 渲染成指向用户主页的链接（其余原样输出，保留换行/空白）。
-// 纯渲染、无状态：服务端/客户端组件皆可用。链接走 /u/by/<username> 解析重定向，无需在此解析 id。
+// 把评论正文里的 @名字 渲染成指向用户主页的链接（其余原样输出，保留换行/空白）。
+// 纯渲染、无状态：服务端/客户端组件皆可用。统一身份：name 即句柄，允许中文。
+// CJK 无词界，链接的候选串可能长于真实名字——/u/by/<候选> 路由按最长前缀解析后重定向，
+// 自动补全插入的提及自带尾随空格，主路径精确。
 import Link from 'next/link';
 import type { ReactNode } from 'react';
-
-const MENTION_RE = /@([a-zA-Z0-9_]{3,20})/g;
+import { isMentionStart, MENTION_SCAN_RE } from '@/lib/identity';
 
 export function MentionText({ text }: { text: string }) {
   const out: ReactNode[] = [];
   let last = 0;
   let key = 0;
-  for (const m of text.matchAll(MENTION_RE)) {
+  for (const m of text.matchAll(MENTION_SCAN_RE)) {
     const at = m.index;
-    // @ 前必须是行首或空白，否则不是提及（如邮箱 a@b）
-    if (at > 0 && !/\s/.test(text[at - 1] as string)) {
+    // 邮箱守卫：@ 前是 ASCII 邮箱本地段字符则不视为提及（CJK 前缀不受影响）
+    if (!isMentionStart(text, at)) {
       continue;
     }
     if (at > last) {
       out.push(text.slice(last, at));
     }
-    const username = m[1] as string;
+    const candidate = m[1] as string;
     out.push(
       <Link
         key={`m-${key}`}
-        href={`/u/by/${username}`}
+        href={`/u/by/${encodeURIComponent(candidate)}`}
         className="text-brand-700 hover:text-brand-900"
       >
-        @{username}
+        @{candidate}
       </Link>,
     );
     key += 1;

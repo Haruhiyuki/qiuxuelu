@@ -22,7 +22,7 @@ export function ReadingProgress() {
   }, []);
 
   return (
-    <div className="fixed inset-x-0 top-0 z-40 h-0.5" aria-hidden>
+    <div className="fixed inset-x-0 top-0 z-50 h-0.5" aria-hidden>
       <div
         className="h-full bg-brand-600 transition-[width] duration-75 ease-out"
         style={{ width: `${pct}%` }}

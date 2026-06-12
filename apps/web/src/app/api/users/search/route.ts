@@ -1,6 +1,6 @@
-// @提及自动补全：按用户名前缀 / 昵称片段返回可被提及的用户（须已设用户名）。仅登录用户可用。
+// @提及自动补全：按名字前缀/片段返回候选（统一身份：name 即句柄）。仅登录用户可用。
 import { getDb, user as userTable } from '@harublog/db';
-import { and, ilike, isNotNull, or } from 'drizzle-orm';
+import { and, eq, ilike, ne, or } from 'drizzle-orm';
 import type { NextRequest } from 'next/server';
 import { getSession } from '@/lib/session';
 
@@ -23,15 +23,16 @@ export async function GET(req: NextRequest): Promise<Response> {
   const like = escapeLike(q);
   const rows = await getDb()
     .select({
-      username: userTable.username,
       name: userTable.name,
       image: userTable.image,
     })
     .from(userTable)
     .where(
       and(
-        isNotNull(userTable.username),
-        or(ilike(userTable.username, `${like}%`), ilike(userTable.name, `%${like}%`)),
+        // 注销账号不进候选
+        eq(userTable.status, 'active'),
+        ne(userTable.id, session.user.id),
+        or(ilike(userTable.name, `${like}%`), ilike(userTable.name, `%${like}%`)),
       ),
     )
     .limit(6);
