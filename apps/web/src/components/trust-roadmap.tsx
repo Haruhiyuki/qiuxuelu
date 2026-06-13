@@ -37,15 +37,11 @@ const LEVELS: LevelEntry[] = [
   },
   {
     level: 2,
-    abilities: [
-      '对他人文章提交编辑建议',
-      '审定自己文章收到的建议',
-      '直接编辑「开放协作」文档（进巡查队列）',
-    ],
+    abilities: ['对他人文章提交编辑建议'],
   },
   {
     level: 3,
-    abilities: ['直接编辑「半保护」文档（巡查复核）'],
+    abilities: ['在公共页直接编辑他人文章（即时生效 + 进巡查）'],
     note: '按滚动窗口持续考核，跌破阈值会回落',
   },
   {
@@ -297,7 +293,53 @@ export function TrustRoadmap({
           );
         })}
       </ol>
-      <p className="mt-2 text-ink-400 text-xs">
+
+      {/* 作者特例 + 公共/私有两条线（ADR-0007 / ADR-0008） */}
+      <div className="mt-8 border-ink-200/70 border-t pt-6">
+        <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+          <span aria-hidden className="h-4 w-1 self-center rounded-xs bg-accent-600" />
+          <h3 className="font-medium font-serif text-ink-800 text-base">
+            协作权：公共页 / 私有页两条线
+          </h3>
+        </div>
+        <p className="mt-2 text-ink-500 text-sm leading-relaxed">
+          <span className="font-medium text-ink-700">对自己的文章</span>
+          ，从注册起（TL0）就拥有完整协作权：直接编辑、审核与合并他人的编辑建议。 对
+          <span className="font-medium text-ink-700">他人的文章</span>
+          ，能做什么取决于页面是公共还是私有（能力阶梯：建议 ＜ 申请 ＜ 管理）：
+        </p>
+        <div className="mt-4 overflow-x-auto">
+          <table className="w-full min-w-[28rem] border-collapse text-sm">
+            <thead>
+              <tr className="border-ink-200 border-b text-ink-500 text-xs">
+                <th className="py-2 pr-3 text-left font-medium">谁（非作者）</th>
+                <th className="px-3 py-2 text-left font-medium">🔒 私有页</th>
+                <th className="px-3 py-2 text-left font-medium">🌐 公共页</th>
+              </tr>
+            </thead>
+            <tbody className="text-ink-600">
+              {[
+                ['TL2 贡献者', '提编辑建议', '提编辑建议'],
+                ['TL3 资深贡献者', '提编辑建议', '编辑申请（直编+巡查）'],
+                ['责任编辑', '编辑申请（直编+巡查）', '审核管理（审/合建议+直编）'],
+                ['板块版主及以上', '审核管理 + 治理控件', '审核管理 + 治理控件'],
+              ].map((row) => (
+                <tr key={row[0]} className="border-ink-100 border-b last:border-0 align-top">
+                  <td className="py-2 pr-3 font-medium text-ink-700">{row[0]}</td>
+                  <td className="px-3 py-2">{row[1]}</td>
+                  <td className="px-3 py-2">{row[2]}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <p className="mt-3 text-ink-400 text-xs leading-relaxed">
+          私有页攒够「他人贡献」（建议 + 他人评论 + 他人署名的直编修订）达阈值会自动转为公共页，
+          也可由管理员手动设置；升级后保留原作者署名。
+        </p>
+      </div>
+
+      <p className="mt-6 text-ink-400 text-xs">
         阈值由站点治理配置并随社区规模调整；治理职务（编辑、板块版主等）由任命授予，不经此路线。
       </p>
     </section>
