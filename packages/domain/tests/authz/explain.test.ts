@@ -9,7 +9,7 @@ describe('explainDeny —— 拒绝变引导', () => {
       capability: 'suggestion.create',
     });
     expect(msg).toContain('TL2');
-    expect(msg).toContain('提交编辑建议');
+    expect(msg).toContain('提交修订申请');
     expect(msg).toContain('晋升');
   });
 

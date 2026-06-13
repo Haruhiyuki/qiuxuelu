@@ -18,6 +18,9 @@ export type NotificationKind =
   | 'suggestion_merged'
   | 'suggestion_rejected'
   | 'suggestion_changes'
+  // 编辑建议（反馈，ADR-0010）：收到 / 被处理
+  | 'feedback_received'
+  | 'feedback_handled'
   // 文章从私有升级为公共（祝贺原作者，ADR-0007）
   | 'doc_promoted';
 

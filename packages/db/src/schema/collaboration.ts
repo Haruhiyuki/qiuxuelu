@@ -1,9 +1,40 @@
-// 协作层：建议分支（ADR-0004）、评论、行内锚点
+// 协作层：建议分支（ADR-0004）、评论、行内锚点、编辑建议（反馈，ADR-0010）
 import { sql } from 'drizzle-orm';
 import type { AnyPgColumn } from 'drizzle-orm/pg-core';
 import { check, index, integer, jsonb, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core';
 import { user } from './auth';
 import { blocks, documents, revisions } from './content';
+
+// 编辑建议（feedback，ADR-0010）：不改内容、对全文或片段提意见，送作者+编辑后台处理。
+// 不进修订模型（不产生 revision）。status 由权限者处理后置：open→accepted/declined/resolved + 回复。
+export const feedback = pgTable(
+  'feedback',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    documentId: uuid('document_id')
+      .notNull()
+      .references(() => documents.id),
+    authorId: text('author_id').references(() => user.id),
+    // whole=对全文；fragment=对某段（quotedText 存被评片段）
+    scope: text('scope').notNull(),
+    quotedText: text('quoted_text'),
+    body: jsonb('body').notNull(),
+    status: text('status').notNull().default('open'),
+    handledBy: text('handled_by').references(() => user.id),
+    handledAt: timestamp('handled_at', { withTimezone: true }),
+    reply: text('reply'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    check('feedback_scope_check', sql`${t.scope} in ('whole', 'fragment')`),
+    check(
+      'feedback_status_check',
+      sql`${t.status} in ('open', 'accepted', 'declined', 'resolved')`,
+    ),
+    index('feedback_document_id_idx').on(t.documentId),
+    index('feedback_author_id_idx').on(t.authorId),
+  ],
+);
 
 export const suggestions = pgTable(
   'suggestions',

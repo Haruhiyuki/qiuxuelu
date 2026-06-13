@@ -159,10 +159,16 @@ export function can(
     return deny({ kind: 'policy_locked' });
   }
 
-  // 4a-bis. suggestion.create（=「修订申请」）信任线楼层按页面可见性分级（ADR-0010）：
-  //         公共页 T2、私有页 T3。缺文档上下文按公共页（T2）处理（读路径都带 doc）。
+  // 4a-bis. 协作创建权按页面可见性分级（ADR-0010），缺上下文按公共页：
+  //   修订申请 suggestion.create：公共 T2 / 私有 T3；编辑建议 feedback.create：公共 T1 / 私有 T2。
   if (capability === 'suggestion.create') {
     const required = doc !== undefined && doc.visibility === 'private' ? 3 : 2;
+    return actor.trustLevel >= required
+      ? allow('trust')
+      : deny({ kind: 'insufficient_trust', required, capability });
+  }
+  if (capability === 'feedback.create') {
+    const required = doc !== undefined && doc.visibility === 'private' ? 2 : 1;
     return actor.trustLevel >= required
       ? allow('trust')
       : deny({ kind: 'insufficient_trust', required, capability });

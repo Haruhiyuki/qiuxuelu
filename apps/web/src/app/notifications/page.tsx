@@ -21,7 +21,14 @@ interface PayloadShape {
   byName?: string;
   reasonCode?: string;
   suggestionId?: string;
+  status?: string;
 }
+
+const FEEDBACK_STATUS_LABEL: Record<string, string> = {
+  accepted: '已采纳',
+  declined: '未采纳',
+  resolved: '已处理',
+};
 
 function readPayload(payload: unknown): PayloadShape {
   return typeof payload === 'object' && payload !== null ? (payload as PayloadShape) : {};
@@ -70,6 +77,16 @@ function describe(kind: string, p: PayloadShape): { text: string; href: string }
       return {
         text: `你对《${title}》的修订申请被要求修改`,
         href: `/suggestions/${p.suggestionId ?? ''}`,
+      };
+    case 'feedback_received':
+      return {
+        text: `${by} 对你的文章《${title}》提了一条编辑建议`,
+        href: '/account/feedback',
+      };
+    case 'feedback_handled':
+      return {
+        text: `你对《${title}》的编辑建议${FEEDBACK_STATUS_LABEL[p.status ?? ''] ?? '已处理'}`,
+        href: '/account/feedback',
       };
     case 'doc_promoted':
       return {

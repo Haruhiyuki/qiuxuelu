@@ -7,6 +7,8 @@ export type Capability =
   | 'suggestion.create'
   | 'suggestion.review'
   | 'suggestion.merge'
+  | 'feedback.create'
+  | 'feedback.handle'
   | 'doc.create'
   | 'doc.submit'
   | 'doc.edit_direct'
@@ -41,6 +43,8 @@ const EDITOR_CAPS: readonly Capability[] = [
   'suggestion.create',
   'suggestion.review',
   'suggestion.merge',
+  // 编辑建议（反馈）处理权：编辑+可处理；作者经 OWNER_CAPS 处理自己文章的反馈
+  'feedback.handle',
   'doc.create',
   'doc.submit',
   'doc.edit_direct',
@@ -94,7 +98,8 @@ const TRUST_CAP_INCREMENTS: Record<TrustLevel, readonly Capability[]> = {
   // flag.create 从 TL0 起即可（举报权重随 TL 上升）；media.upload 也降到 T0——完整文章编辑能力
   // （含发图）从一开始就有（ADR-0010）。
   0: ['content.read', 'doc.create', 'doc.submit', 'flag.create', 'media.upload'],
-  1: ['comment.create', 'comment.inline.create'],
+  // feedback.create（=「编辑建议」）基线 T1，实际按可见性分级（公共 T1 / 私有 T2），见 can.ts
+  1: ['comment.create', 'comment.inline.create', 'feedback.create'],
   // suggestion.create（=「修订申请」）的实际楼层按页面可见性分级（公共 T2 / 私有 T3），见 can.ts
   2: ['suggestion.create'],
   // doc.edit_direct（=「修订」）实际楼层由可见性驱动（公共 T3+ / 私有仅权限者），见 can.ts
@@ -139,6 +144,8 @@ export const OWNER_CAPS: Partial<Record<Capability, TrustLevel>> = {
   'doc.submit': 0,
   'suggestion.review': 0,
   'suggestion.merge': 0,
+  // 作者从 TL0 起处理自己文章收到的编辑建议（设处理状态 + 回复）
+  'feedback.handle': 0,
 };
 
 /** 信任线可授予该能力的最低等级；信任线永远拿不到（含红线）则返回 null。 */

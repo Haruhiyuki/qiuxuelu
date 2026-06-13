@@ -26,6 +26,7 @@ const ACTION_LABELS: Record<string, string> = {
   'comment.hide': '隐藏评论',
   'comment.ai_release': '放行 AI 拦截评论',
   'comment.ai_reject': '删除 AI 拦截评论',
+  'feedback.handle': '处理编辑建议',
   'flag.create': '举报',
   'flag.uphold': '采纳举报',
   'flag.dismiss': '驳回举报',

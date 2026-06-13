@@ -52,10 +52,16 @@ export default async function AccountPage() {
       <Breadcrumb items={[{ label: '首页', href: '/' }, { label: '账户设置' }]} />
       <header className="border-ink-200 border-b pb-6">
         <h1 className="font-semibold font-serif text-2xl text-ink-900">账户设置</h1>
-        <p className="mt-2 text-ink-500 text-sm">
-          管理你的昵称与密码。
-          <Link href={`/u/${session.user.id}`} className="ml-2 text-brand-700 hover:text-brand-900">
+        <p className="mt-2 flex flex-wrap gap-x-4 text-ink-500 text-sm">
+          <span>管理你的昵称与密码。</span>
+          <Link href={`/u/${session.user.id}`} className="text-brand-700 hover:text-brand-900">
             查看我的主页 →
+          </Link>
+          <Link href="/account/feedback" className="text-brand-700 hover:text-brand-900">
+            我的编辑建议 →
+          </Link>
+          <Link href="/write" className="text-brand-700 hover:text-brand-900">
+            草稿箱 / 修订申请 →
           </Link>
         </p>
       </header>

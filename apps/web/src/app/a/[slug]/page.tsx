@@ -195,6 +195,7 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
   let canInlineComment = false;
   let canRevise = false;
   let canReqRevision = false;
+  let canFeedback = false;
   if (session) {
     const actor = await loadActor(session.user.id);
     if (actor !== null) {
@@ -213,6 +214,7 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
       }).allow;
       canRevise = can(actor, 'doc.edit_direct', docCtx).allow;
       canReqRevision = can(actor, 'suggestion.create', docCtx).allow;
+      canFeedback = can(actor, 'feedback.create', docCtx).allow;
       canFeature = can(actor, 'doc.feature', { sectionId: article.sectionId }).allow;
       canProtect = can(actor, 'doc.protect', docCtx).allow;
       canPublicize = can(actor, 'doc.set_visibility', { sectionId: article.sectionId }).allow;
@@ -245,9 +247,9 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
       key: 'feedback',
       title: '编辑建议',
       desc: '不改动内容，对全文或某段提出意见，送作者与编辑后台参考',
-      href: null,
-      allowed: false,
-      reason: '功能即将上线（二期）',
+      href: `/a/${article.slug}/feedback`,
+      allowed: canFeedback,
+      reason: loginReason ?? (isPublic ? '需达到 T1（成员）' : '私有页需达到 T2（贡献者）'),
     },
   ];
   const inlineRows = await db
