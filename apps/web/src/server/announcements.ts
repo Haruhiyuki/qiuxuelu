@@ -1,6 +1,8 @@
-// 站点公告读取（非 Server Action）：近闻页、首页公告栏、管理列表。
+// 站点公告读取（非 Server Action）：近闻页、近闻详情、首页公告栏、管理列表。
 import { announcements, type Database, user as userTable } from '@harublog/db';
 import { and, desc, eq } from 'drizzle-orm';
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export interface AnnouncementView {
   id: string;
@@ -56,6 +58,23 @@ export async function listPublishedAnnouncements(
     .orderBy(desc(announcements.publishedAt))
     .limit(limit);
   return rows.map(toView);
+}
+
+/** 近闻详情：单条已发布公告（非法 id 或非已发布 → null，由页面转 404）。 */
+export async function getPublishedAnnouncement(
+  db: Pick<Database, 'select'>,
+  id: string,
+): Promise<AnnouncementView | null> {
+  if (!UUID_RE.test(id)) {
+    return null; // 防 uuid 列收到非法串报错
+  }
+  const rows = await db
+    .select(baseSelect)
+    .from(announcements)
+    .leftJoin(userTable, eq(userTable.id, announcements.authorId))
+    .where(and(eq(announcements.id, id), eq(announcements.status, 'published')))
+    .limit(1);
+  return rows[0] !== undefined ? toView(rows[0]) : null;
 }
 
 /** 首页公告栏：最新的「已发布 + 置顶」公告（无则 null）。 */

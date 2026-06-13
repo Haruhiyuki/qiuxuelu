@@ -15,10 +15,6 @@ export const metadata: Metadata = {
   description: '求学路的站点新闻与公告。',
 };
 
-function isInternal(href: string): boolean {
-  return href.startsWith('/');
-}
-
 export default async function NewsPage() {
   const items = await listPublishedAnnouncements(getDb());
 
@@ -52,7 +48,7 @@ export default async function NewsPage() {
                   <span aria-hidden className="mt-1 w-px flex-1 bg-ink-200" />
                 )}
               </div>
-              <article className="min-w-0 flex-1 pb-2">
+              <article className="group min-w-0 flex-1 pb-2">
                 <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
                   {a.level === 'notice' ? (
                     <span className="rounded-full bg-accent-50 px-2 py-0.5 font-medium text-accent-700 text-xs">
@@ -67,30 +63,19 @@ export default async function NewsPage() {
                   ) : null}
                 </div>
                 <h2 className="mt-1.5 font-semibold font-serif text-ink-900 text-lg leading-snug">
-                  {a.title}
+                  <Link href={`/news/${a.id}`} className="transition-colors hover:text-brand-700">
+                    {a.title}
+                  </Link>
                 </h2>
-                <p className="mt-2 whitespace-pre-wrap text-ink-700 text-sm leading-relaxed">
+                <p className="mt-2 line-clamp-3 whitespace-pre-wrap text-ink-600 text-sm leading-relaxed">
                   {a.body}
                 </p>
-                {a.linkHref !== null ? (
-                  isInternal(a.linkHref) ? (
-                    <Link
-                      href={a.linkHref}
-                      className="mt-3 inline-block text-brand-700 text-sm transition-colors hover:text-brand-900"
-                    >
-                      {a.linkLabel ?? '查看详情'} →
-                    </Link>
-                  ) : (
-                    <a
-                      href={a.linkHref}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="mt-3 inline-block text-brand-700 text-sm transition-colors hover:text-brand-900"
-                    >
-                      {a.linkLabel ?? '查看详情'} ↗
-                    </a>
-                  )
-                ) : null}
+                <Link
+                  href={`/news/${a.id}`}
+                  className="mt-3 inline-block text-brand-700 text-sm transition-colors hover:text-brand-900"
+                >
+                  阅读全文 →
+                </Link>
               </article>
             </li>
           ))}
