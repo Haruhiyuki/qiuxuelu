@@ -9,9 +9,11 @@ import {
 import { can } from '@harublog/domain';
 import { Badge } from '@harublog/ui';
 import { and, desc, eq, isNull } from 'drizzle-orm';
+import { GitCompareArrows } from 'lucide-react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
+import { Breadcrumb } from '@/components/breadcrumb';
 import { RestoreButton } from '@/components/restore-button';
 import { revisionKindLabel } from '@/lib/doc-labels';
 import { formatDateTime } from '@/lib/format';
@@ -129,62 +131,103 @@ export default async function HistoryPage({ params }: HistoryPageProps) {
 
   return (
     <div className="mx-auto w-full max-w-3xl px-6 py-10">
-      <header className="border-b border-ink-200 pb-6">
-        <p className="text-sm text-ink-500">
-          <Link href={`/a/${doc.slug}`} className="hover:text-brand-700">
-            ← 返回文章
-          </Link>
-        </p>
-        <h1 className="mt-3 font-serif text-2xl font-semibold text-ink-900">
-          {doc.title} · 修订历史
-        </h1>
-        <p className="mt-2 text-sm text-ink-500">
-          全历史可直观追溯：点击任一修订的「对比上一版」查看块级差异。
-        </p>
-        <p className="mt-3 text-sm">
-          <Link href={`/a/${doc.slug}/diff`} className="text-brand-700 hover:text-brand-900">
-            打开修订对比 →
-          </Link>
-        </p>
-      </header>
+      <Breadcrumb
+        items={[
+          { label: '首页', href: '/' },
+          { label: doc.title, href: `/a/${doc.slug}` },
+          { label: '修订历史' },
+        ]}
+      />
 
-      <ol className="divide-y divide-ink-100">
-        {revisionRows.map((rev) => (
-          <li key={rev.id} className="flex flex-col gap-1.5 py-5">
-            <div className="flex flex-wrap items-center gap-2 text-sm">
-              <span className="font-mono font-medium text-ink-800">#{rev.seq}</span>
-              <Badge variant="outline">{revisionKindLabel(rev.kind)}</Badge>
-              {rev.id === publishedRevisionId ? <Badge variant="brand">当前发布</Badge> : null}
-              <span className="text-ink-700">{rev.authorName ?? '佚名'}</span>
-              <time dateTime={rev.createdAt.toISOString()} className="text-ink-500">
-                {formatDateTime(rev.createdAt)}
-              </time>
-              <span className="text-ink-500">变更 {rev.blocksChanged} 个块</span>
-            </div>
-            {rev.message !== null && rev.message.length > 0 ? (
-              <p className="text-sm leading-relaxed text-ink-600">{rev.message}</p>
-            ) : (
-              <p className="text-sm text-ink-400">（无修订说明）</p>
-            )}
-            <div className="flex flex-wrap items-center gap-4 text-sm">
-              {prevSeqOf.has(rev.seq) ? (
-                <Link
-                  href={`/a/${doc.slug}/diff?from=${prevSeqOf.get(rev.seq)}&to=${rev.seq}`}
-                  className="text-brand-700 hover:text-brand-900"
-                >
-                  对比上一版（#{prevSeqOf.get(rev.seq)} → #{rev.seq}）
-                </Link>
-              ) : null}
-              {canRestore && rev.id !== draftHeadId ? (
-                <RestoreButton docId={doc.id} revisionId={rev.id} seq={rev.seq} />
-              ) : null}
-            </div>
-          </li>
-        ))}
-      </ol>
-      {revisionRows.length === 0 ? (
-        <p className="py-10 text-sm text-ink-500">这篇文章还没有任何修订。</p>
-      ) : null}
+      {/* 页头：标题 + 谱系概述 + 修订对比入口（胶囊，与全站入口语言一致） */}
+      <div className="mt-4 flex flex-wrap items-end justify-between gap-x-4 gap-y-3 border-ink-200 border-b pb-5">
+        <div className="min-w-0">
+          <h1 className="font-semibold font-serif text-2xl text-ink-900">修订历史</h1>
+          <p className="mt-1.5 text-ink-500 text-sm">
+            <span className="text-ink-700">{doc.title}</span> · 共 {revisionRows.length} 次修订
+            <span className="text-ink-400"> · 修订不可变，全谱系公开可追溯</span>
+          </p>
+        </div>
+        <Link
+          href={`/a/${doc.slug}/diff`}
+          className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-ink-200 px-3 py-1 text-ink-600 text-xs transition-colors hover:border-brand-300 hover:bg-brand-50 hover:text-brand-700"
+        >
+          <GitCompareArrows className="h-3.5 w-3.5" aria-hidden />
+          修订对比
+        </Link>
+      </div>
+
+      {/* 谱系时间线：自新到旧，竖线串联；当前发布版高亮节点 */}
+      {revisionRows.length > 0 ? (
+        <ol className="mt-8">
+          {revisionRows.map((rev, i) => {
+            const isLast = i === revisionRows.length - 1;
+            const isPublished = rev.id === publishedRevisionId;
+            const prevSeq = prevSeqOf.get(rev.seq);
+            const isRollback = rev.kind === 'rollback';
+            return (
+              <li key={rev.id} className="flex gap-4">
+                {/* 节点 + 连线（节点列定宽，连线笔直） */}
+                <div className="flex w-4 flex-col items-center">
+                  <span
+                    aria-hidden
+                    className={`mt-1.5 h-3.5 w-3.5 shrink-0 rounded-full border-2 ${
+                      isPublished
+                        ? 'border-brand-600 bg-brand-600 ring-2 ring-brand-100'
+                        : 'border-ink-300 bg-paper-50'
+                    }`}
+                  />
+                  {!isLast ? <span aria-hidden className="w-px flex-1 bg-ink-200" /> : null}
+                </div>
+
+                <div className={`min-w-0 flex-1 ${isLast ? 'pb-2' : 'pb-8'}`}>
+                  <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                    <span className="font-medium font-serif text-ink-900">第 {rev.seq} 号修订</span>
+                    <span
+                      className={`rounded-full px-2 py-0.5 text-xs ${
+                        isRollback ? 'bg-ochre-50 text-ochre-800' : 'bg-paper-200 text-ink-500'
+                      }`}
+                    >
+                      {revisionKindLabel(rev.kind)}
+                    </span>
+                    {isPublished ? <Badge variant="brand">当前发布</Badge> : null}
+                  </div>
+                  <div className="mt-1 flex flex-wrap items-center gap-x-2 text-ink-400 text-xs">
+                    <span className="text-ink-500">{rev.authorName ?? '佚名'}</span>
+                    <span aria-hidden>·</span>
+                    <time dateTime={rev.createdAt.toISOString()}>
+                      {formatDateTime(rev.createdAt)}
+                    </time>
+                    <span aria-hidden>·</span>
+                    <span>变更 {rev.blocksChanged} 个块</span>
+                  </div>
+                  {rev.message !== null && rev.message.length > 0 ? (
+                    <p className="mt-2 text-ink-600 text-sm leading-relaxed">{rev.message}</p>
+                  ) : (
+                    <p className="mt-2 text-ink-400 text-sm italic">未填写修订说明</p>
+                  )}
+                  <div className="mt-2.5 flex flex-wrap items-center gap-2">
+                    {prevSeq !== undefined ? (
+                      <Link
+                        href={`/a/${doc.slug}/diff?from=${prevSeq}&to=${rev.seq}`}
+                        className="inline-flex items-center gap-1.5 rounded-full border border-ink-200 px-2.5 py-0.5 text-ink-600 text-xs transition-colors hover:border-brand-300 hover:bg-brand-50 hover:text-brand-700"
+                      >
+                        <GitCompareArrows className="h-3.5 w-3.5" aria-hidden />
+                        对比上一版 #{prevSeq} → #{rev.seq}
+                      </Link>
+                    ) : null}
+                    {canRestore && rev.id !== draftHeadId ? (
+                      <RestoreButton docId={doc.id} revisionId={rev.id} seq={rev.seq} />
+                    ) : null}
+                  </div>
+                </div>
+              </li>
+            );
+          })}
+        </ol>
+      ) : (
+        <p className="mt-10 text-ink-500 text-sm">这篇文章还没有任何修订。</p>
+      )}
     </div>
   );
 }

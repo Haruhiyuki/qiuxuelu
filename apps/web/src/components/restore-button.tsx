@@ -1,6 +1,7 @@
 'use client';
 
 import { useConfirm, useToast } from '@harublog/ui';
+import { RotateCcw } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { restoreRevision } from '@/server/actions/document';
@@ -45,8 +46,9 @@ export function RestoreButton({ docId, revisionId, seq }: RestoreButtonProps) {
         type="button"
         onClick={handleClick}
         disabled={pending}
-        className="text-ink-500 underline decoration-ink-300 underline-offset-2 hover:text-accent-700 disabled:opacity-50"
+        className="inline-flex items-center gap-1.5 rounded-full border border-ink-200 px-2.5 py-0.5 text-ink-600 text-xs transition-colors hover:border-accent-300 hover:bg-accent-50 hover:text-accent-700 disabled:opacity-50"
       >
+        <RotateCcw className="h-3.5 w-3.5" aria-hidden />
         {pending ? '回滚中…' : '回滚到此版本'}
       </button>
     </span>
