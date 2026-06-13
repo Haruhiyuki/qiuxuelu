@@ -22,11 +22,24 @@ export function Breadcrumb({ items }: { items: Crumb[] }) {
               </span>
             ) : null}
             {c.href && !isLast ? (
-              <Link href={c.href} className="transition-colors hover:text-brand-700">
+              <Link
+                href={c.href}
+                title={c.label}
+                // 标题等长标签可能很长：限宽 + 省略号截断（min-w-0 让 flex 子项可收缩，max-width 才生效），
+                // title 保留完整文本（悬停/无障碍可见）
+                className="block min-w-0 max-w-[min(52vw,28rem)] truncate transition-colors hover:text-brand-700"
+              >
                 {c.label}
               </Link>
             ) : (
-              <span className={isLast ? 'text-ink-700' : undefined}>{c.label}</span>
+              <span
+                title={c.label}
+                className={`block min-w-0 max-w-[min(52vw,28rem)] truncate ${
+                  isLast ? 'text-ink-700' : ''
+                }`}
+              >
+                {c.label}
+              </span>
             )}
           </span>
         );
