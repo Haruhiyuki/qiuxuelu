@@ -2,10 +2,11 @@
 import { comments, documents, getDb, user as userTable } from '@harublog/db';
 import { Badge, EmptyState } from '@harublog/ui';
 import { and, desc, eq, inArray } from 'drizzle-orm';
-import { ShieldAlert } from 'lucide-react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
+import { AdminForbidden } from '@/components/admin/admin-forbidden';
+import { AdminPageHeader } from '@/components/admin/admin-page-header';
 import { HeldCommentActions } from '@/components/held-comment-actions';
 import { formatDateTime } from '@/lib/format';
 import { getSession } from '@/lib/session';
@@ -25,20 +26,6 @@ const CATEGORY_LABELS: Record<string, string> = {
   none: '其他',
 };
 
-function Forbidden() {
-  return (
-    <div className="mx-auto w-full max-w-xl px-6 py-20 text-center">
-      <h1 className="font-serif text-2xl text-ink-900">无权访问</h1>
-      <p className="mt-3 text-ink-500 text-sm">评论复核需要板块版主及以上角色。</p>
-      <p className="mt-6 text-sm">
-        <Link href="/" className="text-brand-700 hover:text-brand-900">
-          ← 返回首页
-        </Link>
-      </p>
-    </div>
-  );
-}
-
 export default async function HeldCommentsPage() {
   const session = await getSession();
   if (!session) {
@@ -46,11 +33,11 @@ export default async function HeldCommentsPage() {
   }
   const actor = await loadActor(session.user.id);
   if (actor === null) {
-    return <Forbidden />;
+    return <AdminForbidden reason="评论复核需要板块版主及以上角色。" />;
   }
   const scope = sectionScopeForCapability(actor, 'comment.moderate');
   if (scope !== 'all' && scope.length === 0) {
-    return <Forbidden />;
+    return <AdminForbidden reason="评论复核需要板块版主及以上角色。" />;
   }
 
   const db = getDb();
@@ -79,15 +66,12 @@ export default async function HeldCommentsPage() {
     .limit(100);
 
   return (
-    <div className="mx-auto w-full max-w-3xl px-6 py-10">
-      <div className="flex items-baseline gap-3">
-        <ShieldAlert className="h-5 w-5 self-center text-accent-600" aria-hidden />
-        <h1 className="font-semibold font-serif text-2xl text-ink-900">AI 评论复核</h1>
-        <p className="text-ink-400 text-sm">DeepSeek 拦下、待人工复核的评论</p>
-      </div>
-      <p className="mt-2 text-ink-500 text-sm">
-        放行误判的评论使其公开显示；确认违规则删除。AI 秒审、宁放勿误伤，落到这里的多为边界情况。
-      </p>
+    <div className="mx-auto w-full max-w-6xl px-6 py-8">
+      <AdminPageHeader
+        title="AI 评论复核"
+        count={items.length}
+        description="DeepSeek 拦下、待人工复核的评论。放行误判使其公开显示；确认违规则删除。AI 秒审、宁放勿误伤，落到这里的多为边界情况。"
+      />
 
       {items.length === 0 ? (
         <div className="mt-8">

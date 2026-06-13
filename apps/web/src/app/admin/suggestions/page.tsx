@@ -5,6 +5,8 @@ import { GitPullRequest } from 'lucide-react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
+import { AdminForbidden } from '@/components/admin/admin-forbidden';
+import { AdminPageHeader } from '@/components/admin/admin-page-header';
 import { formatDateTime } from '@/lib/format';
 import { getSession } from '@/lib/session';
 import { isOverdue } from '@/lib/sla';
@@ -20,20 +22,6 @@ const STATUS_LABEL: Record<string, string> = {
   outdated: '已过期',
 };
 
-function Forbidden() {
-  return (
-    <div className="mx-auto w-full max-w-xl px-6 py-20 text-center">
-      <h1 className="font-serif text-2xl text-ink-900">无权访问</h1>
-      <p className="mt-3 text-ink-500 text-sm">修订审核需要编辑及以上角色。</p>
-      <p className="mt-6 text-sm">
-        <Link href="/" className="text-brand-700 hover:text-brand-900">
-          ← 返回首页
-        </Link>
-      </p>
-    </div>
-  );
-}
-
 export default async function SuggestionQueuePage() {
   const session = await getSession();
   if (!session) {
@@ -41,11 +29,11 @@ export default async function SuggestionQueuePage() {
   }
   const actor = await loadActor(session.user.id);
   if (actor === null) {
-    return <Forbidden />;
+    return <AdminForbidden reason="修订审核需要编辑及以上角色。" />;
   }
   const scope = sectionScopeForCapability(actor, 'suggestion.review');
   if (scope !== 'all' && scope.length === 0) {
-    return <Forbidden />;
+    return <AdminForbidden reason="修订审核需要编辑及以上角色。" />;
   }
 
   const db = getDb();
@@ -75,18 +63,12 @@ export default async function SuggestionQueuePage() {
     .orderBy(asc(suggestions.createdAt));
 
   return (
-    <div className="mx-auto w-full max-w-3xl px-6 py-10">
-      <header className="border-ink-200 border-b pb-6">
-        <p className="text-ink-500 text-sm">
-          <Link href="/admin" className="hover:text-brand-700">
-            ← 管理后台
-          </Link>
-        </p>
-        <h1 className="mt-2 font-semibold font-serif text-2xl text-ink-900">修订审核</h1>
-        <p className="mt-2 text-ink-500 text-sm">
-          待处理 {rows.length} 项 · 点击进入逐条审校与合入
-        </p>
-      </header>
+    <div className="mx-auto w-full max-w-6xl px-6 py-8">
+      <AdminPageHeader
+        title="修订审核"
+        count={rows.length}
+        description="点击任一条进入逐条审校与合入。"
+      />
 
       {rows.length === 0 ? (
         <EmptyState

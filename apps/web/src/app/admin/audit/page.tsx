@@ -1,8 +1,9 @@
 import { auditLog, getDb, user as userTable } from '@harublog/db';
 import { desc, eq } from 'drizzle-orm';
 import type { Metadata } from 'next';
-import Link from 'next/link';
 import { redirect } from 'next/navigation';
+import { AdminForbidden } from '@/components/admin/admin-forbidden';
+import { AdminPageHeader } from '@/components/admin/admin-page-header';
 import { Pagination } from '@/components/pagination';
 import { formatDateTime } from '@/lib/format';
 import { getSession } from '@/lib/session';
@@ -55,17 +56,7 @@ export default async function AuditPage({
   // 审计查看：管理员及以上
   const isAdmin = actor?.roles.some((r) => r.role === 'admin' || r.role === 'superadmin') ?? false;
   if (!isAdmin) {
-    return (
-      <div className="mx-auto w-full max-w-xl px-6 py-20 text-center">
-        <h1 className="font-serif text-2xl text-ink-900">无权访问</h1>
-        <p className="mt-3 text-ink-500 text-sm">审计日志仅管理员可查看。</p>
-        <p className="mt-6 text-sm">
-          <Link href="/" className="text-brand-700 hover:text-brand-900">
-            ← 返回首页
-          </Link>
-        </p>
-      </div>
-    );
+    return <AdminForbidden reason="审计日志仅管理员可查看。" />;
   }
 
   const db = getDb();
@@ -88,13 +79,11 @@ export default async function AuditPage({
   const items = rows.slice(0, PAGE_SIZE);
 
   return (
-    <div className="mx-auto w-full max-w-4xl px-6 py-10">
-      <header className="border-ink-200 border-b pb-6">
-        <h1 className="font-semibold font-serif text-2xl text-ink-900">审计日志</h1>
-        <p className="mt-2 text-ink-500 text-sm">
-          高危操作记录（不可篡改的治理凭证），按时间倒序分页
-        </p>
-      </header>
+    <div className="mx-auto w-full max-w-6xl px-6 py-8">
+      <AdminPageHeader
+        title="审计日志"
+        description="高危操作记录（不可篡改的治理凭证），按时间倒序分页。"
+      />
 
       {items.length === 0 ? (
         <p className="py-10 text-ink-500 text-sm">暂无审计记录。</p>

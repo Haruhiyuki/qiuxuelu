@@ -12,6 +12,8 @@ import { ShieldCheck } from 'lucide-react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
+import { AdminForbidden } from '@/components/admin/admin-forbidden';
+import { AdminPageHeader } from '@/components/admin/admin-page-header';
 import { PatrolPanel } from '@/components/patrol-panel';
 import { formatDateTime } from '@/lib/format';
 import { getSession } from '@/lib/session';
@@ -21,20 +23,6 @@ import { loadActor, sectionScopeForCapability } from '@/server/actors';
 export const dynamic = 'force-dynamic';
 export const metadata: Metadata = { title: '巡查队列', robots: { index: false } };
 
-function Forbidden() {
-  return (
-    <div className="mx-auto w-full max-w-xl px-6 py-20 text-center">
-      <h1 className="font-serif text-2xl text-ink-900">无权访问</h1>
-      <p className="mt-3 text-ink-500 text-sm">巡查需要编辑及以上角色。</p>
-      <p className="mt-6 text-sm">
-        <Link href="/" className="text-brand-700 hover:text-brand-900">
-          ← 返回首页
-        </Link>
-      </p>
-    </div>
-  );
-}
-
 export default async function PatrolQueuePage() {
   const session = await getSession();
   if (!session) {
@@ -42,11 +30,11 @@ export default async function PatrolQueuePage() {
   }
   const actor = await loadActor(session.user.id);
   if (actor === null) {
-    return <Forbidden />;
+    return <AdminForbidden reason="巡查需要编辑及以上角色。" />;
   }
   const scope = sectionScopeForCapability(actor, 'queue.claim');
   if (scope !== 'all' && scope.length === 0) {
-    return <Forbidden />;
+    return <AdminForbidden reason="巡查需要编辑及以上角色。" />;
   }
 
   const db = getDb();
@@ -96,13 +84,12 @@ export default async function PatrolQueuePage() {
   ).filter((r): r is NonNullable<typeof r> => r !== null);
 
   return (
-    <div className="mx-auto w-full max-w-4xl px-6 py-10">
-      <header className="border-ink-200 border-b pb-6">
-        <h1 className="font-semibold font-serif text-2xl text-ink-900">巡查队列</h1>
-        <p className="mt-2 text-ink-500 text-sm">
-          待巡查 {rows.length} 项 · 协作者对已发布文章的直接编辑 · 标记已巡查或一键回退
-        </p>
-      </header>
+    <div className="mx-auto w-full max-w-6xl px-6 py-8">
+      <AdminPageHeader
+        title="巡查队列"
+        count={rows.length}
+        description="协作者对已发布文章的直接编辑；标记已巡查，或一键回退。"
+      />
 
       {rows.length === 0 ? (
         <EmptyState

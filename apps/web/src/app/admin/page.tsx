@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
+import { AdminPageHeader } from '@/components/admin/admin-page-header';
 import { getSession } from '@/lib/session';
 import { loadActor, sectionScopeForCapability } from '@/server/actors';
 
@@ -70,15 +71,14 @@ export default async function AdminHome() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-4xl px-6 py-10">
-      <h1 className="font-semibold font-serif text-2xl text-ink-900">管理后台</h1>
-      <p className="mt-2 text-ink-500 text-sm">按你的角色显示可用的治理工具。</p>
-      <div className="mt-6 grid gap-4 sm:grid-cols-2">
+    <div className="mx-auto w-full max-w-6xl px-6 py-8">
+      <AdminPageHeader title="管理后台" description="按你的角色显示可用的治理工具。" />
+      <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {visible.map((t) => (
           <Link
             key={t.href}
             href={t.href}
-            className="rounded-sm border border-ink-200 bg-paper-50 p-5 transition-colors hover:border-brand-400"
+            className="rounded-lg border border-ink-200 bg-paper-50 p-5 shadow-paper transition-colors hover:border-brand-400"
           >
             <p className="font-medium font-serif text-ink-900 text-lg">{t.title}</p>
             <p className="mt-1 text-ink-500 text-sm">{t.desc}</p>

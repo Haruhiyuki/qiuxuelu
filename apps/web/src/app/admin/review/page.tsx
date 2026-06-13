@@ -13,6 +13,8 @@ import { Inbox } from 'lucide-react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
+import { AdminForbidden } from '@/components/admin/admin-forbidden';
+import { AdminPageHeader } from '@/components/admin/admin-page-header';
 import { ReviewPanel } from '@/components/review-panel';
 import { formatDateTime } from '@/lib/format';
 import { getSession } from '@/lib/session';
@@ -28,23 +30,6 @@ interface ReviewPageProps {
   searchParams: Promise<{ id?: string }>;
 }
 
-function Forbidden() {
-  return (
-    <div className="mx-auto w-full max-w-3xl px-6 py-20 text-center">
-      <h1 className="font-serif text-2xl font-semibold text-ink-900">403 · 无权访问</h1>
-      <p className="mt-3 text-sm leading-relaxed text-ink-500">
-        审批工作台仅对持有发布权限的职务（责任编辑、板块版主、管理员）开放。
-        发布权属于任命产生的职务权限——晋升给能力，任命给权力。
-      </p>
-      <p className="mt-6">
-        <Link href="/" className="text-brand-700 hover:text-brand-900">
-          ← 返回首页
-        </Link>
-      </p>
-    </div>
-  );
-}
-
 export default async function ReviewQueuePage({ searchParams }: ReviewPageProps) {
   const [{ id: selectedId }, session] = await Promise.all([searchParams, getSession()]);
   if (!session) {
@@ -53,13 +38,17 @@ export default async function ReviewQueuePage({ searchParams }: ReviewPageProps)
   const actor = await loadActor(session.user.id);
   // 页面级守卫看角色清单；具体通过/驳回动作仍按板块域走 can() 双重把关
   if (!actor || !hasPublishGrant(actor)) {
-    return <Forbidden />;
+    return (
+      <AdminForbidden reason="审批工作台仅对持有发布权限的职务（责任编辑、板块版主、管理员）开放——晋升给能力，任命给权力。" />
+    );
   }
 
   // 横向越权防线：板块域角色只能看到/预览自己授权板块的待审内容（架构 §4「板块级权力走指派制」）
   const allowedSections = publishableSectionIds(actor);
   if (allowedSections !== 'all' && allowedSections.length === 0) {
-    return <Forbidden />;
+    return (
+      <AdminForbidden reason="审批工作台仅对持有发布权限的职务（责任编辑、板块版主、管理员）开放——晋升给能力，任命给权力。" />
+    );
   }
 
   const db = getDb();
@@ -99,14 +88,12 @@ export default async function ReviewQueuePage({ searchParams }: ReviewPageProps)
   const previewDoc = selected !== null ? await loadRevisionDoc(db, selected.revisionId) : null;
 
   return (
-    <div className="mx-auto w-full max-w-6xl px-6 py-10">
-      <header className="border-b border-ink-200 pb-6">
-        <h1 className="font-serif text-2xl font-semibold text-ink-900">审批工作台</h1>
-        <p className="mt-2 text-sm text-ink-500">
-          待审 {pending.length} 项 · 先到先审（认领租约机制将在下一阶段上线）·
-          不能审批自己提交的请求
-        </p>
-      </header>
+    <div className="mx-auto w-full max-w-6xl px-6 py-8">
+      <AdminPageHeader
+        title="审批工作台"
+        count={pending.length}
+        description="先到先审（认领租约机制将在下一阶段上线）；不能审批自己提交的请求。"
+      />
 
       {pending.length === 0 ? (
         <EmptyState icon={<Inbox />} title="队列已清空" description="当前没有待审的发布请求。" />
