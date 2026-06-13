@@ -61,6 +61,7 @@ export function InlineComments({
   const [text, setText] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   // 窄屏点击 mark 弹出的批注浮窗
   const [popover, setPopover] = useState<{ blockId: string; x: number; y: number } | null>(null);
   // 正文 mark 悬停 → 对应边注卡提亮
@@ -292,10 +293,17 @@ export function InlineComments({
       text,
     );
     if (result.ok) {
-      setOpen(false);
-      setPending(null);
       setText('');
-      router.refresh();
+      if (result.data.held) {
+        // AI 审核拦下：批注已存但暂不公开，等管理员复核放行
+        setError(null);
+        setNotice('批注已提交，正在审核，通过后会显示。');
+      } else {
+        setOpen(false);
+        setPending(null);
+        setNotice(null);
+        router.refresh();
+      }
     } else {
       setError(result.error);
     }
@@ -338,6 +346,7 @@ export function InlineComments({
             disabled={busy}
           />
           {error !== null ? <p className="mt-1 text-accent-700 text-sm">{error}</p> : null}
+          {notice !== null ? <p className="mt-1 text-moss-700 text-sm">{notice}</p> : null}
           <div className="mt-2 flex items-center gap-3">
             <Button type="button" size="sm" onClick={submit} disabled={busy}>
               {busy ? '提交中…' : '提交批注'}
@@ -348,6 +357,7 @@ export function InlineComments({
                 setOpen(false);
                 setText('');
                 setError(null);
+                setNotice(null);
               }}
               className="text-ink-500 text-sm hover:text-ink-700"
             >

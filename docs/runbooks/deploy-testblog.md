@@ -18,7 +18,7 @@
 | systemd 单元 | `harublog-web`（`Type=simple`，`MemoryMax=600M`/`MemoryHigh=480M`） |
 | 工作目录 | `/opt/harublog/web/apps/web`，`ExecStart=node …/server.js` |
 | 部署根（standalone 摊平） | `/opt/harublog/web/`：`apps/web/{.next,server.js,package.json,node_modules}` + 顶层 `node_modules` |
-| 环境变量 | `/opt/harublog/web.env`（PORT=3100、DATABASE_URL、BETTER_AUTH_*、S3_*、MEILI*、RESEND* 等） |
+| 环境变量 | `/opt/harublog/web.env`（PORT=3100、DATABASE_URL、BETTER_AUTH_*、S3_*、MEILI*、RESEND*、DEEPSEEK_API_KEY 等） |
 | 上传目录 | `/opt/harublog/uploads`（在部署根**之外**，换包不波及） |
 | 日志 | `/var/log/harublog-web.log` |
 | 服务器 node | v20.19.5；PostgreSQL 本机 `127.0.0.1`（已加 2G swap + 低内存调参） |

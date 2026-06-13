@@ -23,6 +23,8 @@ const ACTION_LABELS: Record<string, string> = {
   'publish_request.approve': '通过发布',
   'publish_request.reject': '驳回发布',
   'comment.hide': '隐藏评论',
+  'comment.ai_release': '放行 AI 拦截评论',
+  'comment.ai_reject': '删除 AI 拦截评论',
   'flag.create': '举报',
   'flag.uphold': '采纳举报',
   'flag.dismiss': '驳回举报',

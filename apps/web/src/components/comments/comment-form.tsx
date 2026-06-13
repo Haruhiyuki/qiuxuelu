@@ -20,6 +20,7 @@ export function CommentForm({ docId, parentId, placeholder, compact, onDone }: C
   const [text, setText] = useState('');
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
 
   async function handleSubmit() {
     if (text.trim().length === 0) {
@@ -28,11 +29,17 @@ export function CommentForm({ docId, parentId, placeholder, compact, onDone }: C
     }
     setPending(true);
     setError(null);
+    setNotice(null);
     const result = await createComment(docId, text, parentId);
     if (result.ok) {
       setText('');
-      onDone?.();
-      router.refresh();
+      if (result.data.held) {
+        // AI 审核拦下：评论已存但暂不公开，等管理员复核放行（不刷新列表，给出提示）
+        setNotice('评论已提交，正在审核，通过后会公开显示。');
+      } else {
+        onDone?.();
+        router.refresh();
+      }
     } else {
       setError(result.error);
     }
@@ -49,6 +56,7 @@ export function CommentForm({ docId, parentId, placeholder, compact, onDone }: C
         disabled={pending}
       />
       {error !== null ? <p className="text-sm text-accent-700">{error}</p> : null}
+      {notice !== null ? <p className="text-moss-700 text-sm">{notice}</p> : null}
       <div className="flex items-center gap-3">
         <Button type="button" size="sm" onClick={handleSubmit} disabled={pending}>
           {pending ? '提交中…' : parentId ? '回复' : '发表评论'}

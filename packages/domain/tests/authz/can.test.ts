@@ -290,31 +290,17 @@ describe('can() —— 页面模式：审核/合并的管理权归属（ADR-0007
 });
 
 describe('can() —— 信任线义务梯度与通用楼层', () => {
-  it('TL0 评论允许但附 first_post 预审 + 限速', () => {
-    expect(can(makeActor(), 'comment.create', {}, NOW)).toEqual({
-      allow: true,
-      via: 'trust',
-      obligations: [
-        { type: 'pre_moderation', queue: 'first_post' },
-        { type: 'rate_limit', key: 'comment.create' },
-      ],
-    });
+  it('评论自 TL0 起即允许、无义务（AI 审核取代预审/限速，ADR-0009）', () => {
+    for (const tl of [0, 1, 2] as const) {
+      expect(can(makeActor({ trustLevel: tl }), 'comment.create', {}, NOW)).toEqual({
+        allow: true,
+        via: 'trust',
+        obligations: [],
+      });
+    }
   });
 
-  it('TL1 评论仅附限速；TL2 评论无义务', () => {
-    expect(can(makeActor({ trustLevel: 1 }), 'comment.create', {}, NOW)).toEqual({
-      allow: true,
-      via: 'trust',
-      obligations: [{ type: 'rate_limit', key: 'comment.create' }],
-    });
-    expect(can(makeActor({ trustLevel: 2 }), 'comment.create', {}, NOW)).toEqual({
-      allow: true,
-      via: 'trust',
-      obligations: [],
-    });
-  });
-
-  it('TL0 行内评论被拒 required=1；TL1 行内评论附限速', () => {
+  it('TL0 行内评论被拒 required=1；TL1 行内评论允许且无义务（限速已取消）', () => {
     expect(can(makeActor(), 'comment.inline.create', {}, NOW)).toEqual({
       allow: false,
       reason: { kind: 'insufficient_trust', required: 1, capability: 'comment.inline.create' },
@@ -322,7 +308,7 @@ describe('can() —— 信任线义务梯度与通用楼层', () => {
     expect(can(makeActor({ trustLevel: 1 }), 'comment.inline.create', {}, NOW)).toEqual({
       allow: true,
       via: 'trust',
-      obligations: [{ type: 'rate_limit', key: 'comment.inline.create' }],
+      obligations: [],
     });
   });
 

@@ -53,15 +53,21 @@ export const comments = pgTable(
     kind: text('kind').notNull(),
     suggestionId: uuid('suggestion_id').references(() => suggestions.id),
     body: jsonb('body').notNull(),
+    // ai_held = AI 审核拦下、对公众隐藏、待管理员复核放行；visible/hidden/deleted 同前
     status: text('status').notNull().default('visible'),
     hiddenBy: text('hidden_by').references(() => user.id),
     hiddenReason: text('hidden_reason'),
+    // AI 审核结果（DeepSeek）：verdict ∈ allow|block|error|null（未审/审核关闭）；拦截时记类别与理由供管理员复核
+    aiVerdict: text('ai_verdict'),
+    aiCategory: text('ai_category'),
+    aiReason: text('ai_reason'),
+    aiModel: text('ai_model'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     editedAt: timestamp('edited_at', { withTimezone: true }),
   },
   (t) => [
     check('comments_kind_check', sql`${t.kind} in ('doc', 'inline', 'review')`),
-    check('comments_status_check', sql`${t.status} in ('visible', 'hidden', 'deleted')`),
+    check('comments_status_check', sql`${t.status} in ('visible', 'hidden', 'deleted', 'ai_held')`),
     index('comments_document_id_idx').on(t.documentId),
   ],
 );

@@ -44,6 +44,12 @@ export default async function AdminHome() {
       visible: has('flag.review'),
     },
     {
+      href: '/admin/comments',
+      title: 'AI 评论复核',
+      desc: '放行 AI 误判、删除违规评论',
+      visible: has('comment.moderate'),
+    },
+    {
       href: '/admin/suggestions',
       title: '建议审校',
       desc: '审校编辑建议并合入正文',

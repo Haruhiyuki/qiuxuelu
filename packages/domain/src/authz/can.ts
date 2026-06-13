@@ -159,21 +159,11 @@ export function can(
     return deny({ kind: 'policy_locked' });
   }
 
-  // 4b. 评论的预审/限速梯度：TL0 允许但首帖预审+限速（拒绝变引导的最前线），TL1 限速
+  // 4b. 评论：AI 审核（DeepSeek 秒审）取代了预审与限速——TL0 起即可自由发评论，不附任何义务
+  //     （ADR-0009）。拦截发生在动作层（落库前的 AI 审核），不在信任线表达。
+  //     行内批注仍需 TL1（落入下方通用楼层），同样不再附限速。
   if (capability === 'comment.create') {
-    if (actor.trustLevel === 0) {
-      return allow('trust', [
-        { type: 'pre_moderation', queue: 'first_post' },
-        { type: 'rate_limit', key: 'comment.create' },
-      ]);
-    }
-    if (actor.trustLevel === 1) {
-      return allow('trust', [{ type: 'rate_limit', key: 'comment.create' }]);
-    }
     return allow('trust');
-  }
-  if (capability === 'comment.inline.create' && actor.trustLevel === 1) {
-    return allow('trust', [{ type: 'rate_limit', key: 'comment.inline.create' }]);
   }
 
   // 4c. 通用信任楼层

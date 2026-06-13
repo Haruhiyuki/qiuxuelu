@@ -28,6 +28,7 @@ export default async function AdminLayout({ children }: { children: ReactNode })
     { href: '/admin', label: '总览', visible: true },
     { href: '/admin/review', label: '发布审批', visible: has('doc.publish') },
     { href: '/admin/flags', label: '举报', visible: has('flag.review') },
+    { href: '/admin/comments', label: '评论复核', visible: has('comment.moderate') },
     { href: '/admin/suggestions', label: '建议审校', visible: has('suggestion.review') },
     { href: '/admin/patrol', label: '巡查', visible: has('queue.claim') },
     { href: '/admin/news', label: '近闻', visible: has('announcement.manage') },
