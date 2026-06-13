@@ -116,7 +116,7 @@ export function PasskeySection() {
         <p className="text-ink-400 text-sm">还没有通行密钥。</p>
       )}
 
-      <div className="flex items-end gap-3">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="pk-name">密钥名称（可选）</Label>
           <Input
@@ -125,7 +125,7 @@ export function PasskeySection() {
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="如：我的 iPhone"
-            className="w-52"
+            className="w-full sm:w-52"
           />
         </div>
         <Button type="button" onClick={handleAdd} disabled={pending}>

@@ -119,7 +119,11 @@ export function TwoFactorSection({ enabled }: { enabled: boolean }) {
           </li>
           <li>
             输入验证器当前显示的动态码，完成启用：
-            <form onSubmit={confirmEnable} noValidate className="mt-3 flex items-end gap-3">
+            <form
+              onSubmit={confirmEnable}
+              noValidate
+              className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-end"
+            >
               <div className="flex flex-col gap-1.5">
                 <Label htmlFor="totp-confirm">6 位动态码</Label>
                 <Input
@@ -129,7 +133,7 @@ export function TwoFactorSection({ enabled }: { enabled: boolean }) {
                   autoComplete="one-time-code"
                   value={code}
                   onChange={(e) => setCode(e.target.value)}
-                  className="w-36 font-mono tracking-widest"
+                  className="w-full font-mono tracking-widest sm:w-36"
                 />
               </div>
               <Button type="submit" disabled={pending}>
@@ -142,7 +146,7 @@ export function TwoFactorSection({ enabled }: { enabled: boolean }) {
                   setCode('');
                   setError(null);
                 }}
-                className="pb-2 text-ink-500 text-sm hover:text-ink-700"
+                className="self-start text-ink-500 text-sm hover:text-ink-700 sm:self-auto sm:pb-2"
               >
                 取消
               </button>
@@ -161,7 +165,11 @@ export function TwoFactorSection({ enabled }: { enabled: boolean }) {
           <p className="text-ink-600 text-sm leading-relaxed">
             已启用。登录时除密码外，还需输入验证器动态码（或备用恢复码）。
           </p>
-          <form onSubmit={handleDisable} noValidate className="flex items-end gap-3">
+          <form
+            onSubmit={handleDisable}
+            noValidate
+            className="flex flex-col gap-3 sm:flex-row sm:items-end"
+          >
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="tf-password">当前密码</Label>
               <Input
@@ -170,7 +178,7 @@ export function TwoFactorSection({ enabled }: { enabled: boolean }) {
                 autoComplete="current-password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-52"
+                className="w-full sm:w-52"
               />
             </div>
             <Button type="submit" variant="danger" disabled={pending}>
@@ -183,7 +191,11 @@ export function TwoFactorSection({ enabled }: { enabled: boolean }) {
           <p className="text-ink-600 text-sm leading-relaxed">
             为账号加一道防线：启用后登录还需验证器应用的动态码，密码泄露也难以被冒用。
           </p>
-          <form onSubmit={beginEnable} noValidate className="flex items-end gap-3">
+          <form
+            onSubmit={beginEnable}
+            noValidate
+            className="flex flex-col gap-3 sm:flex-row sm:items-end"
+          >
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="tf-password">当前密码</Label>
               <Input
@@ -192,7 +204,7 @@ export function TwoFactorSection({ enabled }: { enabled: boolean }) {
                 autoComplete="current-password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-52"
+                className="w-full sm:w-52"
               />
             </div>
             <Button type="submit" disabled={pending}>
