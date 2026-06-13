@@ -156,7 +156,7 @@ export default async function HomePage() {
           <div className="mt-8 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
             {featured.map((item, i) => (
               <Link key={item.id} href={`/a/${item.slug}`} className="group block">
-                <article className="relative h-full overflow-hidden rounded-md border border-ink-200 bg-paper-50 p-5 shadow-paper transition-all duration-200 group-hover:-translate-y-0.5 group-hover:border-brand-300 group-hover:shadow-lift">
+                <article className="relative flex h-full flex-col overflow-hidden rounded-md border border-ink-200 bg-paper-50 p-5 shadow-paper transition-all duration-200 group-hover:-translate-y-0.5 group-hover:border-brand-300 group-hover:shadow-lift">
                   <span
                     aria-hidden
                     className="-top-3 pointer-events-none absolute right-2 select-none font-serif text-7xl text-ink-900 opacity-[0.06]"
@@ -166,7 +166,7 @@ export default async function HomePage() {
                   <p className="text-ink-400 text-xs">
                     {item.sectionName} · {formatDate(item.publishedAt)}
                   </p>
-                  <h3 className="mt-2 font-semibold font-serif text-ink-900 text-lg leading-snug transition-colors group-hover:text-brand-700">
+                  <h3 className="mt-2 line-clamp-2 font-semibold font-serif text-ink-900 text-lg leading-snug transition-colors group-hover:text-brand-700">
                     {item.title}
                   </h3>
                   {item.summary !== null && item.summary !== '' ? (
@@ -174,7 +174,8 @@ export default async function HomePage() {
                       {item.summary}
                     </p>
                   ) : null}
-                  <p className="mt-4 text-ink-400 text-xs">{item.authorName ?? '佚名'}</p>
+                  {/* mt-auto 把作者钉到卡片底部——等高卡片下作者名横向对齐，上方中间区高度随之一致 */}
+                  <p className="mt-auto pt-4 text-ink-400 text-xs">{item.authorName ?? '佚名'}</p>
                 </article>
               </Link>
             ))}
