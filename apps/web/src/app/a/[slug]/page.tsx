@@ -531,12 +531,17 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
             >
               查看修订历史 →
             </Link>
-            <Link
-              href={`/a/${article.slug}/board`}
-              className="text-brand-700 transition-colors hover:text-brand-900"
-            >
-              协作公示（建议 / 申请 / 修订）→
-            </Link>
+            {/* 协作公示（建议/申请/修订）仅公共页展示：私有页对外只需公示修订记录（上面的修订历史），
+                无需单独的协作公示入口（ADR-0007 页面模式）。board 页本身仍可凭 URL 直达，无害——
+                这里的「私有」是维护模式而非阅读权限，已发布正文本就对外可读。 */}
+            {isPublic ? (
+              <Link
+                href={`/a/${article.slug}/board`}
+                className="text-brand-700 transition-colors hover:text-brand-900"
+              >
+                协作公示（建议 / 申请 / 修订）→
+              </Link>
+            ) : null}
           </p>
         </footer>
 
