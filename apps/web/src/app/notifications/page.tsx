@@ -2,10 +2,10 @@ import { getDb } from '@harublog/db';
 import { EmptyState } from '@harublog/ui';
 import { Bell } from 'lucide-react';
 import type { Metadata } from 'next';
-import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { Breadcrumb } from '@/components/breadcrumb';
 import { MarkReadButton } from '@/components/mark-read-button';
+import { NotificationItem } from '@/components/notification-item';
 import { formatDateTime } from '@/lib/format';
 import { getSession } from '@/lib/session';
 import { listNotifications } from '@/server/notifications';
@@ -126,22 +126,15 @@ export default async function NotificationsPage() {
           {rows.map((row) => {
             const { text, href } = describe(row.kind, readPayload(row.payload));
             return (
-              <li key={row.id} className="flex items-start gap-3 py-4">
-                <span
-                  className={`mt-1.5 size-2 shrink-0 rounded-full ${
-                    row.readAt === null ? 'bg-danger-fill' : 'bg-ink-200'
-                  }`}
-                  aria-hidden
-                />
-                <div className="flex flex-col gap-0.5">
-                  <Link href={href} className="text-sm text-ink-800 hover:text-brand-700">
-                    {text}
-                  </Link>
-                  <time dateTime={row.createdAt.toISOString()} className="text-xs text-ink-400">
-                    {formatDateTime(row.createdAt)}
-                  </time>
-                </div>
-              </li>
+              <NotificationItem
+                key={row.id}
+                id={row.id}
+                href={href}
+                text={text}
+                time={formatDateTime(row.createdAt)}
+                iso={row.createdAt.toISOString()}
+                unread={row.readAt === null}
+              />
             );
           })}
         </ul>

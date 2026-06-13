@@ -20,6 +20,7 @@ function fail(error: string): { ok: false; error: string } {
 const uuidSchema = z.uuid();
 const bodySchema = z.string().trim().min(1, '内容不能为空').max(2000, '最长 2000 字');
 const quotedSchema = z.string().trim().max(500, '引用片段最长 500 字');
+const anchorSchema = z.string().trim().max(100);
 const replySchema = z.string().trim().max(2000, '回复最长 2000 字');
 const STATUSES = ['accepted', 'declined', 'resolved'] as const;
 
@@ -51,7 +52,7 @@ function docCtx(doc: {
     doc: {
       id: doc.id,
       ownerId: doc.ownerId ?? '',
-      editPolicy: 'suggest_only' as const,
+      editPolicy: 'open' as const,
       status: 'published' as const,
       visibility: doc.visibility as 'private' | 'public',
     },
@@ -63,6 +64,7 @@ export async function createFeedback(
   rawScope: string,
   rawQuoted: string,
   rawBody: string,
+  rawAnchorBlockId = '',
 ): Promise<ActionResult<{ feedbackId: string }>> {
   const session = await getSession();
   if (!session) {
@@ -92,6 +94,9 @@ export async function createFeedback(
   if (scope === 'fragment' && (quotedText === null || quotedText.length === 0)) {
     return fail('请填写要评的片段');
   }
+  // 锚点：点选段落得到的 blockId，存进 body jsonb（无需新列）；处理时可深链回原文
+  const anchorBlockId =
+    scope === 'fragment' ? (anchorSchema.safeParse(rawAnchorBlockId).data ?? '') : '';
 
   const doc = await loadPublishedDoc(rawDocId);
   if (doc?.status !== 'published') {
@@ -112,7 +117,7 @@ export async function createFeedback(
           authorId: actor.id,
           scope,
           quotedText,
-          body: { text: body.data },
+          body: anchorBlockId.length > 0 ? { text: body.data, anchorBlockId } : { text: body.data },
         })
         .returning({ id: feedback.id });
       const row = inserted[0];

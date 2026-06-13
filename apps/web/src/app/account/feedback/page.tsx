@@ -35,6 +35,40 @@ function textOf(body: unknown): string {
     : '';
 }
 
+/** body jsonb 里的段落锚点（blockId）；提交时点选了具体段落才有。 */
+function anchorOf(body: unknown): string | null {
+  const a = (body as { anchorBlockId?: unknown })?.anchorBlockId;
+  return typeof a === 'string' && a.length > 0 ? a : null;
+}
+
+/** 被评片段 + 可选「在原文中查看」深链（#b-{blockId} 滚到原文那一段）。 */
+function QuotedFragment({
+  quoted,
+  slug,
+  anchor,
+}: {
+  quoted: string | null;
+  slug: string;
+  anchor: string | null;
+}) {
+  if (quoted === null || quoted.length === 0) {
+    return null;
+  }
+  return (
+    <div className="mt-2 border-ochre-600 border-l-2 pl-2">
+      <p className="text-ink-500 text-sm">{quoted}</p>
+      {anchor !== null ? (
+        <Link
+          href={`/a/${slug}#b-${anchor}`}
+          className="mt-0.5 inline-block text-brand-700 text-xs hover:text-brand-900"
+        >
+          在原文中查看 →
+        </Link>
+      ) : null}
+    </div>
+  );
+}
+
 const SELECT = {
   id: feedback.id,
   scope: feedback.scope,
@@ -125,11 +159,7 @@ export default async function MyFeedbackPage() {
                   <span aria-hidden>·</span>
                   <span>{formatDateTime(f.createdAt)}</span>
                 </div>
-                {f.quotedText !== null && f.quotedText.length > 0 ? (
-                  <p className="mt-2 border-ochre-600 border-l-2 pl-2 text-ink-500 text-sm">
-                    {f.quotedText}
-                  </p>
-                ) : null}
+                <QuotedFragment quoted={f.quotedText} slug={f.slug} anchor={anchorOf(f.body)} />
                 <p className="mt-2 whitespace-pre-wrap text-ink-800 text-sm leading-relaxed">
                   {textOf(f.body)}
                 </p>
@@ -172,11 +202,7 @@ export default async function MyFeedbackPage() {
                   <span aria-hidden>·</span>
                   <span>{formatDateTime(f.createdAt)}</span>
                 </div>
-                {f.quotedText !== null && f.quotedText.length > 0 ? (
-                  <p className="mt-2 border-ochre-600 border-l-2 pl-2 text-ink-500 text-sm">
-                    {f.quotedText}
-                  </p>
-                ) : null}
+                <QuotedFragment quoted={f.quotedText} slug={f.slug} anchor={anchorOf(f.body)} />
                 <p className="mt-2 whitespace-pre-wrap text-ink-800 text-sm leading-relaxed">
                   {textOf(f.body)}
                 </p>

@@ -61,6 +61,12 @@ function textOf(body: unknown): string {
     : '';
 }
 
+/** body jsonb 里的段落锚点（blockId），用于深链回原文那一段。 */
+function anchorOf(body: unknown): string | null {
+  const a = (body as { anchorBlockId?: unknown })?.anchorBlockId;
+  return typeof a === 'string' && a.length > 0 ? a : null;
+}
+
 const EMPTY: ItemReviews = { summary: { avg: 0, count: 0 }, reviews: [] };
 
 export default async function CollabBoardPage({ params }: { params: Promise<{ slug: string }> }) {
@@ -180,9 +186,17 @@ export default async function CollabBoardPage({ params }: { params: Promise<{ sl
                     <span>{formatDateTime(f.createdAt)}</span>
                   </Meta>
                   {f.quotedText !== null && f.quotedText.length > 0 ? (
-                    <p className="mt-2 border-ochre-600 border-l-2 pl-2 text-ink-500 text-sm">
-                      {f.quotedText}
-                    </p>
+                    <div className="mt-2 border-ochre-600 border-l-2 pl-2">
+                      <p className="text-ink-500 text-sm">{f.quotedText}</p>
+                      {anchorOf(f.body) !== null ? (
+                        <Link
+                          href={`/a/${slug}#b-${anchorOf(f.body)}`}
+                          className="mt-0.5 inline-block text-brand-700 text-xs hover:text-brand-900"
+                        >
+                          在原文中查看 →
+                        </Link>
+                      ) : null}
+                    </div>
                   ) : null}
                   <p className="mt-2 whitespace-pre-wrap text-ink-800 text-sm leading-relaxed">
                     {textOf(f.body)}
