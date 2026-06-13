@@ -3,7 +3,7 @@
 ## 必读顺序
 1. `docs/02-architecture.md` —— 架构定稿，最高权威；与任何其他材料冲突时以它为准。
 2. 涉及结构性改动时读对应 `docs/adr/`；推翻既有决策必须新增 ADR，不准默默改。
-3. `docs/01-vision-and-requirements.md` —— 产品需求与术语表（板块=section、文章=document、区块=block、修订=revision、建议=suggestion）。
+3. `docs/01-vision-and-requirements.md` —— 产品需求与术语表（板块=section、文章=document、区块=block、修订=revision、修订申请=suggestion、编辑建议=feedback）。术语自 ADR-0010 起：suggestion=「修订申请」（改内容、需审核的真实修订分支），feedback=「编辑建议」（不改内容的意见）。
 
 ## 不可妥协的红线
 - **修订模型语义不可变**：blobs 内容寻址（hash 不含 blockId）、revisions 不可变、document_refs 是唯一可变指针、建议=真实修订分支。改动这些必须先写 ADR。
@@ -23,9 +23,10 @@
 
 ## 当前阶段
 M0–M5 全部架构里程碑已完成。后续为打磨与硬化（无障碍、性能、安全审计、测试覆盖等），无新里程碑。
+M5 后的产品/模型调整均以 ADR 记录、勿凭旧印象：ADR-0007 页面模式（私有/公共）、ADR-0008 作者完整协作权（TL0 起）、ADR-0009 AI 评论审核取代预审/限速（TL0 即可评论）、ADR-0010 协作三件套（修订/修订申请/编辑建议）改名与重构、ADR-0011 编辑策略简化为二元（锁定/开放）。另已落地：点赞/收藏、板块邮件订阅、OG 分享卡、响应式图片、阅读时长/目录滚动高亮、个人中心、协作公示页。
 - M1：修订 diff / 回滚 / 评论 / 通知 / Meilisearch 块级搜索 + worker。
 - M2：行内评论 + 锚点重映射、信任结算（可重放）、协作直编 + 巡查队列、举报与制裁、管理后台、审计查看。
-- M3：编辑建议=真实修订分支、补丁 diff、审校队列、三方合并（快进/自动变基）、三栏冲突裁决、信任联动。
+- M3：修订申请（suggestion，原称「编辑建议」，ADR-0010 改名）=真实修订分支、补丁 diff、审校队列、三方合并（快进/自动变基）、三栏冲突裁决、信任联动。
 - M4：apps/collab Hocuspocus 网关 + Yjs 草稿态实时协作 + presence + checkpoint 缝合（Y.Doc→collab_checkpoint 修订）。
 - M5：数据导出（worker NDJSON + /api/export，自带 CC BY-SA + 贡献者）、/transparency 透明度报告、备份恢复演练（infra/backup + runbook，RTO<1h/RPO<5min）、可插拔语义检索（env embedder，默认关）。
 里程碑路线见架构文档 §8；UI 可以糙，内核不能糙。

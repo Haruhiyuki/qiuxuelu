@@ -37,7 +37,7 @@
 适用：本次改动是**纯 TS/JS**，没动 `package.json`/lockfile、没加原生依赖。
 原理：Next `standalone` 的 `.next` 产物是**可移植 JS**，可在 Mac（arm64）原生构建，
 只替换服务器的 `.next` + `server.js`，**完全不碰 `node_modules`**（保留服务器现有的
-linux-x64 `sharp` 与 `@swc/helpers` 补丁）。本次（移动端适配 + 知识图谱重做）即走此路。
+linux-x64 `sharp` 与 `@swc/helpers` 补丁）。绝大多数迭代（纯前后端 TS/JS 改动）走此路。
 
 ```bash
 # 1) 本机原生构建（arm64，内存充足）
@@ -88,14 +88,24 @@ REMOTE
 
 ## 数据库迁移
 
-- **本次无迁移**。改了 `packages/db/src/schema/*` 时才需要：本地 `pnpm db:generate` 生成迁移文件并入库，再在服务器 DB 上应用。
-- 服务器 PG 只听 `127.0.0.1`：用 **SSH 隧道**（本地 5433 → 服务器 5432）跑迁移。迁移要在换包**之前/同步**完成，避免新代码碰旧表。
+仅当改了 `packages/db/src/schema/*` 时才需要：本地 `pnpm db:generate` 生成迁移文件入库，再在服务器 DB 上应用。迁移要在换包**之前/同步**完成，避免新代码碰旧表。
+
+**应用方式（已验证可用）——服务器侧 `psql` + 手动记账，不要用 SSH 隧道 + `drizzle-kit migrate`**：
+
+- `drizzle-kit migrate`（无论本地连服务器，还是 SSH 隧道）读不到 `DATABASE_URL` 时只报一句无信息的 `undefined`/`url: ''`，排查成本高——**已知坑，不走它**。
+- 改走：把 `.sql` 内容用服务器本机 `psql` 在一个事务里执行（`psql -v ON_ERROR_STOP=1`），成功后**手动插入** drizzle 账本一行，drizzle 才认为该迁移已应用：
+  ```sql
+  -- drizzle 的迁移哈希 = 该 .sql 文件内容的 sha256（本地 `shasum -a 256 drizzle/00NN_*.sql` 取得）
+  -- created_at = drizzle/meta/_journal.json 里该迁移条目的 "when"（毫秒时间戳）
+  INSERT INTO drizzle.__drizzle_migrations (hash, created_at) VALUES ('<sha256>', <when>);
+  ```
+- **含数据回填的迁移**（如 CHECK 收紧）：drizzle 生成的 SQL 只改约束、不迁数据；若旧值会违反新约束，必须在新生成的（未合入的）迁移文件里**手加 `UPDATE` 回填**，再于同一事务内执行。例：ADR-0011 把 `edit_policy` 收为 `open/locked`，迁移 0022 内含 `UPDATE documents SET edit_policy='open' WHERE edit_policy NOT IN ('open','locked')`。
 
 ## 部署后验证清单
 
 1. `systemctl is-active harublog-web` = active；`curl 127.0.0.1:3100/` = 200；日志无报错。
 2. 域名侧 `curl` 关键页（`/`、`/a/<slug>`、`/login`、`/news`）均 200；HTML 含本次功能标记。
-3. 真实浏览器（headless chrome + CDP）验证**交互**：本次重点是知识图谱「点节点换中心」（服务端 action 往返）与移动端汉堡抽屉满屏。见 [[local-cdp-testing]] 记忆。
+3. 真实浏览器（headless chrome + CDP）验证本次改动涉及的**关键交互**（服务端 action 往返、移动端抽屉、弹窗等）。见 [[local-cdp-testing]] 记忆。
 4. 邻居站回归：`curl https://haruyuki.cn`、`https://test.haruyuki.cn` 仍正常响应。
 
 ## 回滚

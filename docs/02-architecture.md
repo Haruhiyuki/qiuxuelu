@@ -99,12 +99,12 @@ type Decision =
   | { allow: false; reason: DenyReason };  // 结构化拒因 → 前端渲染晋升引导（“再获 3 次建议合入即可解锁”）
 ```
 
-判定顺序：**制裁一票否决 → 角色线（作用域匹配）→ 所有权特例 → 信任线（受保护级/红线约束）**。
+判定顺序：**制裁一票否决 → 角色线（作用域匹配）→ 所有权特例 → 信任线（受锁定/红线约束）**。
 
 - **角色线**：`role_grants(role, section_id, expires_at)`——superadmin / admin（全局）、section_mod / editor（板块域），任期制到期自动失效。
-- **信任线**：TL0 新人 → TL1 成员（评论、行内评论）→ TL2 贡献者（编辑建议、建文章提审）→ TL3 资深（滚动 100 天窗口考核、**可回落**；直编 open 级文档进巡查）→ TL4 共建者（**仅提名+人工授予**，协作编辑）。等级由 `trust_events` 事件流结算（可重放重算），管理员可锁定/手动覆盖。「编辑建议被采纳率」是晋升 TL3 的核心指标。
+- **信任线**（完整矩阵以 `docs/03-permissions.md` / `capabilities.ts` 为准）：TL0 新成员（阅读、建文章/提审/发图、举报、**发表评论**——AI 秒审无预审/限速，ADR-0009）→ TL1 成员（行内批注、对公共页提**编辑建议**；**发首文即 T1**，ADR-0010）→ TL2 贡献者（公共页**修订申请**、私有页编辑建议）→ TL3 资深（滚动 100 天窗口考核、**可回落**；公共页直接修订他人文章进巡查、私有页修订申请）→ TL4 共建者（**仅提名+人工授予**，处理公共页修订申请/管理修订）。等级由 `trust_events` 事件流结算（可重放重算），管理员可锁定/手动覆盖。「**修订申请**被采纳率」是晋升 TL3 的核心指标。
 - **角色专属红线**（信任线永远拿不到）：`doc.publish / doc.unpublish / doc.protect / user.suspend / role.* / system.config`。**晋升给能力，任命给权力。**
-- **文档编辑策略**（B 的作者自主权 × C 的保护级合并）：`documents.edit_policy = suggest_only(默认) | open(TL2+直编,巡查) | semi(TL3+直编,巡查) | locked(仅角色线)`。经验类个人文章默认只收建议；作者可主动开放协作；管理员可强制提级保护。
+- **文档编辑策略**（ADR-0011 简化为二元）：`documents.edit_policy = open(默认) | locked`。`open` 时是否可直编交由权限系统（信任 × 所有权 × 角色 × 可见性）裁决；`locked` 是管理员强制锁定，谁都不能直编，只能提修订申请/编辑建议。早期的 suggest_only/semi 梯度在页面模式（ADR-0007）接管后已无独立语义，统一并入 open。
 - 所有阈值入 `site_settings` 配置表，**冷启动参数档**单独维护（早期社区数据稀疏，阈值大幅调低，随规模上调）。
 - 执行纪律：`domain` 包的 `can()` 是唯一鉴权入口，Server Action / API / worker 全部经它；高危授予与全部拒绝按采样写审计。
 
@@ -113,8 +113,8 @@ type Decision =
 **统一队列基建**（Stack Overflow review queue 范式，嫁接自 C）：`review_items`（queue 类型 × 主体 × 板块路由 × 优先级，**15 分钟认领租约**过期回池）+ `review_actions`（不可变，**拒稿必填结构化理由码**，翻案率/举报命中率统计的数据源）。审稿人不得审自己的提交（DB 约束 + 鉴权双保险）。
 
 - **发布审批**：审的是「将 published ref 移到修订 X」的请求。`draft → pending → in_review → approved(移 ref)/changes_requested/rejected(理由码)`；已发布文章的更新走同一状态机，审批页展示对当前 published 的**块级增量 diff**。TL4/editor 免审直发但照写审计。回滚 = 创建指回旧树的新修订，历史不删。
-- **建议审校**：`open → under_review → merged / changes_requested(分支追加修订后回到 open) / rejected(理由码) / outdated(主线前移冲突, 提供三栏变基 UI) / withdrawn`。**作者对自己文章的建议有审校权（TL2 即可）**——最贴近 Google Docs 直觉且为志愿者省人力；作者失联 14 天自动进板块队列。
-- **巡查队列**（M2）：TL2/TL3 直编 open/semi 文档即时生效但进 `edit_patrol`，巡查发现劣化一键回退。事前审批 → 事后巡查的梯度是审核人力可规模化的关键阀门。
+- **建议审校**（审的是「修订申请」suggestion 分支）：`open → under_review → merged / changes_requested(分支追加修订后回到 open) / rejected(理由码) / outdated(主线前移冲突, 提供三栏变基 UI) / withdrawn`。**作者对自己文章的修订申请有审校/合并权（TL0 起，ADR-0008）**——最贴近 Google Docs 直觉且为志愿者省人力；作者失联 14 天自动进板块队列。
+- **巡查队列**（M2）：TL3 直接修订公共页文章即时生效但进 `edit_patrol`，巡查发现劣化一键回退。事前审批 → 事后巡查的梯度是审核人力可规模化的关键阀门。
 - **积压熔断**（冷启动对策）：队列深度超阈值时自动放宽 autoreview 范围（如 TL2+ 的小幅修改免巡查），参数化、可回调。
 
 ## 6. 编辑器与协作

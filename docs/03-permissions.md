@@ -10,7 +10,7 @@
 |---|---|---|---|---|
 | **修订** | 直接改文章，**立即生效**，权限者可撤回 | 是 | 立即（进巡查） | `doc.edit_direct` |
 | **修订申请** | 直接改文章，但**需权限者审核**才生效 | 是 | 审核后合入 | suggestion 分支（`suggestion.*`） |
-| **编辑建议** | **不改内容**，对全文/片段提意见 → 送作者+编辑后台处理 | 否 | —（意见） | `feedback.*`（**二期建设中**） |
+| **编辑建议** | **不改内容**，对全文/片段提意见 → 送作者+编辑后台处理 | 否 | —（意见） | `feedback.*` |
 
 入口：文章顶部「协作」按钮 → 弹窗列三项，权限不够的标灰+原因。
 
@@ -39,7 +39,7 @@
 | 角色 | 作用域 | 新增权力 |
 |---|---|---|
 | **editor 责任编辑** | 板块 | 含信任线到 TL4 的全部 ＋ **发布/审校通过**(`doc.publish`)、**回退**(`doc.rollback`)、**认领巡查队列**(`queue.claim`)、**审校＋合并建议**(`suggestion.review`/`merge`) |
-| **section_mod 板块版主** | 板块 | ＋评论管理(`comment.moderate`)、**处理举报**(`flag.review`)、**下架**(`doc.unpublish`)、**保护/锁定**(`doc.protect`)、**精选**(`doc.feature`)、**设为公共页**(`doc.set_visibility`) |
+| **section_mod 板块版主** | 板块 | ＋评论管理(`comment.moderate`)、**处理举报**(`flag.review`)、**下架**(`doc.unpublish`)、**锁定编辑**(`doc.protect`，二元 open/locked，见 ADR-0011)、**精选**(`doc.feature`)、**设为公共页**(`doc.set_visibility`) |
 | **admin 管理员** | 全局 | ＋**封禁**(`user.suspend`)、**调信任等级**(`user.trust_adjust`，含授 TL4)、**授板块角色**(`role.grant_section`)、**管板块**(`section.manage`)、**发近闻/公告**(`announcement.manage`) |
 | **superadmin 超管** | 全局 | ＋**授全局角色**(`role.grant_global`)、**系统配置**(`system.config`) |
 
@@ -49,7 +49,7 @@
 
 `doc.publish`、`doc.unpublish`、`doc.protect`、`doc.feature`、`doc.set_visibility`、`flag.review`、`user.suspend`、`user.trust_adjust`、`role.grant_section`、`role.grant_global`、`section.manage`、`announcement.manage`、`system.config`。
 
-一句话：**发布、下架、保护、精选、设可见性、处理举报、封人、调级、授角色、管板块、发公告、改系统**——全是任命来的权力，攒信任攒不到。
+一句话：**发布、下架、锁定、精选、设可见性、处理举报、封人、调级、授角色、管板块、发公告、改系统**——全是任命来的权力，攒信任攒不到。
 
 ## 作者特例（对自己的文档，ADR-0008）
 
@@ -58,7 +58,7 @@
 - **直接编辑**(`doc.edit_direct`)、**提交审批**(`doc.submit`)；
 - **审核 + 合并**他人提交的修订申请(`suggestion.review` / `suggestion.merge`)。
 
-仍受约束：制裁仍一票否决；`edit_policy='locked'`（管理员强制保护）下作者也不能直编；首次**发布**仍需编辑审校（`doc.publish` 是红线，不自助）。
+仍受约束：制裁仍一票否决；`edit_policy='locked'`（管理员锁定编辑，ADR-0011）下作者也不能直编；首次**发布**仍需编辑审校（`doc.publish` 是红线，不自助）。
 
 ## 协作他人文章：公共页 / 私有页 两条线（ADR-0010）
 
