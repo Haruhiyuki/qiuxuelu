@@ -19,9 +19,9 @@
 | 工作目录 | `/opt/harublog/web/apps/web`，`ExecStart=node …/server.js` |
 | 部署根（standalone 摊平） | `/opt/harublog/web/`：`apps/web/{.next,server.js,package.json,node_modules}` + 顶层 `node_modules` |
 | 环境变量 | `/opt/harublog/web.env`（PORT=3100、DATABASE_URL、BETTER_AUTH_*、S3_*、MEILI*、RESEND*、DEEPSEEK_API_KEY 等） |
-| 上传目录 | `/opt/harublog/uploads`（在部署根**之外**，换包不波及） |
+| 对象存储 | MinIO 单机版（**systemd 原生**，非 docker——本机无 docker）：单元 `harublog-minio`，绑 `127.0.0.1:9000`（控制台 `:9001`），数据 `/opt/harublog/minio-data`，凭证 `/opt/harublog/minio.env`（= web.env 的 `S3_ACCESS_KEY_ID`/`S3_SECRET_ACCESS_KEY`），桶 `harublog-media`，`MemoryMax=320M`。二进制 `/usr/local/bin/{minio,mc}` |
 | 日志 | `/var/log/harublog-web.log` |
-| 服务器 node | v20.19.5；PostgreSQL 本机 `127.0.0.1`（已加 2G swap + 低内存调参） |
+| 服务器 node | v20.19.5；PostgreSQL 本机 `127.0.0.1`（已加 2G swap + 低内存调参）；**无 docker/podman**，所有服务皆 systemd 原生 |
 
 服务器内存紧张（~1.6G，且跑着 ~10 个别的服务）：**绝不在服务器上构建**，构建一律在本地完成、只传产物。
 
@@ -121,11 +121,39 @@ systemctl start harublog-web; systemctl is-active harublog-web
 REMOTE
 ```
 
-## 已知问题（待修，非每次部署职责）
+## 传图（媒体）链路：sharp + MinIO（2026-06-13 已打通）
 
-- **图片上传坏**：服务器 `sharp` 加载失败 `libvips-cpp.so.8.18.3: cannot open shared object file`。
-  `sharp` 是惰性加载，只影响传图（剥 EXIF/转 webp），不影响其它功能。疑因构建时把
-  `@img/sharp-libvips-linuxmusl`（musl）与 glibc 版混入。修法属路径 B 范畴，应单独起一轮处理。
+传图依赖两件事，曾经两个都缺，现已修复并端到端验证（编辑器传图 → webp+派生 → MinIO → `/api/media` 出图）：
+
+**① sharp（图片处理）** — 真因不是「musl/glibc 混入」，而是 **standalone 的 external 解析链指向坏的 sharp**：
+- Next 把 `sharp` 列为 external，构建产物里 `apps/web/.next/node_modules/sharp-<hash>` 是个**符号链接** → `node_modules/.pnpm/sharp@0.35.0/node_modules/sharp`（pnpm store）。app 运行时 `import()` 走的就是这条链。
+- 那个 store 里的 `sharp@0.35.0/node_modules/@img` 的 glibc libvips（`libvips-cpp.so.8.18.3`）缺失/损坏 → dlopen 报「cannot open shared object file」。装到 `apps/web/node_modules/sharp` 或顶层 `node_modules/sharp` 都**没用**，因为 external 链根本不走那里。
+- **修法（持久，path-A 不波及）**：把可用的 glibc `@img` 覆盖进 store 那个 sharp 的 `@img`——
+  ```bash
+  # 在干净临时目录装 glibc sharp 取得正确 @img（服务器是 glibc x64）
+  T=$(mktemp -d); (cd $T && npm init -y >/dev/null && npm install sharp@0.35.0 --os=linux --cpu=x64 --libc=glibc --no-audit --no-fund)
+  S=/opt/harublog/web/node_modules/.pnpm/sharp@0.35.0/node_modules
+  rm -rf "$S/@img"; cp -R "$T/node_modules/@img" "$S/@img"
+  # 验证：经 external 符号链接加载
+  cd /opt/harublog/web/apps/web/.next/node_modules && node -e "require('./sharp-<hash>')({create:{width:8,height:8,channels:3,background:'#999'}}).webp().toBuffer().then(b=>console.log('OK',b.length))"
+  systemctl restart harublog-web
+  ```
+  因 path-A 不动 `node_modules`，每次 JS-only 部署后 external 符号链接仍指向这个已修好的 store，无需重做。（真正的根治是 path-B 重建时让 pnpm 在 glibc 下装对 sharp。npm 在 app 目录直接装会因 `workspace:*` 报 EUNSUPPORTEDPROTOCOL——必须用临时干净目录装再拷 `@img`。）
+
+**② 对象存储 MinIO** — 服务器**从未部署过**对象存储（且无 docker），现以 systemd 原生二进制补齐：
+```bash
+# 二进制（dl.min.io 对服务器很慢——在本机下好再 scp 上去）
+# 本机：curl -fL -o minio https://dl.min.io/server/minio/release/linux-amd64/minio ; 同理 mc ; scp 到 /usr/local/bin
+install -m755 /tmp/minio.linux-amd64 /usr/local/bin/minio; install -m755 /tmp/mc.linux-amd64 /usr/local/bin/mc
+mkdir -p /opt/harublog/minio-data
+( umask 077; printf 'MINIO_ROOT_USER=%s\nMINIO_ROOT_PASSWORD=%s\n' "$S3_ACCESS_KEY_ID" "$S3_SECRET_ACCESS_KEY" > /opt/harublog/minio.env )
+# 单元 /etc/systemd/system/harublog-minio.service：ExecStart=/usr/local/bin/minio server /opt/harublog/minio-data --address 127.0.0.1:9000 --console-address 127.0.0.1:9001
+#   EnvironmentFile=/opt/harublog/minio.env, MemoryMax=320M, Restart=on-failure
+systemctl daemon-reload && systemctl enable --now harublog-minio
+/usr/local/bin/mc alias set hb http://127.0.0.1:9000 "$S3_ACCESS_KEY_ID" "$S3_SECRET_ACCESS_KEY"
+/usr/local/bin/mc mb --ignore-existing hb/harublog-media   # 私有桶；外界仅经 /api/media 代理读
+```
+内存占用约 70MB（封顶 320M），不抢占邻居。
 
 ## 测试账号（供测试人员，免验证码/2FA 直登）
 
