@@ -47,11 +47,11 @@ export async function toggleFeatured(docId: string, featured: boolean): Promise<
   return { ok: true, data: null };
 }
 
-const POLICIES = ['suggest_only', 'open', 'semi', 'locked'] as const;
+const POLICIES = ['open', 'locked'] as const;
 
 export async function setEditPolicy(docId: string, policy: string): Promise<ActionResult> {
   if (!POLICIES.includes(policy as (typeof POLICIES)[number])) {
-    return { ok: false, error: '非法的保护级' };
+    return { ok: false, error: '非法的锁定状态' };
   }
   const session = await getSession();
   if (!session) {

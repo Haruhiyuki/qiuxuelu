@@ -70,7 +70,7 @@ export default async function CollabEditPage({ params }: EditPageProps) {
     doc: {
       id: doc.id,
       ownerId: doc.ownerId ?? '',
-      editPolicy: doc.editPolicy as 'suggest_only' | 'open' | 'semi' | 'locked',
+      editPolicy: doc.editPolicy as 'open' | 'locked',
       status: 'published',
     },
   });

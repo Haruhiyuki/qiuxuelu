@@ -392,7 +392,7 @@ function reviewDecision(actor: Parameters<typeof can>[0], sg: SgRow) {
     doc: {
       id: sg.documentId,
       ownerId: sg.ownerId ?? '',
-      editPolicy: 'suggest_only',
+      editPolicy: 'open',
       status: 'published',
       visibility: sg.visibility as 'private' | 'public',
     },
@@ -673,7 +673,7 @@ export async function mergeSuggestion(
     doc: {
       id: sg.documentId,
       ownerId: sg.ownerId ?? '',
-      editPolicy: 'suggest_only',
+      editPolicy: 'open',
       status: 'published',
       visibility: sg.visibility as 'private' | 'public',
     },

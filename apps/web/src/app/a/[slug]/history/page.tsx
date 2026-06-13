@@ -83,7 +83,7 @@ export default async function HistoryPage({ params }: HistoryPageProps) {
         doc: {
           id: doc.id,
           ownerId: doc.ownerId ?? '',
-          editPolicy: doc.editPolicy as 'suggest_only' | 'open' | 'semi' | 'locked',
+          editPolicy: doc.editPolicy as 'open' | 'locked',
           status: (doc.status === 'pending' ? 'draft' : doc.status) as
             | 'draft'
             | 'published'

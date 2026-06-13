@@ -69,7 +69,7 @@ export default async function ResolvePage({ params }: ResolvePageProps) {
       doc: {
         id: sg.documentId,
         ownerId: sg.ownerId ?? '',
-        editPolicy: 'suggest_only',
+        editPolicy: 'open',
         status: 'published',
       },
     }).allow;

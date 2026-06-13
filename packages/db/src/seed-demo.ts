@@ -565,7 +565,7 @@ async function main(): Promise<void> {
           summary: art.summary,
           ownerId: authorId,
           status: 'published',
-          editPolicy: 'suggest_only',
+          editPolicy: 'open',
           featured: art.featured,
           schemaVersion: SCHEMA_VERSION,
         })

@@ -31,7 +31,8 @@ export const documents = pgTable(
     summary: text('summary'),
     ownerId: text('owner_id').references(() => user.id),
     status: text('status').notNull().default('draft'),
-    editPolicy: text('edit_policy').notNull().default('suggest_only'),
+    // 编辑策略（ADR-0011 简化为二元）：open=正常（权限系统裁决）/ locked=管理员锁定直编
+    editPolicy: text('edit_policy').notNull().default('open'),
     // 页面模式（ADR-0007）：private=所有者控制（默认）；public=被认可有公共价值，编辑接管管理。
     // 私有→公共是升级：累计他人贡献超阈值自动转、或管理员手动转；原作者身份（ownerId）始终保留。
     visibility: text('visibility').notNull().default('private'),
@@ -50,10 +51,7 @@ export const documents = pgTable(
       'documents_status_check',
       sql`${t.status} in ('draft', 'pending', 'published', 'archived')`,
     ),
-    check(
-      'documents_edit_policy_check',
-      sql`${t.editPolicy} in ('suggest_only', 'open', 'semi', 'locked')`,
-    ),
+    check('documents_edit_policy_check', sql`${t.editPolicy} in ('open', 'locked')`),
     check('documents_visibility_check', sql`${t.visibility} in ('private', 'public')`),
   ],
 );

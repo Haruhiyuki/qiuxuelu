@@ -36,7 +36,13 @@ export interface Actor {
   sanctions: Sanction[];
 }
 
-export type EditPolicy = 'suggest_only' | 'open' | 'semi' | 'locked';
+/**
+ * 文档编辑策略（ADR-0011 简化为二元）：
+ * - open（默认）：正常——由权限系统（信任/所有者/角色/可见性）治理是否可直编。
+ * - locked：管理员强制锁定——谁都不能直接编辑，只能提修订申请/编辑建议（走修订模型）。
+ * 早期的 suggest_only/semi/open 梯度在页面模式（ADR-0007）接管后已无独立语义，统一并入 open。
+ */
+export type EditPolicy = 'open' | 'locked';
 
 export type DocStatus = 'draft' | 'published' | 'archived';
 

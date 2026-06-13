@@ -204,7 +204,7 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
         doc: {
           id: article.docId,
           ownerId: article.ownerId ?? '',
-          editPolicy: article.editPolicy as 'suggest_only' | 'open' | 'semi' | 'locked',
+          editPolicy: article.editPolicy as 'open' | 'locked',
           status: 'published' as const,
           visibility: article.visibility as 'private' | 'public',
         },

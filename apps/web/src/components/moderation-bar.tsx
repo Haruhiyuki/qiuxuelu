@@ -1,17 +1,11 @@
 'use client';
 
-// 文章页治理条（板块管理员+ 可见）：精选开关 + 内容保护级 + 转为公共页面。
+// 文章页治理条（板块管理员+ 可见）：精选开关 + 锁定编辑 + 转为公共页面。
 import { Button, useConfirm, useToast } from '@harublog/ui';
+import { Lock, LockOpen } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { publicizeDocument, setEditPolicy, toggleFeatured } from '@/server/actions/moderation';
-
-const POLICY_LABELS: Record<string, string> = {
-  open: '开放直编（TL2+）',
-  semi: '半保护（TL3+）',
-  suggest_only: '仅建议',
-  locked: '锁定（仅管理）',
-};
 
 export interface ModerationBarProps {
   docId: string;
@@ -73,12 +67,13 @@ export function ModerationBar({
     setBusy(false);
   }
 
-  async function onChangePolicy(next: string) {
+  async function onToggleLock() {
+    const next = policy === 'locked' ? 'open' : 'locked';
     setBusy(true);
     const r = await setEditPolicy(docId, next);
     if (r.ok) {
       setPolicy(next);
-      toast('保护级已更新', 'success');
+      toast(next === 'locked' ? '已锁定编辑' : '已解除锁定', 'success');
       router.refresh();
     } else {
       toast(r.error, 'error');
@@ -106,21 +101,25 @@ export function ModerationBar({
         </Button>
       ) : null}
       {canProtect ? (
-        <label className="flex items-center gap-2 text-ink-600">
-          保护级
-          <select
-            value={policy}
-            disabled={busy}
-            onChange={(e) => onChangePolicy(e.target.value)}
-            className="h-8 rounded-sm border border-ink-200 bg-paper-50 px-2 text-ink-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600"
-          >
-            {Object.entries(POLICY_LABELS).map(([v, label]) => (
-              <option key={v} value={v}>
-                {label}
-              </option>
-            ))}
-          </select>
-        </label>
+        <Button
+          size="sm"
+          variant={policy === 'locked' ? 'primary' : 'secondary'}
+          loading={busy}
+          onClick={onToggleLock}
+          title="锁定后仅管理员可直接编辑，其他人改为提交修订申请 / 编辑建议"
+        >
+          {policy === 'locked' ? (
+            <>
+              <Lock className="h-4 w-4" aria-hidden />
+              已锁定编辑
+            </>
+          ) : (
+            <>
+              <LockOpen className="h-4 w-4" aria-hidden />
+              锁定编辑
+            </>
+          )}
+        </Button>
       ) : null}
     </div>
   );

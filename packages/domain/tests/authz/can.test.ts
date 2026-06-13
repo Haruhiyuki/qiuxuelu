@@ -19,7 +19,7 @@ function makeDoc(overrides: Partial<DocCtx> = {}): DocCtx {
   return {
     id: 'd1',
     ownerId: 'someone-else',
-    editPolicy: 'suggest_only',
+    editPolicy: 'open',
     status: 'published',
     ...overrides,
   };
@@ -170,7 +170,7 @@ describe('can() —— 制裁一票否决', () => {
 });
 
 describe('can() —— 所有权特例', () => {
-  it('TL0 作者可直编自己的 suggest_only 文档（via owner）', () => {
+  it('TL0 作者可直编自己的 open 文档（via owner）', () => {
     const doc = makeDoc({ ownerId: 'u1' });
     const d = can(makeActor(), 'doc.edit_direct', { doc }, NOW);
     expect(d).toEqual({ allow: true, via: 'owner', obligations: [] });

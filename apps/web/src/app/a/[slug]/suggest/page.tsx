@@ -71,7 +71,7 @@ export default async function SuggestPage({ params }: SuggestPageProps) {
     doc: {
       id: doc.id,
       ownerId: doc.ownerId ?? '',
-      editPolicy: doc.editPolicy as 'suggest_only' | 'open' | 'semi' | 'locked',
+      editPolicy: doc.editPolicy as 'open' | 'locked',
       status: 'published',
       visibility: doc.visibility as 'private' | 'public',
     },

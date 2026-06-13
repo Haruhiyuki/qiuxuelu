@@ -73,7 +73,7 @@ export default async function SuggestionDetailPage({ params }: SuggestionPagePro
       doc: {
         id: sg.documentId,
         ownerId: sg.ownerId ?? '',
-        editPolicy: sg.editPolicy as 'suggest_only' | 'open' | 'semi' | 'locked',
+        editPolicy: sg.editPolicy as 'open' | 'locked',
         status: 'published',
       },
     }).allow;
