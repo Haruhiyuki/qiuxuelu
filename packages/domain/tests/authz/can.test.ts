@@ -176,21 +176,12 @@ describe('can() —— 所有权特例', () => {
     expect(d).toEqual({ allow: true, via: 'owner', obligations: [] });
   });
 
-  it('TL2 作者可审自己文章的建议（架构 §5）', () => {
+  it('作者从 TL0 起即可审核/合并自己文章的建议（owner 无信任门槛，ADR-0008）', () => {
     const doc = makeDoc({ ownerId: 'u1' });
-    const review = can(makeActor({ trustLevel: 2 }), 'suggestion.review', { doc }, NOW);
+    const review = can(makeActor(), 'suggestion.review', { doc }, NOW);
     expect(review).toEqual({ allow: true, via: 'owner', obligations: [] });
-    const merge = can(makeActor({ trustLevel: 2 }), 'suggestion.merge', { doc }, NOW);
+    const merge = can(makeActor(), 'suggestion.merge', { doc }, NOW);
     expect(merge).toEqual({ allow: true, via: 'owner', obligations: [] });
-  });
-
-  it('TL1 作者审自己文章的建议未达 owner 门槛（TL2），落入信任线拒因', () => {
-    const doc = makeDoc({ ownerId: 'u1' });
-    const d = can(makeActor({ trustLevel: 1 }), 'suggestion.review', { doc }, NOW);
-    expect(d).toEqual({
-      allow: false,
-      reason: { kind: 'insufficient_trust', required: 4, capability: 'suggestion.review' },
-    });
   });
 
   it('locked 文档作者也不能直编——管理员强制保护压过作者自主权', () => {
@@ -283,9 +274,14 @@ describe('can() —— 页面模式：审核/合并的管理权归属（ADR-0007
     });
   });
 
-  it('私有页：所有者保留审核/合并权（TL2+）', () => {
+  it('私有页：所有者从 TL0 起保留审核/合并权', () => {
     const doc = makeDoc({ ownerId: 'u1', visibility: 'private' });
-    expect(can(makeActor({ trustLevel: 2 }), 'suggestion.review', { doc }, NOW)).toEqual({
+    expect(can(makeActor(), 'suggestion.review', { doc }, NOW)).toEqual({
+      allow: true,
+      via: 'owner',
+      obligations: [],
+    });
+    expect(can(makeActor(), 'suggestion.merge', { doc }, NOW)).toEqual({
       allow: true,
       via: 'owner',
       obligations: [],

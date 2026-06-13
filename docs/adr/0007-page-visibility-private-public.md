@@ -22,7 +22,7 @@
 |---|---|---|
 | 高级贡献者 TL3（非作者） | 编辑建议 `suggestion.create` | 编辑申请 `doc.edit_direct`（+巡查） |
 | 责任编辑 editor（非作者） | 编辑申请 `doc.edit_direct` | 审核管理 `suggestion.review/merge` + 直编 |
-| 所有者 | 审核管理 `suggestion.review/merge`（OWNER_CAPS TL2+） | 保留（不失权） |
+| 所有者 | 审核管理 `suggestion.review/merge`（OWNER_CAPS；TL2 楼层已被 **ADR-0008** 降为 TL0） | 保留（不失权） |
 
 - **「编辑申请」= `doc.edit_direct` + `enqueue_patrol` 义务**：直编立即生效但进巡查队列，与架构 §5「事前审批→事后巡查」梯度一致。「编辑建议」= 既有建议分支。能力阶梯：建议 < 申请 < 管理。
 - `can()` 两处外科改动（其余判定顺序不变）：

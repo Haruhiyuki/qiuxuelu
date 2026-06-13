@@ -130,13 +130,14 @@ export const ROLE_ONLY_CAPS: ReadonlySet<Capability> = new Set([
 
 /**
  * 作者对自有文档的特例能力 → 所需最低信任等级。
- * suggestion.review / suggestion.merge 设 TL2 门槛：作者 TL2 起可审自己文章的建议（架构 §5）。
+ * 作者从一开始（TL0）就对自己的文章拥有完整协作权：直编、提交、审核与合并他人的编辑建议
+ * （ADR-0008）。仅对「自有文档」生效，且仍受制裁与管理员 locked 冻结约束。
  */
 export const OWNER_CAPS: Partial<Record<Capability, TrustLevel>> = {
   'doc.edit_direct': 0,
   'doc.submit': 0,
-  'suggestion.review': 2,
-  'suggestion.merge': 2,
+  'suggestion.review': 0,
+  'suggestion.merge': 0,
 };
 
 /** 信任线可授予该能力的最低等级；信任线永远拿不到（含红线）则返回 null。 */

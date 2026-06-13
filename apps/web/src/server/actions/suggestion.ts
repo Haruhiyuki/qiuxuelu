@@ -385,7 +385,7 @@ async function loadSuggestion(
   return rows[0];
 }
 
-/** 审校者准入：can('suggestion.review')（含作者审自己文章的建议 = OWNER_CAPS TL2）。 */
+/** 审校者准入：can('suggestion.review')（含作者审自己文章的建议——owner 自 TL0 起，ADR-0008）。 */
 function reviewDecision(actor: Parameters<typeof can>[0], sg: SgRow) {
   return can(actor, 'suggestion.review', {
     sectionId: sg.sectionId,
