@@ -2,6 +2,7 @@ import { SITE_DESCRIPTION, SITE_NAME } from '@harublog/config';
 import { ToastProvider } from '@harublog/ui';
 import type { Metadata, Viewport } from 'next';
 import type { ReactNode } from 'react';
+import { ChromeGate } from '@/components/chrome-gate';
 import { SiteFooter } from '@/components/site-footer';
 import { SiteHeader } from '@/components/site-header';
 import { SITE_URL } from '@/lib/site-url';
@@ -42,7 +43,10 @@ export default function RootLayout({ children }: { children: ReactNode }) {
           }}
         />
         <ToastProvider>
-          <SiteHeader />
+          {/* 聚焦写作器（/write/...）隐藏全局页头，避免与编辑器自带顶栏双层吸顶相互遮挡 */}
+          <ChromeGate>
+            <SiteHeader />
+          </ChromeGate>
           <main className="flex-1">{children}</main>
           <SiteFooter />
         </ToastProvider>
