@@ -1,9 +1,51 @@
 // 协作层：建议分支（ADR-0004）、评论、行内锚点、编辑建议（反馈，ADR-0010）
 import { sql } from 'drizzle-orm';
 import type { AnyPgColumn } from 'drizzle-orm/pg-core';
-import { check, index, integer, jsonb, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core';
+import {
+  check,
+  index,
+  integer,
+  jsonb,
+  pgTable,
+  text,
+  timestamp,
+  uniqueIndex,
+  uuid,
+} from 'drizzle-orm/pg-core';
 import { user } from './auth';
 import { blocks, documents, revisions } from './content';
+
+// 协作公示评议（ADR-0010）：公共页公示页上，对协作项（编辑建议/修订申请/修订记录）的
+// 赞同度打分（1–5）+ 评论。一人对一项一条（可改），聚合后同步到权限者后台供处理参考。
+export const collabReviews = pgTable(
+  'collab_reviews',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    targetType: text('target_type').notNull(),
+    targetId: uuid('target_id').notNull(),
+    documentId: uuid('document_id')
+      .notNull()
+      .references(() => documents.id),
+    authorId: text('author_id')
+      .notNull()
+      .references(() => user.id),
+    // 赞同度 1–5（5=很赞同）
+    rating: integer('rating').notNull(),
+    body: jsonb('body'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    check(
+      'collab_reviews_type_check',
+      sql`${t.targetType} in ('feedback', 'suggestion', 'revision')`,
+    ),
+    check('collab_reviews_rating_check', sql`${t.rating} between 1 and 5`),
+    // 一人对一项仅一条评议（再次提交即更新）
+    uniqueIndex('collab_reviews_unique').on(t.targetType, t.targetId, t.authorId),
+    index('collab_reviews_target_idx').on(t.targetType, t.targetId),
+    index('collab_reviews_document_idx').on(t.documentId),
+  ],
+);
 
 // 编辑建议（feedback，ADR-0010）：不改内容、对全文或片段提意见，送作者+编辑后台处理。
 // 不进修订模型（不产生 revision）。status 由权限者处理后置：open→accepted/declined/resolved + 回复。

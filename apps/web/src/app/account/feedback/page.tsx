@@ -11,6 +11,7 @@ import { FeedbackHandle } from '@/components/feedback-handle';
 import { formatDateTime } from '@/lib/format';
 import { getSession } from '@/lib/session';
 import { loadActor, sectionScopeForCapability } from '@/server/actors';
+import { summarizeReviews } from '@/server/collab-review-read';
 
 export const dynamic = 'force-dynamic';
 export const metadata: Metadata = { title: '我的编辑建议', robots: { index: false } };
@@ -76,6 +77,11 @@ export default async function MyFeedbackPage() {
     .where(inboxWhere)
     .orderBy(desc(feedback.createdAt))
     .limit(50);
+  // 公示页赞同度同步到后台供处理参考（ADR-0010）
+  const sums = await summarizeReviews(
+    'feedback',
+    inbox.map((f) => f.id),
+  );
 
   // 我提交的
   const mine = await db
@@ -127,6 +133,12 @@ export default async function MyFeedbackPage() {
                 <p className="mt-2 whitespace-pre-wrap text-ink-800 text-sm leading-relaxed">
                   {textOf(f.body)}
                 </p>
+                {sums.get(f.id) ? (
+                  <p className="mt-2 text-ink-400 text-xs">
+                    公示赞同度 {(sums.get(f.id)?.avg ?? 0).toFixed(1)} ·{' '}
+                    {sums.get(f.id)?.count ?? 0} 人评议
+                  </p>
+                ) : null}
                 <FeedbackHandle feedbackId={f.id} />
               </li>
             ))}

@@ -521,12 +521,18 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
             </a>{' '}
             协议发布：转载请署名并注明出处，演绎版本须以相同协议共享。
           </p>
-          <p className="mt-3">
+          <p className="mt-3 flex flex-wrap gap-x-5 gap-y-1.5">
             <Link
               href={`/a/${article.slug}/history`}
               className="text-brand-700 transition-colors hover:text-brand-900"
             >
               查看修订历史 →
+            </Link>
+            <Link
+              href={`/a/${article.slug}/board`}
+              className="text-brand-700 transition-colors hover:text-brand-900"
+            >
+              协作公示（建议 / 申请 / 修订）→
             </Link>
           </p>
         </footer>
