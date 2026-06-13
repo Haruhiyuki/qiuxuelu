@@ -8,6 +8,7 @@ import { BlockJoinBackspace } from './block-join-backspace';
 import { CalloutView } from './callout-view';
 import { FigureView } from './figure-view';
 import { createImageUpload } from './image-upload';
+import { IosComposeEnter } from './ios-compose-enter';
 import { MathBlockView } from './math-block-view';
 import { SlashCommand } from './slash-command';
 import { uploadImageFile } from './upload';
@@ -52,6 +53,7 @@ export function clientExtensions(options: ClientExtensionsOptions = {}): Extensi
     MathWithView,
     SlashCommand,
     BlockJoinBackspace,
+    IosComposeEnter,
     Placeholder.configure({ placeholder: options.placeholder ?? DEFAULT_PLACEHOLDER }),
     createImageUpload(uploadImageFile),
   ];
