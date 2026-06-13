@@ -34,7 +34,7 @@ export async function uploadMedia(formData: FormData): Promise<ActionResult<Uplo
   if (!actor) {
     return fail('账号状态异常，请重新登录');
   }
-  // 唯一鉴权入口：media.upload（TL1+，no_edit/suspend 制裁封锁）
+  // 唯一鉴权入口：media.upload（TL0+，完整编辑能力含发图，ADR-0010；no_edit/suspend 制裁封锁）
   const decision = can(actor, 'media.upload');
   if (!decision.allow) {
     return fail(explainDeny(decision.reason));
