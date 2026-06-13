@@ -125,20 +125,17 @@ REMOTE
 
 传图依赖两件事，曾经两个都缺，现已修复并端到端验证（编辑器传图 → webp+派生 → MinIO → `/api/media` 出图）：
 
-**① sharp（图片处理）** — 真因不是「musl/glibc 混入」，而是 **standalone 的 external 解析链指向坏的 sharp**：
-- Next 把 `sharp` 列为 external，构建产物里 `apps/web/.next/node_modules/sharp-<hash>` 是个**符号链接** → `node_modules/.pnpm/sharp@0.35.0/node_modules/sharp`（pnpm store）。app 运行时 `import()` 走的就是这条链。
-- 那个 store 里的 `sharp@0.35.0/node_modules/@img` 的 glibc libvips（`libvips-cpp.so.8.18.3`）缺失/损坏 → dlopen 报「cannot open shared object file」。装到 `apps/web/node_modules/sharp` 或顶层 `node_modules/sharp` 都**没用**，因为 external 链根本不走那里。
-- **修法（持久，path-A 不波及）**：把可用的 glibc `@img` 覆盖进 store 那个 sharp 的 `@img`——
+**① sharp（图片处理）** — 真因不是「musl/glibc 混入」，而是 **Mac 上 pnpm 默认只装宿主（darwin）的原生包，没装服务器要的 linux-x64-glibc**：
+- Next 把 `sharp` 列为 external，构建产物里 `apps/web/.next/node_modules/sharp-<hash>` 是个**符号链接** → `node_modules/.pnpm/sharp@0.35.0/node_modules/sharp`（pnpm store）。app 运行时 `import()` 走这条链；该 store 的 `@img` 缺 glibc libvips（`libvips-cpp.so.8.18.3`）→ dlopen 报「cannot open shared object file」。装到 `apps/web/node_modules` 或顶层都没用，external 链不走那里。
+- **根治（已落地）：`package.json` 的 `pnpm.supportedArchitectures` 声明 `os:[current,linux] cpu:[current,x64] libc:[current,glibc]`**。`pnpm install` 自此会把 linux-x64-glibc 的 `@img/sharp-linux-x64`（addon `.node`）+ `@img/sharp-libvips-linux-x64`（`libvips-cpp.so.8.18.3`）一并拉进 store。于是**任何会随包带上 `node_modules` 的部署（path-B / 全新机）天然装对 sharp，无需手工补丁**。本地 darwin 二进制仍在，本机 dev 不受影响。
+- **path-A 注意**：JS-only 不动 `node_modules`，依赖服务器现有 store 已是对的。testblog 现有 store 已经修好（与 supportedArchitectures 装出的是同一套官方二进制），故 path-A 持续可用；下次 path-B 会用 supportedArchitectures 的产物把它规整成标准 pnpm 结构。
+- **应急兜底**（万一某次部署落了坏 sharp）：服务器 glibc 原生取正确 `@img` 覆盖进 store——
   ```bash
-  # 在干净临时目录装 glibc sharp 取得正确 @img（服务器是 glibc x64）
   T=$(mktemp -d); (cd $T && npm init -y >/dev/null && npm install sharp@0.35.0 --os=linux --cpu=x64 --libc=glibc --no-audit --no-fund)
   S=/opt/harublog/web/node_modules/.pnpm/sharp@0.35.0/node_modules
-  rm -rf "$S/@img"; cp -R "$T/node_modules/@img" "$S/@img"
-  # 验证：经 external 符号链接加载
-  cd /opt/harublog/web/apps/web/.next/node_modules && node -e "require('./sharp-<hash>')({create:{width:8,height:8,channels:3,background:'#999'}}).webp().toBuffer().then(b=>console.log('OK',b.length))"
-  systemctl restart harublog-web
+  rm -rf "$S/@img"; cp -R "$T/node_modules/@img" "$S/@img"; systemctl restart harublog-web
+  # （注意：不能在 app 目录直接 npm install sharp，会因 workspace:* 报 EUNSUPPORTEDPROTOCOL）
   ```
-  因 path-A 不动 `node_modules`，每次 JS-only 部署后 external 符号链接仍指向这个已修好的 store，无需重做。（真正的根治是 path-B 重建时让 pnpm 在 glibc 下装对 sharp。npm 在 app 目录直接装会因 `workspace:*` 报 EUNSUPPORTEDPROTOCOL——必须用临时干净目录装再拷 `@img`。）
 
 **② 对象存储 MinIO** — 服务器**从未部署过**对象存储（且无 docker），现以 systemd 原生二进制补齐：
 ```bash
