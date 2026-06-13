@@ -45,7 +45,7 @@ export function AnnouncementBar(props: BannerProps) {
 
   return (
     <section
-      className={`rounded-md border px-4 py-2.5 ${
+      className={`fade-in rounded-md border px-4 py-2.5 ${
         notice
           ? 'border-accent-200 bg-accent-50 text-accent-900'
           : 'border-brand-200 bg-brand-50 text-brand-900'

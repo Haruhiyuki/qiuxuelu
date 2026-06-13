@@ -13,7 +13,10 @@ export interface ButtonProps extends ComponentProps<'button'> {
 }
 
 const baseClasses =
-  'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-sm font-medium transition-colors ' +
+  'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-sm font-medium ' +
+  // 颜色/阴影平滑过渡 + 按下时轻微回弹（尊重 reduced-motion）
+  'transition-[color,background-color,border-color,box-shadow,transform] duration-150 ease-out ' +
+  'motion-safe:active:scale-[0.97] ' +
   'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600 ' +
   'disabled:pointer-events-none disabled:opacity-50';
 

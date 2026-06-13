@@ -539,7 +539,7 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
 
         {/* 失锚批注：原文已改、无处可栖的批注收进折叠区（服务端渲染） */}
         {orphaned.length > 0 ? (
-          <details className="mt-8 rounded-md border border-ink-200 border-dashed p-4 text-sm">
+          <details className="reveal mt-8 rounded-md border border-ink-200 border-dashed p-4 text-sm">
             <summary className="cursor-pointer text-ink-500 transition-colors hover:text-ink-700">
               原文已修改的历史批注（{orphaned.length}）
             </summary>

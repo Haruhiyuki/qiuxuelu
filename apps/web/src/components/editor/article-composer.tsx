@@ -500,9 +500,9 @@ export function ArticleComposer(props: ArticleComposerProps) {
             type="button"
             aria-label="关闭发布设置"
             onClick={() => setPanelOpen(false)}
-            className="absolute inset-0 bg-ink-900/20 backdrop-blur-[1px]"
+            className="overlay-in absolute inset-0 bg-ink-900/20 backdrop-blur-[1px]"
           />
-          <div className="absolute inset-y-0 right-0 flex w-full max-w-sm flex-col gap-6 overflow-y-auto bg-paper-50 p-6 shadow-float">
+          <div className="drawer-in absolute inset-y-0 right-0 flex w-full max-w-sm flex-col gap-6 overflow-y-auto bg-paper-50 p-6 shadow-float">
             <div className="flex items-center justify-between">
               <h2 className="font-medium font-serif text-ink-800 text-lg">发布设置</h2>
               <button

@@ -45,7 +45,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
             key={t.id}
             role="status"
             className={cn(
-              'pointer-events-auto w-full max-w-sm rounded-sm border-l-4 px-4 py-2.5 text-sm shadow-lg',
+              'toast-in pointer-events-auto w-full max-w-sm rounded-sm border-l-4 px-4 py-2.5 text-sm shadow-lg',
               VARIANT_CLASS[t.variant],
             )}
           >

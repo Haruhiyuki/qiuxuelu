@@ -333,7 +333,7 @@ export function InlineComments({
       {pending !== null && open ? (
         <div
           style={{ left: pending.x, top: pending.y + 8 }}
-          className="-translate-x-1/2 fixed z-30 w-80 rounded-md border border-ink-200 bg-paper-50 p-3 shadow-float"
+          className="fade-in -translate-x-1/2 fixed z-30 w-80 rounded-md border border-ink-200 bg-paper-50 p-3 shadow-float"
         >
           <p className="mb-2 border-ochre-600 border-l-2 pl-2 text-ink-500 text-sm">
             {pending.quotedText.slice(0, 60)}
@@ -372,7 +372,7 @@ export function InlineComments({
         <div
           ref={popoverRef}
           style={{ left: popover.x, top: popover.y }}
-          className="-translate-x-1/2 fixed z-30 max-h-[60vh] w-[21rem] max-w-[calc(100vw-2rem)] overflow-y-auto rounded-md border border-ink-200 bg-paper-50 p-4 shadow-float"
+          className="fade-in -translate-x-1/2 fixed z-30 max-h-[60vh] w-[21rem] max-w-[calc(100vw-2rem)] overflow-y-auto rounded-md border border-ink-200 bg-paper-50 p-4 shadow-float"
           role="dialog"
           aria-label="本段批注"
         >

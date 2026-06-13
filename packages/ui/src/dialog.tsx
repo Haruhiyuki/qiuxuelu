@@ -72,14 +72,14 @@ export function Dialog({ open, onClose, title, description, children, className 
         aria-label="关闭"
         tabIndex={-1}
         onClick={onClose}
-        className="absolute inset-0 cursor-default bg-ink-950/40"
+        className="overlay-in absolute inset-0 cursor-default bg-ink-950/40"
       />
       <div
         ref={panelRef}
         role="dialog"
         aria-modal="true"
         className={cn(
-          'relative z-10 w-full max-w-md rounded-md border border-ink-200 bg-paper-50 p-5 shadow-xl',
+          'pop-in relative z-10 w-full max-w-md rounded-md border border-ink-200 bg-paper-50 p-5 shadow-xl',
           className,
         )}
       >

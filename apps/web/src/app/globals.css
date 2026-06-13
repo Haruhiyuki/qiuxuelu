@@ -124,10 +124,64 @@
   animation: pop-in 0.18s ease-out both;
 }
 
+/* 通用淡入 / 上浮淡入：内容出现时的轻量过渡 */
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.fade-in {
+  animation: fade-in 0.2s ease-out both;
+}
+
+@keyframes fade-up-in {
+  from {
+    opacity: 0;
+    transform: translateY(0.3rem);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.fade-up-in {
+  animation: fade-up-in 0.22s ease-out both;
+}
+
+/* Toast：自底部滑入淡入 */
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(0.75rem) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.toast-in {
+  animation: toast-in 0.24s cubic-bezier(0.32, 0.72, 0, 1) both;
+}
+
+/* <details class="reveal"> 展开时，summary 之后的内容淡入上浮（高度仍即时，内容平滑显现） */
+details.reveal[open] > summary ~ * {
+  animation: fade-up-in 0.22s ease-out both;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .drawer-in,
   .overlay-in,
-  .pop-in {
+  .pop-in,
+  .fade-in,
+  .fade-up-in,
+  .toast-in,
+  details.reveal[open] > summary ~ * {
     animation: none;
   }
 }

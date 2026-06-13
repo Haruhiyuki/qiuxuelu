@@ -21,7 +21,7 @@ export function SlashMenu({
     );
   }
   return (
-    <div className="max-h-72 w-56 overflow-y-auto rounded-sm border border-ink-200 bg-paper-50 py-1 shadow-lg">
+    <div className="pop-in max-h-72 w-56 overflow-y-auto rounded-sm border border-ink-200 bg-paper-50 py-1 shadow-lg">
       {items.map((item, i) => (
         <button
           key={item.title}

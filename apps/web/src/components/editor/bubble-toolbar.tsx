@@ -88,7 +88,7 @@ export function BubbleToolbar({ editor }: { editor: Editor }) {
           from !== to && !e.isActive('figure') && !e.isActive('mathBlock')
         }
       >
-        <div className="flex items-center gap-0.5 rounded-lg bg-overlay px-1 py-1 shadow-float">
+        <div className="pop-in flex items-center gap-0.5 rounded-lg bg-overlay px-1 py-1 shadow-float">
           <Btn
             title="加粗"
             active={state.bold}

@@ -247,7 +247,7 @@ export default async function WritePage() {
 
           {/* 已归档：折叠收纳 */}
           {archived.length > 0 ? (
-            <details className="rounded-md border border-ink-200 border-dashed p-4">
+            <details className="reveal rounded-md border border-ink-200 border-dashed p-4">
               <summary className="cursor-pointer text-ink-500 text-sm transition-colors hover:text-ink-700">
                 已归档（{archived.length}）
               </summary>
