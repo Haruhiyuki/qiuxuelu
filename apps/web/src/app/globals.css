@@ -197,6 +197,18 @@ details.reveal[open] > summary ~ * {
   padding-right: env(safe-area-inset-right);
 }
 
+/* 移动端聚焦输入框时不放大：iOS Safari 会在聚焦 font-size<16px 的输入控件时自动缩放页面。
+ * 统一把表单控件抬到 16px 杜绝这种缩放（正文编辑区 .prose-zh 本就 16px，不受影响）；
+ * 不动 viewport 的 maximum-scale——保留用户双指缩放（无障碍）。
+ * 本规则未入 @layer，优先级高于 Tailwind 的 text-sm 等分层工具类；:not() 再加一层特异性兜底。 */
+@media (max-width: 640px) {
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]),
+  textarea:not([disabled]),
+  select:not([disabled]) {
+    font-size: 16px;
+  }
+}
+
 /* 文武线（中式书版的粗细双线）：用双层 border 模拟，作大区块的章法分隔 */
 .rule-double {
   border-top: 3px solid var(--color-ink-800);
