@@ -3,18 +3,42 @@
 // 数学块 NodeView：LaTeX 源输入（atom，无可编辑正文）+ 源码预览。
 // KaTeX 实时渲染为后续打磨项；当前与渲染器一致以 .math-block 展示源码。
 import { type NodeViewProps, NodeViewWrapper } from '@tiptap/react';
+import { useEffect, useRef } from 'react';
 
-export function MathBlockView({ node, updateAttributes, editor }: NodeViewProps) {
+export function MathBlockView({ node, updateAttributes, editor, selected }: NodeViewProps) {
   const latex = typeof node.attrs.latex === 'string' ? node.attrs.latex : '';
+  const ref = useRef<HTMLTextAreaElement | null>(null);
+  const mountFocused = useRef(false);
+
+  // 把焦点交给 LaTeX 输入框：①刚插入的空公式块（mount 时 latex 为空）自动聚焦——
+  // 否则焦点留在 ProseMirror，打字会落到文档里、甚至替换掉这个 atom 节点（即「输入即覆盖」）；
+  // ②之后点选该块也聚焦输入框。仅依赖 selected/editable：latex 变化不应触发重新抢焦点。
+  useEffect(() => {
+    if (!editor.isEditable) {
+      return;
+    }
+    const shouldFocus = selected || (!mountFocused.current && latex === '');
+    mountFocused.current = true;
+    if (shouldFocus) {
+      // rAF 延后到 ProseMirror 自身 focus/选区同步之后再抢焦点，避免被 PM 夺回
+      const raf = requestAnimationFrame(() => ref.current?.focus());
+      return () => cancelAnimationFrame(raf);
+    }
+  }, [selected, editor.isEditable]);
+
   return (
-    <NodeViewWrapper as="div" className="my-4">
+    <NodeViewWrapper as="div" className="my-4" data-math-block="">
       {editor.isEditable ? (
         <textarea
+          ref={ref}
           value={latex}
           onChange={(e) => updateAttributes({ latex: e.target.value })}
+          // 阻止冒泡到 ProseMirror，确保键盘/退格等都在 textarea 内生效
+          onKeyDown={(e) => e.stopPropagation()}
+          onMouseDown={(e) => e.stopPropagation()}
           placeholder="输入 LaTeX，例如 a^2 + b^2 = c^2"
           rows={2}
-          className="w-full rounded-sm border border-ink-200 bg-paper-50 px-3 py-2 font-mono text-ink-700 text-sm"
+          className="w-full rounded-sm border border-ink-200 bg-paper-50 px-3 py-2 font-mono text-ink-700 text-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600"
         />
       ) : null}
       <pre className="math-block overflow-x-auto rounded-sm bg-paper-100 px-3 py-2 text-ink-700 text-sm">

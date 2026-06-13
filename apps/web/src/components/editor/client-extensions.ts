@@ -4,6 +4,7 @@ import { buildExtensions, Callout, Figure, MathBlock } from '@harublog/editor';
 import type { Extensions } from '@tiptap/core';
 import Placeholder from '@tiptap/extension-placeholder';
 import { ReactNodeViewRenderer } from '@tiptap/react';
+import { BlockJoinBackspace } from './block-join-backspace';
 import { CalloutView } from './callout-view';
 import { FigureView } from './figure-view';
 import { createImageUpload } from './image-upload';
@@ -26,13 +27,23 @@ export function clientExtensions(options: ClientExtensionsOptions = {}): Extensi
     (ext) => !WITH_NODE_VIEW.has(ext.name),
   );
   const FigureWithView = Figure.extend({
-    addNodeView: () => ReactNodeViewRenderer(FigureView),
+    // 同 mathBlock：figure 也是 atom，说明/替代文本输入框的事件交给它自己（防被当成文档编辑）
+    addNodeView: () =>
+      ReactNodeViewRenderer(FigureView, {
+        stopEvent: ({ event }) => (event.target as HTMLElement | null)?.tagName === 'INPUT',
+      }),
   });
   const CalloutWithView = Callout.extend({
     addNodeView: () => ReactNodeViewRenderer(CalloutView),
   });
   const MathWithView = MathBlock.extend({
-    addNodeView: () => ReactNodeViewRenderer(MathBlockView),
+    // stopEvent：公式块是 atom，但 NodeView 内有 LaTeX 输入框——textarea 的
+    // 键盘/输入/点击/选区事件必须让它自己消化，否则会被 ProseMirror 拦截，
+    // 表现为「输入任意内容覆盖整个公式块」（atom 被 NodeSelection 选中时打字即替换）。
+    addNodeView: () =>
+      ReactNodeViewRenderer(MathBlockView, {
+        stopEvent: ({ event }) => (event.target as HTMLElement | null)?.tagName === 'TEXTAREA',
+      }),
   });
   return [
     ...base,
@@ -40,6 +51,7 @@ export function clientExtensions(options: ClientExtensionsOptions = {}): Extensi
     CalloutWithView,
     MathWithView,
     SlashCommand,
+    BlockJoinBackspace,
     Placeholder.configure({ placeholder: options.placeholder ?? DEFAULT_PLACEHOLDER }),
     createImageUpload(uploadImageFile),
   ];

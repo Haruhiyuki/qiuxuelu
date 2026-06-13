@@ -112,10 +112,18 @@
 }
 
 /* ---- 列表 ---- */
+/* Tailwind v4 preflight 会把 ul/ol 重置为 list-style:none，这里显式恢复标号，否则
+ * 前缀圆点/序号渲染不出来（阅读端与编辑器同走 .prose-zh）。 */
 .prose-zh ul,
 .prose-zh ol {
   margin: 0 0 1.25em;
   padding-left: 1.4em;
+}
+.prose-zh ul {
+  list-style-type: disc;
+}
+.prose-zh ol {
+  list-style-type: decimal;
 }
 .prose-zh li {
   margin: 0.375em 0;

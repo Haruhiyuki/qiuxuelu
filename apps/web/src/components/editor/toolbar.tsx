@@ -140,7 +140,7 @@ export function EditorToolbar({ editor }: { editor: Editor }) {
       role="toolbar"
       aria-label="编辑工具栏"
       // 移动端单行横滑（no-scrollbar）避免多行换行挤压；桌面端（md+）放开自动换行
-      className="no-scrollbar sticky top-14 z-20 flex flex-nowrap items-center gap-0.5 overflow-x-auto border-ink-200 border-b bg-paper-50/95 px-2 py-1.5 backdrop-blur-sm md:flex-wrap md:overflow-x-visible"
+      className="no-scrollbar sticky top-14 z-20 flex flex-nowrap items-center gap-0.5 overflow-x-auto border-ink-200 border-b bg-paper-50/95 px-2 py-1.5 backdrop-blur-sm md:flex-wrap md:justify-center md:overflow-x-visible"
     >
       {promptDialog}
       <ToolbarButton
