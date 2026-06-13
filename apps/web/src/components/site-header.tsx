@@ -18,10 +18,15 @@ export async function SiteHeader() {
   let unread = 0;
   let needConsent = false;
   if (session) {
-    const actor = await loadActor(session.user.id);
+    // 三项互不依赖，并行取（actor 经 cache() 去重，页面后续再取不重复查库）
+    const [actor, unreadCount, consented] = await Promise.all([
+      loadActor(session.user.id),
+      countUnread(getDb(), session.user.id),
+      hasConsented(session.user.id),
+    ]);
     showAdmin = actor !== null && (hasPublishGrant(actor) || actor.roles.length > 0);
-    unread = await countUnread(getDb(), session.user.id);
-    needConsent = !(await hasConsented(session.user.id));
+    unread = unreadCount;
+    needConsent = !consented;
   }
 
   return (

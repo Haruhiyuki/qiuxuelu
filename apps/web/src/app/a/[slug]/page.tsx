@@ -253,30 +253,41 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
       reason: loginReason ?? (isPublic ? '需达到 T1（成员）' : '私有页需达到 T2（贡献者）'),
     },
   ];
-  const inlineRows = await db
-    .select({
-      id: comments.id,
-      blockId: commentAnchors.blockId,
-      quotedText: commentAnchors.quotedText,
-      startOffset: commentAnchors.startOffset,
-      endOffset: commentAnchors.endOffset,
-      state: commentAnchors.state,
-      body: comments.body,
-      createdAt: comments.createdAt,
-      authorId: comments.authorId,
-      authorName: userTable.name,
-    })
-    .from(comments)
-    .innerJoin(commentAnchors, eq(commentAnchors.commentId, comments.id))
-    .leftJoin(userTable, eq(userTable.id, comments.authorId))
-    .where(
-      and(
-        eq(comments.documentId, article.docId),
-        eq(comments.kind, 'inline'),
-        eq(comments.status, 'visible'),
-      ),
-    )
-    .orderBy(asc(comments.createdAt));
+  // 行内批注、标签、点赞收藏态、知识图谱彼此独立（仅依赖 docId/session），并行取——
+  // 把 4 次串行 DB 往返压成 1 次（本页是最热路径）。
+  const [inlineRows, docTags, reactions, graph] = await Promise.all([
+    db
+      .select({
+        id: comments.id,
+        blockId: commentAnchors.blockId,
+        quotedText: commentAnchors.quotedText,
+        startOffset: commentAnchors.startOffset,
+        endOffset: commentAnchors.endOffset,
+        state: commentAnchors.state,
+        body: comments.body,
+        createdAt: comments.createdAt,
+        authorId: comments.authorId,
+        authorName: userTable.name,
+      })
+      .from(comments)
+      .innerJoin(commentAnchors, eq(commentAnchors.commentId, comments.id))
+      .leftJoin(userTable, eq(userTable.id, comments.authorId))
+      .where(
+        and(
+          eq(comments.documentId, article.docId),
+          eq(comments.kind, 'inline'),
+          eq(comments.status, 'visible'),
+        ),
+      )
+      .orderBy(asc(comments.createdAt)),
+    db
+      .select({ name: tagsTable.name })
+      .from(documentTags)
+      .innerJoin(tagsTable, eq(tagsTable.id, documentTags.tagId))
+      .where(eq(documentTags.documentId, article.docId)),
+    getReactionState(db, article.docId, session?.user.id ?? null),
+    getDocGraphLayered(db, article.docId, 3),
+  ]);
   const inlineComments: InlineCommentView[] = inlineRows.map((r) => ({
     id: r.id,
     blockId: r.blockId,
@@ -297,17 +308,7 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
   // 失锚批注没有可对齐的正文锚点：不进边注栏，在文末折叠展示（服务端渲染，无需 JS）
   const anchored = inlineComments.filter((c) => c.state !== 'orphaned');
   const orphaned = inlineComments.filter((c) => c.state === 'orphaned');
-
-  const docTags = await db
-    .select({ name: tagsTable.name })
-    .from(documentTags)
-    .innerJoin(tagsTable, eq(tagsTable.id, documentTags.tagId))
-    .where(eq(documentTags.documentId, article.docId));
-
-  const reactions = await getReactionState(db, article.docId, session?.user.id ?? null);
-
   // 知识图谱：本帖为中心、最多三层的提及关系子图（仅在有邻居时展示）
-  const graph = await getDocGraphLayered(db, article.docId, 3);
   const hasGraph = graph.nodes.length > 1;
 
   const articleUrl = `${SITE_URL}/a/${article.slug}`;

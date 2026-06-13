@@ -2,6 +2,7 @@ import { getDb, roleGrants, sanctions, user as userTable, userTrust } from '@har
 import type { Actor, Capability } from '@harublog/domain';
 import { assembleActor, ROLE_CAPS } from '@harublog/domain';
 import { and, eq, isNull, lte } from 'drizzle-orm';
+import { cache } from 'react';
 
 /** 信任值越界说明 db 与 domain 已漂移——立即抛错暴露，绝不静默夹紧放行。 */
 function assertLevel(level: number): number {
@@ -13,10 +14,11 @@ function assertLevel(level: number): number {
 
 /**
  * 从 user + user_trust + role_grants + sanctions 装配 domain Actor 快照。
- * 单条 SQL（双左连接的笛卡尔积行数 = 角色数 × 制裁数，单用户量级极小），
- * 请求级调用一次后在内存传递；过期授予/制裁的剔除交给 assembleActor。
+ * 单条 SQL（双左连接的笛卡尔积行数 = 角色数 × 制裁数，单用户量级极小）。
+ * React cache() 请求级去重：SiteHeader 与页面/动作常对同一 userId 各调一次，
+ * 同一请求内只查一次（同 userId 复用）。
  */
-export async function loadActor(userId: string): Promise<Actor | null> {
+export const loadActor = cache(async (userId: string): Promise<Actor | null> => {
   const db = getDb();
   const now = new Date();
   const rows = await db
@@ -93,7 +95,7 @@ export async function loadActor(userId: string): Promise<Actor | null> {
     },
     now,
   );
-}
+});
 
 /** 是否持有可发布角色（页面级守卫/导航显隐用；具体审批仍须按板块域走 can()）。 */
 export function hasPublishGrant(actor: Actor): boolean {
