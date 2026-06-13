@@ -93,8 +93,9 @@ export default async function ProfilePage({ params }: ProfilePageProps) {
 
   // 路线图的达标进度仅本人可见：访客只看路线与当前位置，不见统计数字
   const session = await getSession();
+  const isOwnProfile = session?.user.id === profile.id;
   let roadmapProgress: Parameters<typeof TrustRoadmap>[0]['progress'] = null;
-  if (session?.user.id === profile.id) {
+  if (isOwnProfile) {
     const thresholds = await loadThresholds(db);
     const stats = await computeUserStats(
       db,
@@ -168,6 +169,14 @@ export default async function ProfilePage({ params }: ProfilePageProps) {
             </div>
           ) : null}
         </div>
+        {isOwnProfile ? (
+          <Link
+            href="/account#profile"
+            className="ml-auto shrink-0 self-start rounded-sm border border-ink-200 px-3 py-1.5 text-ink-700 text-sm transition-colors hover:border-brand-300 hover:text-brand-700"
+          >
+            编辑资料
+          </Link>
+        ) : null}
       </header>
 
       <dl className="mt-6 grid grid-cols-3 gap-4">

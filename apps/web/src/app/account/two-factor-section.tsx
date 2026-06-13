@@ -88,8 +88,7 @@ export function TwoFactorSection({ enabled }: { enabled: boolean }) {
     const secret = new URL(setup.totpURI).searchParams.get('secret') ?? '';
     const qrSrc = `data:image/svg+xml;utf8,${encodeURIComponent(renderSVG(setup.totpURI))}`;
     return (
-      <section className="flex flex-col gap-4 border-ink-200 border-t pt-8">
-        <h2 className="font-medium font-serif text-ink-800 text-lg">启用两步验证</h2>
+      <div className="flex flex-col gap-4">
         <ol className="flex list-decimal flex-col gap-4 pl-5 text-ink-700 text-sm leading-relaxed">
           <li>
             用验证器应用（Aegis、1Password、Google Authenticator 等）扫描二维码：
@@ -151,13 +150,12 @@ export function TwoFactorSection({ enabled }: { enabled: boolean }) {
           </li>
         </ol>
         {error !== null ? <Alert variant="danger">{error}</Alert> : null}
-      </section>
+      </div>
     );
   }
 
   return (
-    <section className="flex flex-col gap-3 border-ink-200 border-t pt-8">
-      <h2 className="font-medium font-serif text-ink-800 text-lg">两步验证</h2>
+    <div className="flex flex-col gap-3">
       {enabled ? (
         <>
           <p className="text-ink-600 text-sm leading-relaxed">
@@ -204,6 +202,6 @@ export function TwoFactorSection({ enabled }: { enabled: boolean }) {
         </>
       )}
       {error !== null ? <Alert variant="danger">{error}</Alert> : null}
-    </section>
+    </div>
   );
 }

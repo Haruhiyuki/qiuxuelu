@@ -78,9 +78,8 @@ export function PasskeySection() {
   }
 
   return (
-    <section className="flex flex-col gap-3 border-ink-200 border-t pt-8">
+    <div className="flex flex-col gap-3">
       {confirmDialog}
-      <h2 className="font-medium font-serif text-ink-800 text-lg">通行密钥</h2>
       <p className="text-ink-600 text-sm leading-relaxed">
         用面容 ID、触控 ID 或硬件密钥直接登录，免输密码与验证码，天然防钓鱼。密钥可保存在 iCloud
         钥匙串、1Password 等密码管理器中跨设备同步。
@@ -134,6 +133,6 @@ export function PasskeySection() {
         </Button>
       </div>
       {error !== null ? <Alert variant="danger">{error}</Alert> : null}
-    </section>
+    </div>
   );
 }

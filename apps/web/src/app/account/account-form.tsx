@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { type FormEvent, useRef, useState } from 'react';
 import { uploadImageFile } from '@/components/editor/upload';
+import { SettingsCard, SettingsGroup } from '@/components/settings-card';
 import { authClient } from '@/lib/auth-client';
 import { translateAuthError } from '@/lib/auth-errors';
 import { validateName } from '@/lib/identity';
@@ -15,6 +16,8 @@ import {
   setEmailNotifications,
   updateProfile,
 } from '@/server/actions/account';
+import { PasskeySection } from './passkey-section';
+import { TwoFactorSection } from './two-factor-section';
 
 type Notice = { kind: 'info' | 'danger'; text: string } | null;
 
@@ -29,6 +32,7 @@ export function AccountForm({
   initialEducationStage,
   initialImage,
   renameQuota,
+  twoFactorEnabled,
 }: {
   initialName: string;
   email: string;
@@ -39,6 +43,7 @@ export function AccountForm({
   initialImage: string;
   /** 改名滚动窗口配额（服务端算好传入） */
   renameQuota: { remaining: number; limit: number; windowDays: number };
+  twoFactorEnabled: boolean;
 }) {
   const router = useRouter();
   const [name, setName] = useState(initialName);
@@ -195,200 +200,221 @@ export function AccountForm({
   }
 
   return (
-    <div className="mt-8 flex flex-col gap-10">
+    <div className="flex flex-col gap-12">
       {promptDialog}
-      <form onSubmit={saveProfile} className="flex flex-col gap-3">
-        <h2 className="font-medium font-serif text-ink-800 text-lg">公开资料</h2>
-        {profileNotice ? (
-          <Alert variant={profileNotice.kind === 'info' ? 'info' : 'danger'}>
-            {profileNotice.text}
-          </Alert>
-        ) : null}
-        <div className="flex items-center gap-4">
-          <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-full bg-brand-100 font-semibold font-serif text-2xl text-brand-700">
-            {image.length > 0 ? (
-              <img src={image} alt="头像" className="h-full w-full object-cover" />
-            ) : (
-              name.slice(0, 1)
-            )}
-          </div>
-          <div className="flex flex-col gap-1.5">
+
+      <SettingsGroup id="profile" title="个人资料">
+        <SettingsCard title="头像与简介" description="公开展示在你的主页。">
+          <form onSubmit={saveProfile} className="flex flex-col gap-4">
+            {profileNotice ? (
+              <Alert variant={profileNotice.kind === 'info' ? 'info' : 'danger'}>
+                {profileNotice.text}
+              </Alert>
+            ) : null}
+            <div className="flex items-center gap-4">
+              <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-full bg-brand-100 font-semibold font-serif text-2xl text-brand-700">
+                {image.length > 0 ? (
+                  <img src={image} alt="头像" className="h-full w-full object-cover" />
+                ) : (
+                  name.slice(0, 1)
+                )}
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  loading={profileBusy}
+                  onClick={() => avatarRef.current?.click()}
+                >
+                  更换头像
+                </Button>
+                <span className="text-ink-400 text-xs">JPEG/PNG/WebP/GIF，自动转 WebP</span>
+                <input
+                  ref={avatarRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    if (f) {
+                      void pickAvatar(f);
+                    }
+                    e.target.value = '';
+                  }}
+                />
+              </div>
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="acc-bio">简介</Label>
+              <Textarea
+                id="acc-bio"
+                value={bio}
+                maxLength={280}
+                rows={3}
+                onChange={(e) => setBio(e.target.value)}
+                placeholder="一句话介绍你自己（最长 280 字，公开展示）"
+              />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="acc-stage">教育阶段（自愿）</Label>
+              <select
+                id="acc-stage"
+                value={stage}
+                onChange={(e) => setStage(e.target.value)}
+                className="h-9 w-40 rounded-sm border border-ink-200 bg-paper-50 px-3 text-ink-800 text-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600"
+              >
+                {STAGES.map((s) => (
+                  <option key={s} value={s}>
+                    {s === '' ? '不公开' : s}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <Button type="submit" loading={profileBusy} className="self-start">
+              保存资料
+            </Button>
+          </form>
+        </SettingsCard>
+
+        <SettingsCard title="名字" description="署名与 @提及一体，全站唯一。">
+          <form onSubmit={saveName} className="flex flex-col gap-3">
+            {nameNotice ? (
+              <Alert variant={nameNotice.kind === 'info' ? 'info' : 'danger'}>
+                {nameNotice.text}
+              </Alert>
+            ) : null}
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="acc-name">名字</Label>
+              <Input
+                id="acc-name"
+                value={name}
+                maxLength={20}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="2–20 字，可中文"
+                className="w-56"
+              />
+            </div>
+            <p className="text-ink-400 text-xs">
+              {renameQuota.windowDays} 天内最多改名 {renameQuota.limit} 次（剩余{' '}
+              {renameQuota.remaining} 次）；改名后旧名字的 @提及 会自动转到你的主页。
+            </p>
             <Button
-              variant="secondary"
-              size="sm"
-              loading={profileBusy}
-              onClick={() => avatarRef.current?.click()}
+              type="submit"
+              disabled={nameBusy || renameQuota.remaining <= 0}
+              className="self-start"
             >
-              更换头像
+              {nameBusy ? '保存中…' : renameQuota.remaining <= 0 ? '本周改名次数已用完' : '改名'}
             </Button>
-            <span className="text-ink-400 text-xs">JPEG/PNG/WebP/GIF，自动转 WebP</span>
-            <input
-              ref={avatarRef}
-              type="file"
-              accept="image/*"
-              className="hidden"
-              onChange={(e) => {
-                const f = e.target.files?.[0];
-                if (f) {
-                  void pickAvatar(f);
-                }
-                e.target.value = '';
-              }}
-            />
-          </div>
-        </div>
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor="acc-bio">简介</Label>
-          <Textarea
-            id="acc-bio"
-            value={bio}
-            maxLength={280}
-            rows={3}
-            onChange={(e) => setBio(e.target.value)}
-            placeholder="一句话介绍你自己（最长 280 字，公开展示）"
-          />
-        </div>
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor="acc-stage">教育阶段（自愿）</Label>
-          <select
-            id="acc-stage"
-            value={stage}
-            onChange={(e) => setStage(e.target.value)}
-            className="h-9 w-40 rounded-sm border border-ink-200 bg-paper-50 px-3 text-ink-800 text-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600"
-          >
-            {STAGES.map((s) => (
-              <option key={s} value={s}>
-                {s === '' ? '不公开' : s}
-              </option>
-            ))}
-          </select>
-        </div>
-        <Button type="submit" loading={profileBusy} className="self-start">
-          保存资料
-        </Button>
-      </form>
+          </form>
+        </SettingsCard>
+      </SettingsGroup>
 
-      <section className="flex flex-col gap-2 border-ink-200 border-t pt-8">
-        <h2 className="font-medium font-serif text-ink-800 text-lg">邮箱验证</h2>
-        {verifyNotice ? (
-          <Alert variant={verifyNotice.kind === 'info' ? 'info' : 'danger'}>
-            {verifyNotice.text}
-          </Alert>
-        ) : null}
-        {emailVerified ? (
-          <p className="text-moss-700 text-sm">✓ 邮箱已验证</p>
-        ) : (
-          <div className="flex flex-wrap items-center gap-3">
-            <p className="text-ink-500 text-sm">邮箱尚未验证，验证后可解锁更多协作能力。</p>
-            <Button variant="secondary" onClick={resendVerification} disabled={verifyBusy}>
-              {verifyBusy ? '发送中…' : '发送验证邮件'}
+      <SettingsGroup id="security" title="账户与安全">
+        <SettingsCard title="登录邮箱" description={email}>
+          {verifyNotice ? (
+            <Alert variant={verifyNotice.kind === 'info' ? 'info' : 'danger'}>
+              {verifyNotice.text}
+            </Alert>
+          ) : null}
+          {emailVerified ? (
+            <p className="text-moss-700 text-sm">✓ 邮箱已验证（暂不支持自助修改邮箱）</p>
+          ) : (
+            <div className="flex flex-wrap items-center gap-3">
+              <p className="text-ink-500 text-sm">邮箱尚未验证，验证后可解锁更多协作能力。</p>
+              <Button variant="secondary" onClick={resendVerification} disabled={verifyBusy}>
+                {verifyBusy ? '发送中…' : '发送验证邮件'}
+              </Button>
+            </div>
+          )}
+        </SettingsCard>
+
+        <SettingsCard title="修改密码">
+          <form onSubmit={savePassword} className="flex flex-col gap-3">
+            {pwNotice ? (
+              <Alert variant={pwNotice.kind === 'info' ? 'info' : 'danger'}>{pwNotice.text}</Alert>
+            ) : null}
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="acc-cur">当前密码</Label>
+              <Input
+                id="acc-cur"
+                type="password"
+                value={current}
+                onChange={(e) => setCurrent(e.target.value)}
+                autoComplete="current-password"
+              />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="acc-new">新密码（至少 8 位）</Label>
+              <Input
+                id="acc-new"
+                type="password"
+                value={next}
+                onChange={(e) => setNext(e.target.value)}
+                autoComplete="new-password"
+              />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="acc-confirm">确认新密码</Label>
+              <Input
+                id="acc-confirm"
+                type="password"
+                value={confirm}
+                onChange={(e) => setConfirm(e.target.value)}
+                autoComplete="new-password"
+              />
+            </div>
+            <Button type="submit" disabled={pwBusy} className="self-start">
+              {pwBusy ? '更新中…' : '更新密码'}
             </Button>
-          </div>
-        )}
-      </section>
+          </form>
+        </SettingsCard>
 
-      <form onSubmit={saveName} className="flex flex-col gap-3 border-ink-200 border-t pt-8">
-        <h2 className="font-medium font-serif text-ink-800 text-lg">名字</h2>
-        {nameNotice ? (
-          <Alert variant={nameNotice.kind === 'info' ? 'info' : 'danger'}>{nameNotice.text}</Alert>
-        ) : null}
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor="acc-name">名字（署名与 @提及一体，全站唯一）</Label>
-          <Input
-            id="acc-name"
-            value={name}
-            maxLength={20}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="2–20 字，可中文"
-            className="w-56"
-          />
-        </div>
-        <p className="text-ink-400 text-xs">
-          {renameQuota.windowDays} 天内最多改名 {renameQuota.limit} 次（剩余 {renameQuota.remaining}{' '}
-          次）；改名后旧名字的 @提及 会自动转到你的主页。
-        </p>
-        <p className="text-ink-400 text-xs">登录邮箱：{email}（暂不支持自助修改）</p>
-        <Button
-          type="submit"
-          disabled={nameBusy || renameQuota.remaining <= 0}
-          className="self-start"
+        <SettingsCard title="两步验证" description="登录时除密码外，再加一道验证器动态码。">
+          <TwoFactorSection enabled={twoFactorEnabled} />
+        </SettingsCard>
+
+        <SettingsCard title="通行密钥">
+          <PasskeySection />
+        </SettingsCard>
+      </SettingsGroup>
+
+      <SettingsGroup id="notifications" title="通知">
+        <SettingsCard
+          title="邮件通知"
+          description="站内通知不受此开关影响；高频的评论/回复不发邮件。"
         >
-          {nameBusy ? '保存中…' : renameQuota.remaining <= 0 ? '本周改名次数已用完' : '改名'}
-        </Button>
-      </form>
+          <label className="flex cursor-pointer items-center gap-3 text-ink-700 text-sm">
+            <input
+              type="checkbox"
+              checked={emailPref}
+              disabled={prefBusy}
+              onChange={(e) => togglePref(e.target.checked)}
+              className="h-4 w-4"
+            />
+            接收邮件通知（建议被采纳/驳回、发布审核结果、巡查回退等）
+          </label>
+        </SettingsCard>
+      </SettingsGroup>
 
-      <form onSubmit={savePassword} className="flex flex-col gap-3 border-ink-200 border-t pt-8">
-        <h2 className="font-medium font-serif text-ink-800 text-lg">修改密码</h2>
-        {pwNotice ? (
-          <Alert variant={pwNotice.kind === 'info' ? 'info' : 'danger'}>{pwNotice.text}</Alert>
-        ) : null}
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor="acc-cur">当前密码</Label>
-          <Input
-            id="acc-cur"
-            type="password"
-            value={current}
-            onChange={(e) => setCurrent(e.target.value)}
-            autoComplete="current-password"
-          />
-        </div>
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor="acc-new">新密码（至少 8 位）</Label>
-          <Input
-            id="acc-new"
-            type="password"
-            value={next}
-            onChange={(e) => setNext(e.target.value)}
-            autoComplete="new-password"
-          />
-        </div>
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor="acc-confirm">确认新密码</Label>
-          <Input
-            id="acc-confirm"
-            type="password"
-            value={confirm}
-            onChange={(e) => setConfirm(e.target.value)}
-            autoComplete="new-password"
-          />
-        </div>
-        <Button type="submit" disabled={pwBusy} className="self-start">
-          {pwBusy ? '更新中…' : '更新密码'}
-        </Button>
-      </form>
-
-      <section className="flex flex-col gap-3 border-ink-200 border-t pt-8">
-        <h2 className="font-medium font-serif text-ink-800 text-lg">通知偏好</h2>
-        <label className="flex cursor-pointer items-center gap-3 text-ink-700 text-sm">
-          <input
-            type="checkbox"
-            checked={emailPref}
-            disabled={prefBusy}
-            onChange={(e) => togglePref(e.target.checked)}
-            className="h-4 w-4"
-          />
-          接收邮件通知（建议被采纳/驳回、发布审核结果、巡查回退等）
-        </label>
-        <p className="text-ink-400 text-xs">站内通知不受此开关影响；高频的评论/回复不发邮件。</p>
-      </section>
-
-      <section className="flex flex-col gap-3 border-ink-200 border-t pt-8">
-        <h2 className="font-medium font-serif text-ink-800 text-lg">数据与账号</h2>
-        <div className="flex flex-wrap items-center gap-3">
-          <Link
-            href="/api/me/export"
-            className="rounded-sm border border-ink-200 px-3 py-1.5 text-ink-700 text-sm hover:bg-paper-200"
-          >
-            导出我的数据
-          </Link>
-          <Button variant="danger" onClick={handleDelete}>
-            注销账号
-          </Button>
-        </div>
-        <p className="text-ink-400 text-xs">
-          注销为不可逆操作：个人资料将被匿名化、无法再登录；你的文章与贡献会保留并署名为「已注销用户」。
-        </p>
-      </section>
+      <SettingsGroup id="data" title="数据与账号">
+        <SettingsCard
+          title="导出与注销"
+          description="注销为不可逆操作：个人资料将被匿名化、无法再登录；你的文章与贡献会保留并署名为「已注销用户」。"
+          tone="danger"
+        >
+          <div className="flex flex-wrap items-center gap-3">
+            <Link
+              href="/api/me/export"
+              className="rounded-sm border border-ink-200 px-3 py-1.5 text-ink-700 text-sm hover:bg-paper-200"
+            >
+              导出我的数据
+            </Link>
+            <Button variant="danger" onClick={handleDelete}>
+              注销账号
+            </Button>
+          </div>
+        </SettingsCard>
+      </SettingsGroup>
     </div>
   );
 }
