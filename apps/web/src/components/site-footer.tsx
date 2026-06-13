@@ -48,6 +48,11 @@ export function SiteFooter() {
                 透明度报告
               </Link>
             </li>
+            <li>
+              <Link href="/governance" className="transition-colors hover:text-brand-700">
+                社区治理公示
+              </Link>
+            </li>
           </ul>
         </nav>
         <div className="text-sm">
