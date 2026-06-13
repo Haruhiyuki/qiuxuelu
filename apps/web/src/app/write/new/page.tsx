@@ -6,6 +6,7 @@ import { redirect } from 'next/navigation';
 import type { SectionOption } from '@/components/editor/article-composer';
 import { ComposerClient } from '@/components/editor/composer-client';
 import { getSession } from '@/lib/session';
+import { loadActor } from '@/server/actors';
 
 export const dynamic = 'force-dynamic';
 
@@ -24,6 +25,9 @@ export default async function NewDocumentPage() {
     .from(sections)
     .orderBy(asc(sections.position));
   const sectionOptions: SectionOption[] = sectionRows;
+  // T2+ 免预审：直接发布（ADR-0010）
+  const actor = await loadActor(session.user.id);
+  const canSelfPublish = (actor?.trustLevel ?? 0) >= 2;
 
   return (
     <ComposerClient
@@ -37,6 +41,7 @@ export default async function NewDocumentPage() {
       status="draft"
       hasRevisions={false}
       headSeq={null}
+      canSelfPublish={canSelfPublish}
     />
   );
 }

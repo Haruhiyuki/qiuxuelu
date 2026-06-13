@@ -43,6 +43,7 @@ import type { ActionResult } from '@/server/action-result';
 import { loadActor } from '@/server/actors';
 import { consentGate } from '@/server/consent';
 import { insertNotification } from '@/server/notifications';
+import { publishRevisionTx } from '@/server/publish';
 import { loadRevisionDoc } from '@/server/revision-doc';
 
 /** 业务可预期失败：事务内抛出触发回滚，边界处转成 {ok:false} 中文文案。 */
@@ -625,7 +626,9 @@ export async function commitRevision(
   }
 }
 
-export async function requestPublish(rawDocId: string): Promise<ActionResult> {
+export async function requestPublish(
+  rawDocId: string,
+): Promise<ActionResult<{ published: boolean }>> {
   const actor = await requireActor();
   if (!actor) {
     return fail('请先登录');
@@ -650,6 +653,38 @@ export async function requestPublish(rawDocId: string): Promise<ActionResult> {
   }
 
   const db = getDb();
+
+  // T2+ 免预审（ADR-0010）：作者直接发布，不进编辑审批队列
+  if (actor.trustLevel >= 2) {
+    try {
+      await db.transaction(async (tx) => {
+        const refRows = await tx
+          .select({ revisionId: documentRefs.revisionId })
+          .from(documentRefs)
+          .where(and(eq(documentRefs.documentId, rawDocId), eq(documentRefs.name, 'draft')))
+          .limit(1);
+        const head = refRows[0]?.revisionId;
+        if (head === undefined) {
+          throw new ActionError('还没有任何已提交的修订，请先提交一次修订再发布');
+        }
+        await publishRevisionTx(tx, {
+          documentId: rawDocId,
+          revisionId: head,
+          sectionId: docRow.sectionId,
+          authorId: actor.id,
+          approverId: actor.id,
+          slug: docRow.slug,
+          title: docRow.title,
+          auditAction: 'doc.publish_direct',
+          notifyAuthor: false,
+        });
+      });
+      return { ok: true, data: { published: true } };
+    } catch (err) {
+      return toFailure(err, '发布失败，请稍后重试');
+    }
+  }
+
   try {
     await db.transaction(async (tx) => {
       const refRows = await tx
@@ -702,7 +737,7 @@ export async function requestPublish(rawDocId: string): Promise<ActionResult> {
         detail: { documentId: rawDocId, revisionId: head },
       });
     });
-    return { ok: true, data: null };
+    return { ok: true, data: { published: false } };
   } catch (err) {
     return toFailure(err, '申请发布失败，请稍后重试');
   }

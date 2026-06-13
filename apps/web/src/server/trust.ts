@@ -4,6 +4,7 @@
 import type { Database } from '@harublog/db';
 import {
   comments,
+  documents,
   flags,
   revisions,
   siteSettings,
@@ -70,6 +71,13 @@ export async function computeUserStats(
     );
   const commentsPosted = Number(commentRows[0]?.n ?? 0);
 
+  // 已发布文章数（发首文即达 T1，ADR-0010）
+  const pubRows = await db
+    .select({ n: sql<number>`count(*)` })
+    .from(documents)
+    .where(and(eq(documents.ownerId, userId), eq(documents.status, 'published')));
+  const publishedDocs = Number(pubRows[0]?.n ?? 0);
+
   // 活跃天数 = 评论与修订的去重日历日（UTC 日期）合集大小
   const activeDays = await countActiveDays(db, userId);
   const windowStart = new Date(now.getTime() - windowDays * MS_PER_DAY);
@@ -81,6 +89,7 @@ export async function computeUserStats(
     accountAgeDays,
     activeDays,
     commentsPosted,
+    publishedDocs,
     window: {
       suggestionsMerged: sg.merged,
       mergeRejectRatio: sg.rejectRatio,

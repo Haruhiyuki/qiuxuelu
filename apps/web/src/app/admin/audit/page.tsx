@@ -22,6 +22,7 @@ const ACTION_LABELS: Record<string, string> = {
   'doc.collab_edit': '协作直编',
   'publish_request.approve': '通过发布',
   'publish_request.reject': '驳回发布',
+  'doc.publish_direct': '直接发布（免预审）',
   'comment.hide': '隐藏评论',
   'comment.ai_release': '放行 AI 拦截评论',
   'comment.ai_reject': '删除 AI 拦截评论',

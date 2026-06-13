@@ -17,6 +17,8 @@ export interface TrustStats {
   activeDays: number;
   /** 通过预审/未被删除的评论数。 */
   commentsPosted: number;
+  /** 已发布文章数——发首文即达 T1（ADR-0010）。 */
+  publishedDocs: number;
   window: TrustWindowStats;
 }
 

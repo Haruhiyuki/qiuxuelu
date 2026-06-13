@@ -51,6 +51,8 @@ export interface ArticleComposerProps {
   status: string;
   hasRevisions: boolean;
   headSeq: number | null;
+  /** T2+ 免预审：作者可直接发布而非进审批队列（ADR-0010） */
+  canSelfPublish: boolean;
 }
 
 const PLACEHOLDER_TITLE = '无标题';
@@ -304,9 +306,11 @@ export function ArticleComposer(props: ArticleComposerProps) {
       return;
     }
     const ok = await confirm({
-      title: '申请发布？',
-      description: '提交后将进入审校队列，志愿者审校通过后文章公开可见；期间你仍可继续修改。',
-      confirmLabel: '申请发布',
+      title: props.canSelfPublish ? '发布文章？' : '申请发布？',
+      description: props.canSelfPublish
+        ? '你已是贡献者（T2+），发布后文章立即公开可见，并进入巡查队列接受复核。'
+        : '提交后将进入审校队列，志愿者审校通过后文章公开可见；期间你仍可继续修改。',
+      confirmLabel: props.canSelfPublish ? '发布' : '申请发布',
     });
     if (!ok) {
       return;
@@ -334,8 +338,13 @@ export function ArticleComposer(props: ArticleComposerProps) {
       }
       const result = await requestPublish(id);
       if (result.ok) {
-        setDocStatus('pending');
-        setNotice({ kind: 'info', text: '已提交发布申请，审校通过后文章将公开可见' });
+        if (result.data.published) {
+          setDocStatus('published');
+          setNotice({ kind: 'info', text: '已发布，文章现已公开可见。' });
+        } else {
+          setDocStatus('pending');
+          setNotice({ kind: 'info', text: '已提交发布申请，审校通过后文章将公开可见' });
+        }
         router.refresh();
       } else {
         setNotice({ kind: 'danger', text: result.error });
@@ -403,7 +412,7 @@ export function ArticleComposer(props: ArticleComposerProps) {
                 disabled={!canRequestPublish}
                 title={title.trim().length === 0 ? '请先填写标题' : ''}
               >
-                申请发布
+                {props.canSelfPublish ? '发布' : '申请发布'}
               </Button>
             ) : null}
           </div>

@@ -4,6 +4,10 @@ import type { TrustStats, TrustThresholds } from './levels';
 export type ComputedLevel = 0 | 1 | 2 | 3;
 
 function meetsTl1(stats: TrustStats, t: TrustThresholds): boolean {
+  // 发首文即达 T1（ADR-0010）；否则走「账号年龄 + 活跃天数」阈值
+  if (stats.publishedDocs >= 1) {
+    return true;
+  }
   return stats.accountAgeDays >= t.tl1.accountAgeDays && stats.activeDays >= t.tl1.activeDays;
 }
 

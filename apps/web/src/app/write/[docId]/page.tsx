@@ -10,6 +10,7 @@ import type { SectionOption } from '@/components/editor/article-composer';
 import { ComposerClient } from '@/components/editor/composer-client';
 import { getSession } from '@/lib/session';
 import { getDocumentTags } from '@/server/actions/tags';
+import { loadActor } from '@/server/actors';
 import { loadRevisionDoc } from '@/server/revision-doc';
 
 export const dynamic = 'force-dynamic';
@@ -108,6 +109,9 @@ export default async function EditDocumentPage({ params }: EditPageProps) {
   }
   const tags = await getDocumentTags(doc.id);
   const sectionOptions: SectionOption[] = sectionRows;
+  // T2+ 免预审：直接发布（ADR-0010）
+  const actor = await loadActor(session.user.id);
+  const canSelfPublish = (actor?.trustLevel ?? 0) >= 2;
 
   return (
     <ComposerClient
@@ -121,6 +125,7 @@ export default async function EditDocumentPage({ params }: EditPageProps) {
       status={doc.status}
       hasRevisions={draftHead !== null}
       headSeq={headSeq}
+      canSelfPublish={canSelfPublish}
     />
   );
 }

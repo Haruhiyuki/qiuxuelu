@@ -7,6 +7,7 @@ function makeStats(overrides: Partial<TrustStats> = {}): TrustStats {
     accountAgeDays: 0,
     activeDays: 0,
     commentsPosted: 0,
+    publishedDocs: 0,
     window: { suggestionsMerged: 0, mergeRejectRatio: 0, flagsAccuracy: 1, activeDays: 0 },
     ...overrides,
   };
@@ -28,6 +29,10 @@ describe('computeLevel', () => {
   it('仅满足 TL1 条件 = TL1', () => {
     const stats = makeStats({ accountAgeDays: 5, activeDays: 3 });
     expect(computeLevel(stats, DEFAULT_THRESHOLDS)).toBe(1);
+  });
+
+  it('发首文即达 TL1（ADR-0010）——即便账号年龄/活跃未达阈值', () => {
+    expect(computeLevel(makeStats({ publishedDocs: 1 }), DEFAULT_THRESHOLDS)).toBe(1);
   });
 
   it('满足 TL2 条件 = TL2', () => {
