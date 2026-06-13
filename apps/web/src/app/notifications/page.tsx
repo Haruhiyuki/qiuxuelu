@@ -53,22 +53,22 @@ function describe(kind: string, p: PayloadShape): { text: string; href: string }
       return { text: `你对《${title}》的编辑被巡查回退`, href: `/a/${p.slug ?? ''}/history` };
     case 'suggestion_received':
       return {
-        text: `${by} 对你的文章《${title}》提交了编辑建议`,
+        text: `${by} 对你的文章《${title}》提交了修订申请`,
         href: `/suggestions/${p.suggestionId ?? ''}`,
       };
     case 'suggestion_merged':
       return {
-        text: `你对《${title}》的编辑建议已被采纳合入`,
+        text: `你对《${title}》的修订申请已被采纳合入`,
         href: `/suggestions/${p.suggestionId ?? ''}`,
       };
     case 'suggestion_rejected':
       return {
-        text: `你对《${title}》的编辑建议未被采纳`,
+        text: `你对《${title}》的修订申请未被采纳`,
         href: `/suggestions/${p.suggestionId ?? ''}`,
       };
     case 'suggestion_changes':
       return {
-        text: `你对《${title}》的编辑建议被要求修改`,
+        text: `你对《${title}》的修订申请被要求修改`,
         href: `/suggestions/${p.suggestionId ?? ''}`,
       };
     case 'doc_promoted':

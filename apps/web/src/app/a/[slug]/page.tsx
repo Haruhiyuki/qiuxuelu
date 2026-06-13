@@ -18,12 +18,12 @@ import type { ImageMetaMap, TocEntry } from '@harublog/renderer';
 import { ArticleRenderer, extractToc, mediaHashFromSrc } from '@harublog/renderer';
 import { Badge } from '@harublog/ui';
 import { and, asc, eq, inArray } from 'drizzle-orm';
-import { Lightbulb, PenLine } from 'lucide-react';
 import type { Metadata } from 'next';
 import { unstable_cache } from 'next/cache';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { CodeCopy } from '@/components/code-copy';
+import { type CollabFn, CollaborationModal } from '@/components/collaboration-modal';
 import { CommentSection } from '@/components/comments/comment-section';
 import { InlineComments, type InlineCommentView } from '@/components/comments/inline-comments';
 import { MentionText } from '@/components/comments/mention-text';
@@ -186,48 +186,70 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
   const db = getDb();
   const session = await getSession();
 
-  // 协作入口（非作者）+ 治理控件（板块管理员+，含作者本人若有职务）
-  let canCollabEdit = false;
-  let canSuggest = false;
+  // 协作入口（修订/修订申请/编辑建议，ADR-0010）+ 治理控件（板块管理员+，含作者本人若有职务）
+  const isPublic = article.visibility === 'public';
   let canFeature = false;
   let canProtect = false;
   let canPublicize = false;
   // 行内批注需 comment.inline.create（TL1+）：仅有写权时才显示「批注」入口
   let canInlineComment = false;
+  let canRevise = false;
+  let canReqRevision = false;
   if (session) {
     const actor = await loadActor(session.user.id);
     if (actor !== null) {
-      canInlineComment = can(actor, 'comment.inline.create', {
-        sectionId: article.sectionId,
-      }).allow;
-      if (session.user.id !== article.ownerId) {
-        canCollabEdit = can(actor, 'doc.edit_direct', {
-          sectionId: article.sectionId,
-          doc: {
-            id: article.docId,
-            ownerId: article.ownerId ?? '',
-            editPolicy: article.editPolicy as 'suggest_only' | 'open' | 'semi' | 'locked',
-            status: 'published',
-            visibility: article.visibility as 'private' | 'public',
-          },
-        }).allow;
-        canSuggest = can(actor, 'suggestion.create', { sectionId: article.sectionId }).allow;
-      }
-      canFeature = can(actor, 'doc.feature', { sectionId: article.sectionId }).allow;
-      canProtect = can(actor, 'doc.protect', {
+      const docCtx = {
         sectionId: article.sectionId,
         doc: {
           id: article.docId,
           ownerId: article.ownerId ?? '',
           editPolicy: article.editPolicy as 'suggest_only' | 'open' | 'semi' | 'locked',
-          status: 'published',
+          status: 'published' as const,
           visibility: article.visibility as 'private' | 'public',
         },
+      };
+      canInlineComment = can(actor, 'comment.inline.create', {
+        sectionId: article.sectionId,
       }).allow;
+      canRevise = can(actor, 'doc.edit_direct', docCtx).allow;
+      canReqRevision = can(actor, 'suggestion.create', docCtx).allow;
+      canFeature = can(actor, 'doc.feature', { sectionId: article.sectionId }).allow;
+      canProtect = can(actor, 'doc.protect', docCtx).allow;
       canPublicize = can(actor, 'doc.set_visibility', { sectionId: article.sectionId }).allow;
     }
   }
-  const isPublic = article.visibility === 'public';
+  // 协作弹窗的三项（不可用者标灰 + 原因）；未登录一律提示先登录
+  const loginReason = session ? null : '请先登录后参与协作';
+  const collabFunctions: CollabFn[] = [
+    {
+      key: 'revise',
+      title: '修订',
+      desc: '直接修改文章，立即生效（进巡查队列，权限者可撤回）',
+      href: `/a/${article.slug}/edit`,
+      allowed: canRevise,
+      reason:
+        loginReason ??
+        (isPublic
+          ? '需达到 T3（资深贡献者）'
+          : '私有页仅作者与板块版主可直接修订；你可以提交「修订申请」'),
+    },
+    {
+      key: 'request',
+      title: '修订申请',
+      desc: '直接修改文章，提交后需权限者审核通过才生效',
+      href: `/a/${article.slug}/suggest`,
+      allowed: canReqRevision,
+      reason: loginReason ?? (isPublic ? '需达到 T2（贡献者）' : '私有页需达到 T3（资深贡献者）'),
+    },
+    {
+      key: 'feedback',
+      title: '编辑建议',
+      desc: '不改动内容，对全文或某段提出意见，送作者与编辑后台参考',
+      href: null,
+      allowed: false,
+      reason: '功能即将上线（二期）',
+    },
+  ];
   const inlineRows = await db
     .select({
       id: comments.id,
@@ -419,25 +441,8 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
                 公共页面
               </Badge>
             ) : null}
-            {/* 协作入口（仅有权者可见）：直接协作编辑 / 提编辑建议，从信息栏触手可及 */}
-            {canCollabEdit ? (
-              <Link
-                href={`/a/${article.slug}/edit`}
-                className="inline-flex items-center gap-1.5 rounded-full border border-ink-200 px-2.5 py-0.5 text-ink-600 text-xs transition-colors hover:border-brand-300 hover:bg-brand-50 hover:text-brand-700"
-              >
-                <PenLine className="h-3.5 w-3.5" aria-hidden />
-                协作编辑
-              </Link>
-            ) : null}
-            {canSuggest ? (
-              <Link
-                href={`/a/${article.slug}/suggest`}
-                className="inline-flex items-center gap-1.5 rounded-full border border-ink-200 px-2.5 py-0.5 text-ink-600 text-xs transition-colors hover:border-brand-300 hover:bg-brand-50 hover:text-brand-700"
-              >
-                <Lightbulb className="h-3.5 w-3.5" aria-hidden />
-                提建议
-              </Link>
-            ) : null}
+            {/* 协作入口：统一「协作」弹窗（修订/修订申请/编辑建议，按权限标灰，ADR-0010） */}
+            <CollaborationModal functions={collabFunctions} />
             {/* 知识图谱入口：点击弹窗专门展示（仅在有相关帖子时出现） */}
             {hasGraph ? <KnowledgeGraphButton initialGraph={graph} /> : null}
           </div>

@@ -7,7 +7,7 @@ import { RealtimeEditor } from '@/components/editor/realtime-editor';
 import { getSession } from '@/lib/session';
 
 export const dynamic = 'force-dynamic';
-export const metadata: Metadata = { title: '实时协作编辑', robots: { index: false } };
+export const metadata: Metadata = { title: '实时修订', robots: { index: false } };
 
 interface CollabPageProps {
   params: Promise<{ docId: string }>;

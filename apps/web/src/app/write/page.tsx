@@ -157,7 +157,7 @@ export default async function WritePage() {
   // 已发布但有未提交修改的，也算「未完成」——在草稿箱里再露出一次
   const publishedUncommitted = published.filter(hasUncommitted);
 
-  // 我提交的、仍在流转中的编辑建议
+  // 我提交的、仍在流转中的修订申请
   const myActiveStatuses = ['open', 'under_review', 'changes_requested', 'outdated'] as const;
   const mySuggestions = await db
     .select({
@@ -272,7 +272,7 @@ export default async function WritePage() {
 
           {mySuggestions.length > 0 ? (
             <section className="rounded-md border border-ink-200 bg-paper-50 p-5 shadow-paper">
-              <h2 className="font-semibold font-serif text-ink-900 text-lg">我的编辑建议</h2>
+              <h2 className="font-semibold font-serif text-ink-900 text-lg">我的修订申请</h2>
               <ul className="mt-3 flex flex-col gap-3">
                 {mySuggestions.map((s) => (
                   <li key={s.id} className="text-sm">

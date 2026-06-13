@@ -1,6 +1,6 @@
 'use client';
 
-// 实时协作编辑器（架构 §6.3 C 阶）：Yjs + Hocuspocus，仅草稿态、仅授权用户。
+// 实时修订器（架构 §6.3 C 阶）：Yjs + Hocuspocus，仅草稿态、仅授权用户。
 // 不在客户端保存——服务端按防抖把 Y.Doc 快照为 collab_checkpoint 修订（修订才是真相）。
 import { COLLAB_FRAGMENT } from '@harublog/editor';
 import { Alert } from '@harublog/ui';
@@ -85,7 +85,7 @@ function RealtimeInner({ docId, token, userName }: InnerProps) {
     editorProps: {
       attributes: {
         class: 'prose-zh min-h-[55vh] px-6 py-6 focus:outline-none',
-        'aria-label': '实时协作编辑区',
+        'aria-label': '实时修订区',
       },
     },
   });
@@ -160,7 +160,7 @@ export function RealtimeEditor({ docId, slug, title, userName }: RealtimeEditorP
   return (
     <div className="flex flex-col gap-4">
       <header className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="font-semibold font-serif text-ink-900 text-xl">协作编辑：{title}</h1>
+        <h1 className="font-semibold font-serif text-ink-900 text-xl">修订：{title}</h1>
         <Link href={`/write/${docId}`} className="text-brand-700 text-sm hover:text-brand-900">
           返回单人编辑
         </Link>

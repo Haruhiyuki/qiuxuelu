@@ -312,7 +312,8 @@ describe('can() —— 信任线义务梯度与通用楼层', () => {
     });
   });
 
-  it('suggestion.create：TL1 被拒（结构化拒因含 capability），TL2 允许', () => {
+  it('修订申请 suggestion.create：缺上下文/公共页 T2，私有页 T3（ADR-0010）', () => {
+    // 无 doc 上下文按公共页（T2）
     expect(can(makeActor({ trustLevel: 1 }), 'suggestion.create', {}, NOW)).toEqual({
       allow: false,
       reason: { kind: 'insufficient_trust', required: 2, capability: 'suggestion.create' },
@@ -322,6 +323,20 @@ describe('can() —— 信任线义务梯度与通用楼层', () => {
       via: 'trust',
       obligations: [],
     });
+    // 私有页：T2 被拒 required=3，T3 允许
+    const priv = makeDoc({ visibility: 'private' });
+    expect(can(makeActor({ trustLevel: 2 }), 'suggestion.create', { doc: priv }, NOW)).toEqual({
+      allow: false,
+      reason: { kind: 'insufficient_trust', required: 3, capability: 'suggestion.create' },
+    });
+    expect(can(makeActor({ trustLevel: 3 }), 'suggestion.create', { doc: priv }, NOW).allow).toBe(
+      true,
+    );
+    // 公共页：T2 允许
+    const pub = makeDoc({ visibility: 'public' });
+    expect(can(makeActor({ trustLevel: 2 }), 'suggestion.create', { doc: pub }, NOW).allow).toBe(
+      true,
+    );
   });
 
   it('suggestion.review：非作者 TL4 经信任线允许', () => {

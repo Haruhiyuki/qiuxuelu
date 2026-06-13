@@ -33,7 +33,7 @@ export async function SiteHeader() {
             <Link href="/onboarding/consent" className="font-medium underline underline-offset-2">
               确认内容授权与社区公约
             </Link>
-            后即可发布、评论与提交建议。
+            后即可发布、评论与提交修订申请。
           </div>
         </div>
       ) : null}

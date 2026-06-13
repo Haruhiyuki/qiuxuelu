@@ -159,6 +159,15 @@ export function can(
     return deny({ kind: 'policy_locked' });
   }
 
+  // 4a-bis. suggestion.create（=「修订申请」）信任线楼层按页面可见性分级（ADR-0010）：
+  //         公共页 T2、私有页 T3。缺文档上下文按公共页（T2）处理（读路径都带 doc）。
+  if (capability === 'suggestion.create') {
+    const required = doc !== undefined && doc.visibility === 'private' ? 3 : 2;
+    return actor.trustLevel >= required
+      ? allow('trust')
+      : deny({ kind: 'insufficient_trust', required, capability });
+  }
+
   // 4b. 评论：AI 审核（DeepSeek 秒审）取代了预审与限速——TL0 起即可自由发评论，不附任何义务
   //     （ADR-0009）。拦截发生在动作层（落库前的 AI 审核），不在信任线表达。
   //     行内批注仍需 TL1（落入下方通用楼层），同样不再附限速。

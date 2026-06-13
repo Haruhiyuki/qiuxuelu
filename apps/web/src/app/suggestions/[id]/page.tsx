@@ -13,7 +13,7 @@ import { loadActor } from '@/server/actors';
 import { loadRevisionBlocks } from '@/server/revision-doc';
 
 export const dynamic = 'force-dynamic';
-export const metadata: Metadata = { title: '编辑建议', robots: { index: false } };
+export const metadata: Metadata = { title: '修订申请', robots: { index: false } };
 
 const STATUS_LABEL: Record<string, string> = {
   open: '待审',
@@ -104,7 +104,7 @@ export default async function SuggestionDetailPage({ params }: SuggestionPagePro
             ← {sg.docTitle}
           </Link>
         </p>
-        <h1 className="mt-2 font-semibold font-serif text-2xl text-ink-900">编辑建议</h1>
+        <h1 className="mt-2 font-semibold font-serif text-2xl text-ink-900">修订申请</h1>
         <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-ink-500 text-sm">
           <span className="font-medium text-ink-700">{sg.authorName ?? '佚名'}</span>
           <span className="rounded-sm bg-paper-200 px-2 py-0.5 text-ink-700">

@@ -25,28 +25,28 @@ const LEVELS: LevelEntry[] = [
     level: 0,
     abilities: [
       '阅读全站内容',
-      '创建草稿并提交发布（经审校）',
-      '发表评论（首帖预审、限速）',
+      '创建草稿、发文、文中发布图片（完整编辑能力）',
+      '发表评论（AI 秒审，无需排队）',
       '举报不当内容',
     ],
     note: '注册即是',
   },
   {
     level: 1,
-    abilities: ['评论免预审', '行内批注正文', '上传图片'],
+    abilities: ['行内批注正文', '对公共页文章提「编辑建议」'],
   },
   {
     level: 2,
-    abilities: ['对他人文章提交编辑建议'],
+    abilities: ['对公共页文章提「修订申请」', '对私有页文章提「编辑建议」'],
   },
   {
     level: 3,
-    abilities: ['在公共页直接编辑他人文章（即时生效 + 进巡查）'],
+    abilities: ['在公共页直接「修订」他人文章（即时生效 + 进巡查）', '对私有页文章提「修订申请」'],
     note: '按滚动窗口持续考核，跌破阈值会回落',
   },
   {
     level: 4,
-    abilities: ['审定他人文章的编辑建议'],
+    abilities: ['处理公共页的「修订申请」、管理「修订」'],
     note: '仅社区提名 + 人工授予，无自动达标路径',
   },
 ];
@@ -304,37 +304,39 @@ export function TrustRoadmap({
         </div>
         <p className="mt-2 text-ink-500 text-sm leading-relaxed">
           <span className="font-medium text-ink-700">对自己的文章</span>
-          ，从注册起（TL0）就拥有完整协作权：直接编辑、审核与合并他人的编辑建议。 对
+          ，从注册起（TL0）就拥有完整协作权。 对
           <span className="font-medium text-ink-700">他人的文章</span>
-          ，能做什么取决于页面是公共还是私有（能力阶梯：建议 ＜ 申请 ＜ 管理）：
+          ，三种协作方式的门槛取决于页面是公共还是私有（能力阶梯：编辑建议 ＜ 修订申请 ＜ 修订）：
         </p>
         <div className="mt-4 overflow-x-auto">
           <table className="w-full min-w-[28rem] border-collapse text-sm">
             <thead>
               <tr className="border-ink-200 border-b text-ink-500 text-xs">
-                <th className="py-2 pr-3 text-left font-medium">谁（非作者）</th>
-                <th className="px-3 py-2 text-left font-medium">🔒 私有页</th>
+                <th className="py-2 pr-3 text-left font-medium">协作方式</th>
                 <th className="px-3 py-2 text-left font-medium">🌐 公共页</th>
+                <th className="px-3 py-2 text-left font-medium">🔒 私有页</th>
               </tr>
             </thead>
             <tbody className="text-ink-600">
               {[
-                ['TL2 贡献者', '提编辑建议', '提编辑建议'],
-                ['TL3 资深贡献者', '提编辑建议', '编辑申请（直编+巡查）'],
-                ['责任编辑', '编辑申请（直编+巡查）', '审核管理（审/合建议+直编）'],
-                ['板块版主及以上', '审核管理 + 治理控件', '审核管理 + 治理控件'],
+                ['编辑建议', '提意见、不改内容', 'T1', 'T2'],
+                ['修订申请', '改内容，需审核才生效', 'T2', 'T3'],
+                ['修订', '改内容，立即生效（可撤回）', 'T3', '权限者'],
               ].map((row) => (
-                <tr key={row[0]} className="border-ink-100 border-b last:border-0 align-top">
-                  <td className="py-2 pr-3 font-medium text-ink-700">{row[0]}</td>
-                  <td className="px-3 py-2">{row[1]}</td>
+                <tr key={row[0]} className="border-ink-100 border-b align-top last:border-0">
+                  <td className="py-2 pr-3">
+                    <span className="font-medium text-ink-700">{row[0]}</span>
+                    <span className="block text-ink-400 text-xs">{row[1]}</span>
+                  </td>
                   <td className="px-3 py-2">{row[2]}</td>
+                  <td className="px-3 py-2">{row[3]}</td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
         <p className="mt-3 text-ink-400 text-xs leading-relaxed">
-          私有页攒够「他人贡献」（建议 + 他人评论 + 他人署名的直编修订）达阈值会自动转为公共页，
+          权限者 = 作者本人 + 板块版主及以上。私有页攒够「他人贡献」达阈值会自动转为公共页，
           也可由管理员手动设置；升级后保留原作者署名。
         </p>
       </div>

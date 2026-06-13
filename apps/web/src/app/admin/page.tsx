@@ -51,8 +51,8 @@ export default async function AdminHome() {
     },
     {
       href: '/admin/suggestions',
-      title: '建议审校',
-      desc: '审校编辑建议并合入正文',
+      title: '修订审核',
+      desc: '审校修订申请并合入正文',
       visible: has('suggestion.review'),
     },
     {

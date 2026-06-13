@@ -11,7 +11,7 @@ import { isOverdue } from '@/lib/sla';
 import { loadActor, sectionScopeForCapability } from '@/server/actors';
 
 export const dynamic = 'force-dynamic';
-export const metadata: Metadata = { title: '建议审校', robots: { index: false } };
+export const metadata: Metadata = { title: '修订审核', robots: { index: false } };
 
 const STATUS_LABEL: Record<string, string> = {
   open: '待审',
@@ -24,7 +24,7 @@ function Forbidden() {
   return (
     <div className="mx-auto w-full max-w-xl px-6 py-20 text-center">
       <h1 className="font-serif text-2xl text-ink-900">无权访问</h1>
-      <p className="mt-3 text-ink-500 text-sm">建议审校需要编辑及以上角色。</p>
+      <p className="mt-3 text-ink-500 text-sm">修订审核需要编辑及以上角色。</p>
       <p className="mt-6 text-sm">
         <Link href="/" className="text-brand-700 hover:text-brand-900">
           ← 返回首页
@@ -82,7 +82,7 @@ export default async function SuggestionQueuePage() {
             ← 管理后台
           </Link>
         </p>
-        <h1 className="mt-2 font-semibold font-serif text-2xl text-ink-900">建议审校</h1>
+        <h1 className="mt-2 font-semibold font-serif text-2xl text-ink-900">修订审核</h1>
         <p className="mt-2 text-ink-500 text-sm">
           待处理 {rows.length} 项 · 点击进入逐条审校与合入
         </p>

@@ -93,7 +93,7 @@ export default function CovenantPage() {
             尊重他人的修订与署名；改动重要内容时，请附上一句修订说明，便于他人理解与回溯。
           </Item>
           <Item label="先沟通再动手">
-            有分歧时用「编辑建议」与「评论」表达，而不是反复回退对方（edit war）。
+            有分歧时用「修订申请」「编辑建议」与「评论」表达，而不是反复回退对方（edit war）。
           </Item>
           <Item label="不搞破坏">恶意删改、刷屏灌水、滥用回退都会被巡查发现并处置。</Item>
         </Article>

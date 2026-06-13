@@ -19,29 +19,29 @@ export interface CollabEditorProps {
   slug: string;
   title: string;
   initialDoc: DocJson;
-  /** collab=直接编辑发布版（即时生效+巡查）；suggest=提交编辑建议（建分支，需审校合入）。 */
+  /** collab=直接编辑发布版（即时生效+巡查）；suggest=提交修订申请（建分支，需审校合入）。 */
   mode?: 'collab' | 'suggest';
 }
 
 const COPY = {
   collab: {
-    heading: '协作编辑',
+    heading: '修订',
     intro:
-      '你正在直接编辑已发布的文章。保存后修改立即对所有读者可见，并进入巡查队列；若被判定为劣化，巡查员可一键回退。',
-    msgLabel: '修改说明（建议填写，便于巡查与回溯）',
+      '你正在直接修订已发布的文章。保存后修改立即对所有读者可见，并进入巡查队列；权限者可一键撤回。',
+    msgLabel: '修订说明（建议填写，便于巡查与回溯）',
     msgPlaceholder: '例如：修正了一处事实错误',
-    confirm: '确认发布修改？协作编辑会立即生效，并进入巡查队列接受复核。',
-    submit: '发布修改',
-    submitting: '发布中…',
+    confirm: '确认提交修订？修订会立即生效，并进入巡查队列接受复核。',
+    submit: '提交修订',
+    submitting: '提交中…',
   },
   suggest: {
-    heading: '提出编辑建议',
+    heading: '修订申请',
     intro:
-      '你正在为这篇文章起草一份编辑建议。提交后会生成一条建议分支，由作者或编辑审校；采纳后才会合入正文，全程留痕。',
-    msgLabel: '建议说明（请说明你为什么这样改）',
+      '你正在为这篇文章起草一份修订申请。提交后会生成一条修订分支，由权限者审核；通过后才会合入正文，全程留痕。',
+    msgLabel: '申请说明（请说明你为什么这样改）',
     msgPlaceholder: '例如：第二段的年份有误，应为 2024',
-    confirm: '确认提交这份编辑建议？提交后将进入审校队列。',
-    submit: '提交建议',
+    confirm: '确认提交这份修订申请？提交后将进入审核队列。',
+    submit: '提交申请',
     submitting: '提交中…',
   },
 } as const;
@@ -68,7 +68,7 @@ export function CollabEditor({
     editorProps: {
       attributes: {
         class: 'prose-zh min-h-[55vh] px-6 py-6 focus:outline-none',
-        'aria-label': '协作编辑区',
+        'aria-label': '修订区',
       },
     },
   });
@@ -96,7 +96,7 @@ export function CollabEditor({
         ? await createSuggestion(docId, kernelDoc, message)
         : await directEditPublished(docId, kernelDoc, message);
     if (result.ok) {
-      // 建议提交后跳到建议详情；协作编辑跳回文章
+      // 建议提交后跳到建议详情；修订跳回文章
       const target =
         mode === 'suggest' && 'data' in result && result.data && 'suggestionId' in result.data
           ? `/suggestions/${(result.data as { suggestionId: string }).suggestionId}`

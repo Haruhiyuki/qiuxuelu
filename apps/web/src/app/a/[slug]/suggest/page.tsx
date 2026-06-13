@@ -10,7 +10,7 @@ import { getSession } from '@/lib/session';
 import { loadActor } from '@/server/actors';
 
 export const dynamic = 'force-dynamic';
-export const metadata: Metadata = { title: '提出编辑建议', robots: { index: false } };
+export const metadata: Metadata = { title: '修订申请', robots: { index: false } };
 
 interface SuggestPageProps {
   params: Promise<{ slug: string }>;
@@ -19,7 +19,7 @@ interface SuggestPageProps {
 function Blocked({ slug, text }: { slug: string; text: string }) {
   return (
     <div className="mx-auto w-full max-w-xl px-6 py-20 text-center">
-      <h1 className="font-serif text-2xl text-ink-900">暂不可提交建议</h1>
+      <h1 className="font-serif text-2xl text-ink-900">暂不可提交修订申请</h1>
       <p className="mt-3 text-ink-500 text-sm">{text}</p>
       <p className="mt-6 text-sm">
         <Link href={`/a/${slug}`} className="text-brand-700 hover:text-brand-900">
@@ -46,6 +46,8 @@ export default async function SuggestPage({ params }: SuggestPageProps) {
       ownerId: documents.ownerId,
       sectionId: documents.sectionId,
       status: documents.status,
+      visibility: documents.visibility,
+      editPolicy: documents.editPolicy,
       content: publishedSnapshots.content,
     })
     .from(documents)
@@ -57,19 +59,29 @@ export default async function SuggestPage({ params }: SuggestPageProps) {
     notFound();
   }
   if (doc.ownerId === session.user.id) {
-    return <Blocked slug={slug} text="作者请直接编辑自己的文章，无需提建议。" />;
+    return <Blocked slug={slug} text="作者请直接修订自己的文章，无需申请。" />;
   }
 
   const actor = await loadActor(session.user.id);
   if (actor === null) {
     return <Blocked slug={slug} text="账号状态异常，请重新登录。" />;
   }
-  const decision = can(actor, 'suggestion.create', { sectionId: doc.sectionId });
+  const decision = can(actor, 'suggestion.create', {
+    sectionId: doc.sectionId,
+    doc: {
+      id: doc.id,
+      ownerId: doc.ownerId ?? '',
+      editPolicy: doc.editPolicy as 'suggest_only' | 'open' | 'semi' | 'locked',
+      status: 'published',
+      visibility: doc.visibility as 'private' | 'public',
+    },
+  });
   if (!decision.allow) {
+    const need = doc.visibility === 'public' ? 'T2（贡献者）' : 'T3（资深贡献者，私有页要求更高）';
     return (
       <Blocked
         slug={slug}
-        text="提交编辑建议需要 TL2（贡献者）。多在社区评论与参与，信任等级达标后即可解锁。"
+        text={`提交修订申请需要 ${need}。多参与社区贡献，信任等级达标后即可解锁。`}
       />
     );
   }

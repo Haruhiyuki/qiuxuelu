@@ -24,7 +24,7 @@ export function PatrolPanel({ revisionId }: { revisionId: string }) {
   }
   async function revert() {
     const ok = await confirm({
-      title: '回退这次协作编辑？',
+      title: '回退这次修订？',
       description: '将创建一个还原到改前内容的新修订（历史保留）。',
       confirmLabel: '回退',
       danger: true,

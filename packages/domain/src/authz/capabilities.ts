@@ -91,12 +91,13 @@ export const SECTION_SCOPED_ROLES: ReadonlySet<Role> = new Set(['editor', 'secti
 // 信任能力按等级记「增量」，与 ADR-0005 的晋升语义（TLn = TL(n-1) + 新解锁）一一对应；
 // TRUST_CAPS 暴露累计视图供判定器使用。
 const TRUST_CAP_INCREMENTS: Record<TrustLevel, readonly Capability[]> = {
-  // flag.create 从 TL0 起即可（举报权重随 TL 上升，低信任举报权重低，架构 §4.2/§5.4）
-  0: ['content.read', 'doc.create', 'doc.submit', 'flag.create'],
-  // media.upload 从 TL1 起（图片是垃圾/滥用向量，挡住全新 TL0 账号）
-  1: ['comment.create', 'comment.inline.create', 'media.upload'],
+  // flag.create 从 TL0 起即可（举报权重随 TL 上升）；media.upload 也降到 T0——完整文章编辑能力
+  // （含发图）从一开始就有（ADR-0010）。
+  0: ['content.read', 'doc.create', 'doc.submit', 'flag.create', 'media.upload'],
+  1: ['comment.create', 'comment.inline.create'],
+  // suggestion.create（=「修订申请」）的实际楼层按页面可见性分级（公共 T2 / 私有 T3），见 can.ts
   2: ['suggestion.create'],
-  // 实际楼层受文档 edit_policy 限制（open→TL2+，semi→TL3+），见 can.ts
+  // doc.edit_direct（=「修订」）实际楼层由可见性驱动（公共 T3+ / 私有仅权限者），见 can.ts
   3: ['doc.edit_direct'],
   4: ['suggestion.review'],
 };

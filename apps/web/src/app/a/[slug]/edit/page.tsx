@@ -10,7 +10,7 @@ import { getSession } from '@/lib/session';
 import { loadActor } from '@/server/actors';
 
 export const dynamic = 'force-dynamic';
-export const metadata: Metadata = { title: '协作编辑', robots: { index: false } };
+export const metadata: Metadata = { title: '修订', robots: { index: false } };
 
 interface EditPageProps {
   params: Promise<{ slug: string }>;
@@ -19,7 +19,7 @@ interface EditPageProps {
 function Blocked({ slug, text }: { slug: string; text: string }) {
   return (
     <div className="mx-auto w-full max-w-xl px-6 py-20 text-center">
-      <h1 className="font-serif text-2xl text-ink-900">暂不可协作编辑</h1>
+      <h1 className="font-serif text-2xl text-ink-900">暂不可修订</h1>
       <p className="mt-3 text-ink-500 text-sm">{text}</p>
       <p className="mt-6 text-sm">
         <Link href={`/a/${slug}`} className="text-brand-700 hover:text-brand-900">

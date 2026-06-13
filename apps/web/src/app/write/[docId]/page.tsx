@@ -60,7 +60,7 @@ export default async function EditDocumentPage({ params }: EditPageProps) {
       <div className="mx-auto w-full max-w-3xl px-6 py-20 text-center">
         <h1 className="font-semibold font-serif text-2xl text-ink-900">无权编辑</h1>
         <p className="mt-3 text-ink-500 text-sm leading-relaxed">
-          这篇文章不属于你。仅作者本人可直接编辑，对他人文章可提交编辑建议。
+          这篇文章不属于你。仅作者本人可直接编辑，对他人文章可提交修订申请。
         </p>
         <p className="mt-6">
           <Link href="/write" className="text-brand-700 hover:text-brand-900">

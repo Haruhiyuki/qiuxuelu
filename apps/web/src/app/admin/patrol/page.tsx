@@ -108,7 +108,7 @@ export default async function PatrolQueuePage() {
         <EmptyState
           icon={<ShieldCheck />}
           title="队列已清空"
-          description="当前没有待巡查的协作编辑。"
+          description="当前没有待巡查的修订。"
         />
       ) : (
         <ul className="mt-4 flex flex-col gap-5">
