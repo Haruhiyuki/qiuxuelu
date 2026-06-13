@@ -12,6 +12,7 @@ import { directEditPublished } from '@/server/actions/document';
 import { createSuggestion } from '@/server/actions/suggestion';
 import { BubbleToolbar } from './bubble-toolbar';
 import { clientExtensions } from './client-extensions';
+import { TableToolbar } from './table-toolbar';
 import { EditorToolbar } from './toolbar';
 
 export interface CollabEditorProps {
@@ -128,6 +129,7 @@ export function CollabEditor({
           <>
             <EditorToolbar editor={editor} />
             <BubbleToolbar editor={editor} />
+            <TableToolbar editor={editor} />
             <EditorContent editor={editor} />
           </>
         ) : (

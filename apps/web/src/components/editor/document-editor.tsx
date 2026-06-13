@@ -11,6 +11,7 @@ import { docStatusLabel } from '@/lib/doc-labels';
 import { commitRevision, requestPublish, saveWorkingCopy } from '@/server/actions/document';
 import { BubbleToolbar } from './bubble-toolbar';
 import { clientExtensions } from './client-extensions';
+import { TableToolbar } from './table-toolbar';
 import { EditorToolbar } from './toolbar';
 
 type SaveState = 'idle' | 'dirty' | 'saving' | 'saved' | 'error';
@@ -207,6 +208,7 @@ export function DocumentEditor(props: DocumentEditorProps) {
           <>
             <EditorToolbar editor={editor} />
             <BubbleToolbar editor={editor} />
+            <TableToolbar editor={editor} />
             <EditorContent editor={editor} />
           </>
         ) : (

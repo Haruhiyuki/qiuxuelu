@@ -263,3 +263,21 @@ mark.comment-mark.is-active {
     background-color: var(--color-ochre-100);
   }
 }
+
+/* 编辑器内表格（仅 .ProseMirror，阅读端不受影响）：宽表横向滚动 + 选中单元格高亮。
+ * prosemirror-tables 给选中单元格挂 .selectedCell，需借 ::after 叠一层半透明底（单元格须 position:relative）。 */
+.ProseMirror .tableWrapper {
+  overflow-x: auto;
+}
+.ProseMirror td,
+.ProseMirror th {
+  position: relative;
+}
+.ProseMirror .selectedCell::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  background: color-mix(in srgb, var(--color-brand-200) 45%, transparent);
+}

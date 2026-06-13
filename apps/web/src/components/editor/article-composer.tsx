@@ -23,6 +23,7 @@ import {
 import { setDocumentTags } from '@/server/actions/tags';
 import { BubbleToolbar } from './bubble-toolbar';
 import { clientExtensions } from './client-extensions';
+import { TableToolbar } from './table-toolbar';
 import { EditorToolbar } from './toolbar';
 
 type SaveState = 'idle' | 'dirty' | 'saving' | 'saved' | 'error';
@@ -459,6 +460,7 @@ export function ArticleComposer(props: ArticleComposerProps) {
           <>
             <EditorToolbar editor={editor} />
             <BubbleToolbar editor={editor} />
+            <TableToolbar editor={editor} />
             <div className="mx-auto w-full max-w-[44rem] px-6">
               <EditorContent editor={editor} />
             </div>

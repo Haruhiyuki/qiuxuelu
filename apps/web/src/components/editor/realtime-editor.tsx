@@ -14,6 +14,7 @@ import * as Y from 'yjs';
 import { issueCollabToken } from '@/server/actions/collab';
 import { BubbleToolbar } from './bubble-toolbar';
 import { clientExtensions } from './client-extensions';
+import { TableToolbar } from './table-toolbar';
 import { EditorToolbar } from './toolbar';
 
 const COLLAB_URL = process.env.NEXT_PUBLIC_COLLAB_URL ?? 'ws://localhost:3201';
@@ -115,6 +116,7 @@ function RealtimeInner({ docId, token, userName }: InnerProps) {
           <>
             <EditorToolbar editor={editor} />
             <BubbleToolbar editor={editor} />
+            <TableToolbar editor={editor} />
             <EditorContent editor={editor} />
           </>
         ) : (

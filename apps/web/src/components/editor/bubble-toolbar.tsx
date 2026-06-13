@@ -83,9 +83,9 @@ export function BubbleToolbar({ editor }: { editor: Editor }) {
       {promptDialog}
       <BubbleMenu
         editor={editor}
-        // 仅在文本选区（非图片/数学等节点选区）出现
+        // 仅在文本选区（非图片/数学等节点选区）出现；表格内交给 TableToolbar，避免两气泡叠放
         shouldShow={({ editor: e, from, to }) =>
-          from !== to && !e.isActive('figure') && !e.isActive('mathBlock')
+          from !== to && !e.isActive('figure') && !e.isActive('mathBlock') && !e.isActive('table')
         }
       >
         <div className="pop-in flex items-center gap-0.5 rounded-lg bg-overlay px-1 py-1 shadow-float">
