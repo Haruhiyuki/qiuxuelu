@@ -262,6 +262,7 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
       state: commentAnchors.state,
       body: comments.body,
       createdAt: comments.createdAt,
+      authorId: comments.authorId,
       authorName: userTable.name,
     })
     .from(comments)
@@ -288,6 +289,8 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
     authorName: r.authorName ?? '佚名',
     state: r.state as InlineCommentView['state'],
     createdAtLabel: formatDateTime(r.createdAt),
+    // 作者注：行内批注的作者即文章原作者——同一通道，展示时置顶并标注（无需新列）
+    isAuthorNote: r.authorId !== null && r.authorId === article.ownerId,
   }));
 
   // 失锚批注没有可对齐的正文锚点：不进边注栏，在文末折叠展示（服务端渲染，无需 JS）
@@ -551,7 +554,7 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
                     <MentionText text={c.text} />
                   </p>
                   <p className="mt-0.5 text-ink-400 text-xs">
-                    {c.authorName} · {c.createdAtLabel}
+                    {c.isAuthorNote ? '作者注 · 作者' : c.authorName} · {c.createdAtLabel}
                   </p>
                 </li>
               ))}

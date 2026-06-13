@@ -23,6 +23,8 @@ export interface InlineCommentView {
   authorName: string;
   state: 'live' | 'remapped' | 'orphaned';
   createdAtLabel: string;
+  /** 作者注：作者本人对自己文章的行内批注，置顶展示并标注 */
+  isAuthorNote: boolean;
 }
 
 interface PendingAnchor {
@@ -452,10 +454,17 @@ function CommentList({
   compact?: boolean;
   onLocate?: (c: InlineCommentView) => void;
 }) {
+  // 作者注置顶（同一段内排在其它批注之上），其余保持原有时间顺序
+  const ordered = [...items].sort((a, b) => Number(b.isAuthorNote) - Number(a.isAuthorNote));
   return (
     <ul className={`flex flex-col ${compact ? 'gap-3' : 'gap-4'}`}>
-      {items.map((c) => (
+      {ordered.map((c) => (
         <li key={c.id} className="group/item">
+          {c.isAuthorNote ? (
+            <span className="mb-1 inline-flex items-center rounded-xs bg-brand-100 px-1.5 py-0.5 font-medium text-[10px] text-brand-800">
+              作者注
+            </span>
+          ) : null}
           {onLocate !== undefined ? (
             <button
               type="button"
@@ -474,7 +483,7 @@ function CommentList({
             <MentionText text={c.text} />
           </p>
           <p className="mt-1 text-ink-400 text-xs">
-            {c.authorName} · {c.createdAtLabel}
+            {c.isAuthorNote ? '作者' : c.authorName} · {c.createdAtLabel}
             {c.state === 'remapped' ? (
               <span className="ml-1.5 text-ochre-700">已重定位</span>
             ) : null}
