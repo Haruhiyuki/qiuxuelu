@@ -285,12 +285,16 @@ export function AccountForm({
               ) : (
                 <ul className="flex flex-col gap-2">
                   {education.map((row, i) => (
-                    <li key={i} className="flex flex-wrap items-center gap-2">
+                    // 移动端：每条一张卡，三项纵向铺满、删除在右下；桌面端横排成行
+                    <li
+                      key={i}
+                      className="flex flex-col gap-2 rounded-md border border-ink-200 bg-paper-100 p-3 sm:flex-row sm:items-center sm:rounded-none sm:border-0 sm:bg-transparent sm:p-0"
+                    >
                       <select
                         aria-label="学历阶段"
                         value={row.stage}
                         onChange={(e) => setEduRow(i, { stage: e.target.value })}
-                        className="h-9 w-28 rounded-sm border border-ink-200 bg-paper-50 px-2 text-ink-800 text-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600"
+                        className="h-9 w-full shrink-0 rounded-sm border border-ink-200 bg-paper-50 px-2 text-ink-800 text-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600 sm:w-28"
                       >
                         {EDUCATION_STAGES.map((s) => (
                           <option key={s} value={s}>
@@ -304,7 +308,7 @@ export function AccountForm({
                         maxLength={100}
                         onChange={(e) => setEduRow(i, { school: e.target.value })}
                         placeholder="学校"
-                        className="w-44"
+                        className="w-full sm:w-44"
                       />
                       <Input
                         aria-label="专业 / 方向（选填）"
@@ -312,13 +316,13 @@ export function AccountForm({
                         maxLength={100}
                         onChange={(e) => setEduRow(i, { field: e.target.value })}
                         placeholder="专业 / 方向（选填）"
-                        className="w-44"
+                        className="w-full sm:w-44"
                       />
                       <button
                         type="button"
                         onClick={() => removeEduRow(i)}
                         aria-label="删除这条"
-                        className="shrink-0 rounded p-1 text-ink-400 transition-colors hover:text-accent-700"
+                        className="self-end rounded p-1 text-ink-400 transition-colors hover:text-accent-700 sm:self-auto"
                       >
                         <X className="h-4 w-4" />
                       </button>

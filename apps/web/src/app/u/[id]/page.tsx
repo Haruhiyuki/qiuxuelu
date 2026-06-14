@@ -26,7 +26,6 @@ import { notFound } from 'next/navigation';
 import type { ReactNode } from 'react';
 import { Breadcrumb } from '@/components/breadcrumb';
 import { TRUST_LEVEL_NAMES, TrustRoadmap } from '@/components/trust-roadmap';
-import { formatEducation } from '@/lib/education';
 import { formatDate } from '@/lib/format';
 import { getSession } from '@/lib/session';
 import { computeUserStats, loadThresholds } from '@/server/trust';
@@ -160,10 +159,10 @@ export default async function ProfilePage({ params }: ProfilePageProps) {
     <div className="mx-auto w-full max-w-3xl px-6 py-10">
       <Breadcrumb items={[{ label: '首页', href: '/' }, { label: profile.name }]} />
 
-      {/* 身份名帖：头像 + 名号/信任/学段/加入 + 简介 + 成就，底部接贡献概览，整合为一张卡 */}
-      <div className="mt-4 rounded-lg border border-ink-200 bg-paper-50 p-6 shadow-paper">
-        <div className="flex items-start gap-5">
-          <div className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-full bg-brand-100 font-semibold font-serif text-3xl text-brand-700 ring-1 ring-ink-200">
+      {/* 身份名帖：头像 + 名号/信任/加入 紧凑成行；简介、教育经历、成就整卡宽逐块铺开（长内容与移动端友好） */}
+      <div className="mt-4 rounded-lg border border-ink-200 bg-paper-50 p-5 shadow-paper sm:p-6">
+        <div className="flex items-start gap-4 sm:gap-5">
+          <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-full bg-brand-100 font-semibold font-serif text-2xl text-brand-700 ring-1 ring-ink-200 sm:h-20 sm:w-20 sm:text-3xl">
             {profile.image ? (
               <img src={profile.image} alt={profile.name} className="h-full w-full object-cover" />
             ) : (
@@ -172,53 +171,72 @@ export default async function ProfilePage({ params }: ProfilePageProps) {
           </div>
           <div className="min-w-0 flex-1">
             <div className="flex items-start justify-between gap-3">
-              <h1 className="min-w-0 font-semibold font-serif text-2xl text-ink-900">
-                {profile.name}
-              </h1>
+              <div className="min-w-0">
+                <h1 className="truncate font-semibold font-serif text-ink-900 text-xl sm:text-2xl">
+                  {profile.name}
+                </h1>
+                <div className="mt-1.5 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-ink-400 text-xs">
+                  <Badge variant="brand">
+                    TL{trustLevel} · {TRUST_LEVEL_NAMES[trustLevel] ?? '贡献者'}
+                  </Badge>
+                  <span className="flex items-center gap-1">
+                    <CalendarDays className="h-3.5 w-3.5" aria-hidden />
+                    加入于 {formatDate(profile.createdAt)}
+                  </span>
+                </div>
+              </div>
               {isOwnProfile ? (
                 <Link
                   href="/account#profile"
                   className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-ink-200 px-3 py-1 text-ink-600 text-xs transition-colors hover:border-brand-300 hover:bg-brand-50 hover:text-brand-700"
                 >
                   <PenLine className="h-3.5 w-3.5" aria-hidden />
-                  编辑资料
+                  <span className="hidden sm:inline">编辑资料</span>
+                  <span className="sm:hidden">编辑</span>
                 </Link>
               ) : null}
             </div>
-            <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-ink-500 text-sm">
-              <Badge variant="brand">
-                TL{trustLevel} · {TRUST_LEVEL_NAMES[trustLevel] ?? '贡献者'}
-              </Badge>
-              {profile.education && profile.education.length > 0 ? (
-                profile.education.map((e, i) => (
-                  <span key={i} className="flex items-center gap-1">
-                    <GraduationCap className="h-3.5 w-3.5 text-ink-400" aria-hidden />
-                    {formatEducation(e)}
-                  </span>
-                ))
-              ) : profile.educationStage ? (
-                <span className="flex items-center gap-1">
-                  <GraduationCap className="h-3.5 w-3.5 text-ink-400" aria-hidden />
-                  {profile.educationStage}
-                </span>
-              ) : null}
-              <span className="flex items-center gap-1">
-                <CalendarDays className="h-3.5 w-3.5 text-ink-400" aria-hidden />
-                加入于 {formatDate(profile.createdAt)}
-              </span>
-            </div>
-            {profile.bio ? (
-              <p className="mt-3 text-ink-600 text-sm leading-relaxed">{profile.bio}</p>
-            ) : null}
-            {honors.length > 0 ? (
-              <div className="mt-3 flex flex-wrap gap-1.5">
-                {honors.map((h) => (
-                  <HonorChip key={h.label} icon={h.icon} label={h.label} />
-                ))}
-              </div>
-            ) : null}
           </div>
         </div>
+
+        {/* 简介：整卡宽，长文可读（保留用户换行） */}
+        {profile.bio ? (
+          <p className="mt-4 whitespace-pre-line text-ink-600 text-sm leading-relaxed">
+            {profile.bio}
+          </p>
+        ) : null}
+
+        {/* 教育经历：多条各占一行，阶段做小标签，长校名/专业自动截断不挤压 */}
+        {profile.education && profile.education.length > 0 ? (
+          <ul className="mt-4 flex flex-col gap-2">
+            {profile.education.map((e, i) => (
+              <li key={i} className="flex items-center gap-2 text-ink-600 text-sm">
+                <GraduationCap className="h-4 w-4 shrink-0 text-ink-400" aria-hidden />
+                <span className="shrink-0 rounded-full bg-paper-200 px-2 py-0.5 text-ink-600 text-xs">
+                  {e.stage}
+                </span>
+                <span className="min-w-0 truncate">
+                  {e.school}
+                  {e.field ? <span className="text-ink-400"> · {e.field}</span> : null}
+                </span>
+              </li>
+            ))}
+          </ul>
+        ) : profile.educationStage ? (
+          <p className="mt-4 flex items-center gap-2 text-ink-600 text-sm">
+            <GraduationCap className="h-4 w-4 shrink-0 text-ink-400" aria-hidden />
+            {profile.educationStage}
+          </p>
+        ) : null}
+
+        {/* 成就 */}
+        {honors.length > 0 ? (
+          <div className="mt-4 flex flex-wrap gap-1.5">
+            {honors.map((h) => (
+              <HonorChip key={h.label} icon={h.icon} label={h.label} />
+            ))}
+          </div>
+        ) : null}
 
         {/* 贡献概览：与身份同卡，分隔线下三栏等宽 */}
         <dl className="mt-5 grid grid-cols-3 divide-x divide-ink-200/70 border-ink-200/70 border-t pt-4">
