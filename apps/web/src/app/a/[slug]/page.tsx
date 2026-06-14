@@ -400,87 +400,58 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
           {/* 顶部信息栏（知乎式）：作者头像 + 名字 + 一句话简介为主体；右簇操作胶囊；
               发布/更新/阅读时长降为次级一行。所有页面级入口集中于此，页脚不再重复。 */}
           <div className="mt-5 flex flex-col gap-3">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
-              {/* 作者簇：头像 + 名字/简介 */}
-              <div className="flex min-w-0 items-center gap-3">
-                {article.ownerId !== null ? (
-                  <Link
-                    href={`/u/${article.ownerId}`}
-                    className="shrink-0"
-                    aria-label={`查看 ${article.authorName ?? '作者'} 的主页`}
-                  >
-                    <span className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-full bg-brand-100 font-serif text-brand-800 ring-1 ring-ink-200">
-                      {article.authorImage ? (
-                        <img
-                          src={article.authorImage}
-                          alt={article.authorName ?? '作者'}
-                          className="h-full w-full object-cover"
-                        />
-                      ) : (
-                        (article.authorName ?? '佚').charAt(0)
-                      )}
-                    </span>
-                  </Link>
-                ) : (
-                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-brand-100 font-serif text-brand-800 ring-1 ring-ink-200">
-                    {(article.authorName ?? '佚').charAt(0)}
-                  </span>
-                )}
-                <div className="min-w-0">
-                  <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
-                    {article.ownerId !== null ? (
-                      <Link
-                        href={`/u/${article.ownerId}`}
-                        className="font-medium text-ink-800 transition-colors hover:text-brand-700"
-                      >
-                        {article.authorName ?? '佚名'}
-                      </Link>
+            {/* 作者簇：头像 + 名字/简介 */}
+            <div className="flex min-w-0 items-center gap-3">
+              {article.ownerId !== null ? (
+                <Link
+                  href={`/u/${article.ownerId}`}
+                  className="shrink-0"
+                  aria-label={`查看 ${article.authorName ?? '作者'} 的主页`}
+                >
+                  <span className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-full bg-brand-100 font-serif text-brand-800 ring-1 ring-ink-200">
+                    {article.authorImage ? (
+                      <img
+                        src={article.authorImage}
+                        alt={article.authorName ?? '作者'}
+                        className="h-full w-full object-cover"
+                      />
                     ) : (
-                      <span className="font-medium text-ink-800">
-                        {article.authorName ?? '佚名'}
-                      </span>
+                      (article.authorName ?? '佚').charAt(0)
                     )}
-                    {/* 公共页保留并彰显原始作者身份（ADR-0007） */}
-                    {isPublic ? <span className="text-ink-400 text-xs">原作者</span> : null}
-                    {article.featured ? <Badge variant="brand">精选</Badge> : null}
-                    {isPublic ? (
-                      <Badge variant="accent" title="经社区认可、转为公共维护的页面">
-                        公共页面
-                      </Badge>
-                    ) : null}
-                  </div>
-                  {/* 作者简介：限两行作合理上限，全文见主页 */}
-                  {article.authorBio ? (
-                    <p className="mt-0.5 line-clamp-2 text-ink-400 text-xs leading-relaxed">
-                      {article.authorBio}
-                    </p>
+                  </span>
+                </Link>
+              ) : (
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-brand-100 font-serif text-brand-800 ring-1 ring-ink-200">
+                  {(article.authorName ?? '佚').charAt(0)}
+                </span>
+              )}
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                  {article.ownerId !== null ? (
+                    <Link
+                      href={`/u/${article.ownerId}`}
+                      className="font-medium text-ink-800 transition-colors hover:text-brand-700"
+                    >
+                      {article.authorName ?? '佚名'}
+                    </Link>
+                  ) : (
+                    <span className="font-medium text-ink-800">{article.authorName ?? '佚名'}</span>
+                  )}
+                  {/* 公共页保留并彰显原始作者身份（ADR-0007） */}
+                  {isPublic ? <span className="text-ink-400 text-xs">原作者</span> : null}
+                  {article.featured ? <Badge variant="brand">精选</Badge> : null}
+                  {isPublic ? (
+                    <Badge variant="accent" title="经社区认可、转为公共维护的页面">
+                      公共页面
+                    </Badge>
                   ) : null}
                 </div>
-              </div>
-              {/* 操作入口 */}
-              <div className="flex flex-wrap items-center gap-1.5 sm:shrink-0 sm:justify-end">
-                {/* 修订历史：兼作修订号标识与入口 */}
-                <Link
-                  href={`/a/${article.slug}/history`}
-                  title="查看修订历史"
-                  className="inline-flex items-center gap-1.5 rounded-full border border-ink-200 px-2.5 py-0.5 text-ink-600 text-xs transition-colors hover:border-brand-300 hover:bg-brand-50 hover:text-brand-700"
-                >
-                  <History className="h-3.5 w-3.5" aria-hidden />第 {article.seq} 号修订
-                </Link>
-                {/* 协作公示仅公共页（ADR-0007）：私有页对外只公示修订历史 */}
-                {isPublic ? (
-                  <Link
-                    href={`/a/${article.slug}/board`}
-                    title="协作公示（建议 / 申请 / 修订）"
-                    className="inline-flex items-center gap-1.5 rounded-full border border-ink-200 px-2.5 py-0.5 text-ink-600 text-xs transition-colors hover:border-brand-300 hover:bg-brand-50 hover:text-brand-700"
-                  >
-                    <ClipboardList className="h-3.5 w-3.5" aria-hidden />
-                    协作公示
-                  </Link>
+                {/* 作者简介：限两行作合理上限，全文见主页 */}
+                {article.authorBio ? (
+                  <p className="mt-0.5 line-clamp-2 text-ink-400 text-xs leading-relaxed">
+                    {article.authorBio}
+                  </p>
                 ) : null}
-                {/* 协作弹窗（修订/修订申请/编辑建议，按权限标灰，ADR-0010）+ 知识图谱（有相关帖子时） */}
-                <CollaborationModal functions={collabFunctions} />
-                {hasGraph ? <KnowledgeGraphButton initialGraph={graph} /> : null}
               </div>
             </div>
             {/* 次级元信息：发布 / 更新 / 阅读时长 */}
@@ -499,18 +470,45 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
               </span>
               <span>约 {readingMinutes} 分钟</span>
             </div>
+            {/* 操作工具条（左对齐胶囊）：修订历史 / 协作公示 / 协作 / 管理(权限可见) / 知识图谱 */}
+            <div className="flex flex-wrap items-center gap-1.5">
+              {/* 修订历史：兼作修订号标识与入口 */}
+              <Link
+                href={`/a/${article.slug}/history`}
+                title="查看修订历史"
+                className="inline-flex items-center gap-1.5 rounded-full border border-ink-200 px-2.5 py-0.5 text-ink-600 text-xs transition-colors hover:border-brand-300 hover:bg-brand-50 hover:text-brand-700"
+              >
+                <History className="h-3.5 w-3.5" aria-hidden />第 {article.seq} 号修订
+              </Link>
+              {/* 协作公示仅公共页（ADR-0007）：私有页对外只公示修订历史 */}
+              {isPublic ? (
+                <Link
+                  href={`/a/${article.slug}/board`}
+                  title="协作公示（建议 / 申请 / 修订）"
+                  className="inline-flex items-center gap-1.5 rounded-full border border-ink-200 px-2.5 py-0.5 text-ink-600 text-xs transition-colors hover:border-brand-300 hover:bg-brand-50 hover:text-brand-700"
+                >
+                  <ClipboardList className="h-3.5 w-3.5" aria-hidden />
+                  协作公示
+                </Link>
+              ) : null}
+              {/* 协作弹窗（修订/修订申请/编辑建议，按权限标灰，ADR-0010） */}
+              <CollaborationModal functions={collabFunctions} />
+              {/* 管理（板块管理员+）：收成胶囊，点击弹窗操作 */}
+              {canFeature || canProtect || canPublicize ? (
+                <ModerationBar
+                  docId={article.docId}
+                  featured={article.featured}
+                  editPolicy={article.editPolicy}
+                  visibility={article.visibility}
+                  canFeature={canFeature}
+                  canProtect={canProtect}
+                  canPublicize={canPublicize}
+                />
+              ) : null}
+              {/* 知识图谱（有相关帖子时） */}
+              {hasGraph ? <KnowledgeGraphButton initialGraph={graph} /> : null}
+            </div>
           </div>
-          {canFeature || canProtect || canPublicize ? (
-            <ModerationBar
-              docId={article.docId}
-              featured={article.featured}
-              editPolicy={article.editPolicy}
-              visibility={article.visibility}
-              canFeature={canFeature}
-              canProtect={canProtect}
-              canPublicize={canPublicize}
-            />
-          ) : null}
           {/* 文武线：标题区与正文之间的书版分隔 */}
           <div aria-hidden className="rule-double mt-8" />
         </header>
