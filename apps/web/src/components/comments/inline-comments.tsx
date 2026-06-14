@@ -79,6 +79,8 @@ export function InlineComments({
   const [measured, setMeasured] = useState(false);
   // 是否宽屏（xl+，存在右侧边注栏）：决定编辑框落在边注栏卡片还是浮层
   const [isWide, setIsWide] = useState(false);
+  // 是否触屏（粗指针）：触屏选字会弹原生菜单，故「批注」入口改为底部固定按钮，避开原生菜单
+  const [isTouch, setIsTouch] = useState(false);
   const draftCardRef = useRef<HTMLDivElement | null>(null);
 
   const cancelDraft = useCallback(() => {
@@ -155,9 +157,41 @@ export function InlineComments({
     return () => document.removeEventListener('mouseup', captureSelection);
   }, [captureSelection]);
 
+  // 触屏没有 mouseup：监听 selectionchange（防抖），等选区稳定后再浮现「批注」入口
+  useEffect(() => {
+    if (!canComment) {
+      return;
+    }
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const onSelChange = () => {
+      if (open) {
+        return;
+      }
+      if (timer !== null) {
+        clearTimeout(timer);
+      }
+      timer = setTimeout(captureSelection, 400);
+    };
+    document.addEventListener('selectionchange', onSelChange);
+    return () => {
+      if (timer !== null) {
+        clearTimeout(timer);
+      }
+      document.removeEventListener('selectionchange', onSelChange);
+    };
+  }, [canComment, open, captureSelection]);
+
   useEffect(() => {
     const mq = window.matchMedia('(min-width: 1280px)');
     const update = () => setIsWide(mq.matches);
+    update();
+    mq.addEventListener('change', update);
+    return () => mq.removeEventListener('change', update);
+  }, []);
+
+  useEffect(() => {
+    const mq = window.matchMedia('(pointer: coarse)');
+    const update = () => setIsTouch(mq.matches);
     update();
     mq.addEventListener('change', update);
     return () => mq.removeEventListener('change', update);
@@ -378,10 +412,29 @@ export function InlineComments({
 
   return (
     <>
-      {pending !== null && !open ? (
+      {/* 触屏：底部固定按钮，避开 iOS/安卓选字时贴着选区浮现的原生菜单 */}
+      {pending !== null && !open && isTouch ? (
+        <div className="fixed inset-x-0 bottom-6 z-30 flex justify-center px-4">
+          <button
+            type="button"
+            onPointerDown={(e) => {
+              e.preventDefault();
+              window.getSelection()?.removeAllRanges();
+              setOpen(true);
+            }}
+            className="pop-in inline-flex items-center gap-2 rounded-full bg-fill px-5 py-2.5 font-medium text-on-fill text-sm shadow-float transition-colors hover:bg-fill-hover"
+          >
+            <MessageSquarePlus className="h-4 w-4" aria-hidden />
+            批注选中文字
+          </button>
+        </div>
+      ) : null}
+
+      {/* 桌面（无原生菜单）：胶囊锚定在选区上方 */}
+      {pending !== null && !open && !isTouch ? (
         <button
           type="button"
-          onMouseDown={(e) => {
+          onPointerDown={(e) => {
             e.preventDefault();
             // 收起浏览器蓝色选区，让批注样式高亮接管
             window.getSelection()?.removeAllRanges();
@@ -395,22 +448,27 @@ export function InlineComments({
         </button>
       ) : null}
 
-      {/* 窄屏（无边注栏）：编辑框以浮层锚定在选区下方 */}
+      {/* 窄屏（无边注栏）：编辑框为顶部居中浮层 + 遮罩——固定在顶部，避开底部弹起的键盘 */}
       {pending !== null && open && !isWide ? (
-        <div
-          style={{ left: pending.x, top: pending.y + 10 }}
-          className="pop-in -translate-x-1/2 fixed z-30 w-[min(22rem,calc(100vw-2rem))] rounded-lg border border-ink-200 bg-paper-50 p-4 shadow-float"
-        >
-          <DraftEditor
-            quotedText={pending.quotedText}
-            text={text}
-            onText={setText}
-            busy={busy}
-            error={error}
-            notice={notice}
-            onSubmit={submit}
-            onCancel={cancelDraft}
+        <div className="fixed inset-0 z-40">
+          <button
+            type="button"
+            aria-label="取消批注"
+            onClick={cancelDraft}
+            className="overlay-in absolute inset-0 bg-ink-900/30 backdrop-blur-[1px]"
           />
+          <div className="pop-in -translate-x-1/2 absolute top-3 left-1/2 w-[calc(100vw-1.5rem)] max-w-md rounded-lg border border-ink-200 bg-paper-50 p-4 shadow-float">
+            <DraftEditor
+              quotedText={pending.quotedText}
+              text={text}
+              onText={setText}
+              busy={busy}
+              error={error}
+              notice={notice}
+              onSubmit={submit}
+              onCancel={cancelDraft}
+            />
+          </div>
         </div>
       ) : null}
 
