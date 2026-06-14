@@ -25,6 +25,18 @@
 
 服务器内存紧张（~1.6G，且跑着 ~10 个别的服务）：**绝不在服务器上构建**，构建一律在本地完成、只传产物。
 
+## 实际拓扑：在跑的 vs. 未部署（2026-06-14 摸清）
+
+testblog **当前只跑三件**：`harublog-web`（:3100）、`harublog-minio`（:9000）、PostgreSQL 14（本机 :5432，库 `harublog_testblog`）。以下组件**从未部署**，对应功能在测试站处于休眠：
+
+| 组件 | 状态 | 影响 | 部署方式 |
+|----|----|----|----|
+| **worker**（`apps/worker`） | 未部署 | 消费 `search_outbox` 的 ① Meilisearch 同步 ② **行内批注锚点重映射** ③ 通知邮件，全都不发生；outbox 只积压不消费（当前 3 条 pending，无害） | 经 `tsx src/index.ts` **运行时跑 TS、无构建步骤**。需把 `apps/worker/src` + 它 import 的 `packages/{kernel,db,mailer,search}` 源码 + `node_modules`(tsx/drizzle/meilisearch/mailer) + env(`DATABASE_URL`/`MEILI*`/`RESEND*`) 一并上服务器，配 `harublog-worker` systemd 单元。**且 worker 启动即 `ensureBlocksIndex()` 连 Meilisearch，Meili 没起就起不来**——所以 worker 与 Meilisearch 必须一起上 |
+| **Meilisearch**（:7700） | 未安装 | `/search` 退化为「搜索服务暂时不可用」（web 有兜底，不崩）；worker 无法启动 | 单机二进制 + systemd（同 MinIO 套路：本机下好 scp 上去）。**额外常驻进程，吃内存**——上之前先权衡邻居安全红线 |
+| **collab 网关**（`apps/collab`，Hocuspocus，:3201） | 未部署 | 实时协作（Yjs 草稿态）在测试站不可用；单人编辑/审批/建议等非实时路径不受影响 | Node 服务 + env(`COLLAB_SECRET` 与 web 一致) + systemd；同样是额外常驻进程 |
+
+**关键推论**：行内批注锚点重映射（含跨块）依赖 worker，worker 依赖 Meilisearch。要让锚点重映射在 testblog 真正生效，得**同时**把 Meilisearch + worker 立起来——这是给紧内存服务器**新增两个常驻服务**的决定，属高危外向操作，**先征得用户同意**，并在上线后复核邻居站与总内存。纯 web 迭代（path-A）不涉及这些。
+
 ## 构建约束（为什么不能简单 docker build）
 
 - 服务器是 **linux/amd64**；原生模块（`sharp`）必须是 amd64 二进制。
