@@ -2,6 +2,7 @@
 
 // 账户自助：公开资料（头像/简介/阶段）、改名（统一身份）、改密码（better-auth）、通知偏好、注销。
 import { Alert, Button, Input, Label, Textarea, usePrompt, useToast } from '@harublog/ui';
+import { X } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { type FormEvent, useRef, useState } from 'react';
@@ -9,6 +10,7 @@ import { uploadImageFile } from '@/components/editor/upload';
 import { SettingsCard, SettingsGroup } from '@/components/settings-card';
 import { authClient } from '@/lib/auth-client';
 import { translateAuthError } from '@/lib/auth-errors';
+import { EDUCATION_STAGES, type EducationEntry, LEGACY_STAGE_MAP } from '@/lib/education';
 import { validateName } from '@/lib/identity';
 import {
   deleteMyAccount,
@@ -21,8 +23,6 @@ import { TwoFactorSection } from './two-factor-section';
 
 type Notice = { kind: 'info' | 'danger'; text: string } | null;
 
-const STAGES = ['', '初中', '高中', '大学', '毕业', '其他'];
-
 export function AccountForm({
   initialName,
   email,
@@ -30,6 +30,7 @@ export function AccountForm({
   emailNotifications,
   initialBio,
   initialEducationStage,
+  initialEducation,
   initialImage,
   renameQuota,
   twoFactorEnabled,
@@ -39,7 +40,9 @@ export function AccountForm({
   emailVerified: boolean;
   emailNotifications: boolean;
   initialBio: string;
+  /** 旧单字段（兼容老资料）：仅当 initialEducation 为空时用作编辑起点 */
   initialEducationStage: string;
+  initialEducation: EducationEntry[] | null;
   initialImage: string;
   /** 改名滚动窗口配额（服务端算好传入） */
   renameQuota: { remaining: number; limit: number; windowDays: number };
@@ -51,7 +54,16 @@ export function AccountForm({
   const [nameBusy, setNameBusy] = useState(false);
 
   const [bio, setBio] = useState(initialBio);
-  const [stage, setStage] = useState(initialEducationStage);
+  // 教育经历：优先用新结构；否则把旧单字段映射成一条作为编辑起点
+  const [education, setEducation] = useState<EducationEntry[]>(() => {
+    if (initialEducation && initialEducation.length > 0) {
+      return initialEducation;
+    }
+    if (initialEducationStage) {
+      return [{ stage: LEGACY_STAGE_MAP[initialEducationStage] ?? '其他', school: '', field: '' }];
+    }
+    return [];
+  });
   const [image, setImage] = useState(initialImage);
   const [profileNotice, setProfileNotice] = useState<Notice>(null);
   const [profileBusy, setProfileBusy] = useState(false);
@@ -75,11 +87,22 @@ export function AccountForm({
     router.refresh();
   }
 
+  // 教育经历增减/编辑（保存时服务端会丢空行并按阶段排序）
+  function setEduRow(i: number, patch: Partial<EducationEntry>) {
+    setEducation((prev) => prev.map((e, j) => (j === i ? { ...e, ...patch } : e)));
+  }
+  function addEduRow() {
+    setEducation((prev) => [...prev, { stage: '本科', school: '', field: '' }]);
+  }
+  function removeEduRow(i: number) {
+    setEducation((prev) => prev.filter((_, j) => j !== i));
+  }
+
   async function saveProfile(e: FormEvent) {
     e.preventDefault();
     setProfileBusy(true);
     setProfileNotice(null);
-    const r = await updateProfile({ bio, educationStage: stage });
+    const r = await updateProfile({ bio, education });
     setProfileNotice(
       r.ok ? { kind: 'info', text: '资料已更新' } : { kind: 'danger', text: r.error },
     );
@@ -255,20 +278,66 @@ export function AccountForm({
                 placeholder="一句话介绍你自己（最长 280 字，公开展示）"
               />
             </div>
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="acc-stage">教育阶段（自愿）</Label>
-              <select
-                id="acc-stage"
-                value={stage}
-                onChange={(e) => setStage(e.target.value)}
-                className="h-9 w-40 rounded-sm border border-ink-200 bg-paper-50 px-3 text-ink-800 text-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600"
+            <div className="flex flex-col gap-2">
+              <Label>教育经历（自愿，公开展示）</Label>
+              {education.length === 0 ? (
+                <p className="text-ink-400 text-sm">还没有添加；点下方「添加一条」。</p>
+              ) : (
+                <ul className="flex flex-col gap-2">
+                  {education.map((row, i) => (
+                    <li key={i} className="flex flex-wrap items-center gap-2">
+                      <select
+                        aria-label="学历阶段"
+                        value={row.stage}
+                        onChange={(e) => setEduRow(i, { stage: e.target.value })}
+                        className="h-9 w-28 rounded-sm border border-ink-200 bg-paper-50 px-2 text-ink-800 text-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600"
+                      >
+                        {EDUCATION_STAGES.map((s) => (
+                          <option key={s} value={s}>
+                            {s}
+                          </option>
+                        ))}
+                      </select>
+                      <Input
+                        aria-label="学校"
+                        value={row.school}
+                        maxLength={100}
+                        onChange={(e) => setEduRow(i, { school: e.target.value })}
+                        placeholder="学校"
+                        className="w-44"
+                      />
+                      <Input
+                        aria-label="专业 / 方向（选填）"
+                        value={row.field ?? ''}
+                        maxLength={100}
+                        onChange={(e) => setEduRow(i, { field: e.target.value })}
+                        placeholder="专业 / 方向（选填）"
+                        className="w-44"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => removeEduRow(i)}
+                        aria-label="删除这条"
+                        className="shrink-0 rounded p-1 text-ink-400 transition-colors hover:text-accent-700"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              <button
+                type="button"
+                onClick={addEduRow}
+                className="self-start text-brand-700 text-sm transition-colors hover:text-brand-900"
               >
-                {STAGES.map((s) => (
-                  <option key={s} value={s}>
-                    {s === '' ? '不公开' : s}
-                  </option>
-                ))}
-              </select>
+                + 添加一条
+              </button>
+              <p className="text-ink-400 text-xs">
+                填学历阶段 +
+                学校（专业/方向选填）；只填了阶段没填学校的会被忽略。保存后自动按阶段排序（如 本科 →
+                硕士 → 博士）。
+              </p>
             </div>
             <Button type="submit" loading={profileBusy} className="self-start">
               保存资料

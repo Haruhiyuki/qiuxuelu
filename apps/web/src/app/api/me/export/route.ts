@@ -28,6 +28,7 @@ export async function GET(): Promise<Response> {
         email: userTable.email,
         bio: userTable.bio,
         educationStage: userTable.educationStage,
+        education: userTable.education,
         createdAt: userTable.createdAt,
       })
       .from(userTable)

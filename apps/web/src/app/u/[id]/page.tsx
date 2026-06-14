@@ -26,6 +26,7 @@ import { notFound } from 'next/navigation';
 import type { ReactNode } from 'react';
 import { Breadcrumb } from '@/components/breadcrumb';
 import { TRUST_LEVEL_NAMES, TrustRoadmap } from '@/components/trust-roadmap';
+import { formatEducation } from '@/lib/education';
 import { formatDate } from '@/lib/format';
 import { getSession } from '@/lib/session';
 import { computeUserStats, loadThresholds } from '@/server/trust';
@@ -45,6 +46,7 @@ async function loadProfile(id: string) {
       image: userTable.image,
       bio: userTable.bio,
       educationStage: userTable.educationStage,
+      education: userTable.education,
       createdAt: userTable.createdAt,
       trustLevel: userTrust.level,
     })
@@ -187,7 +189,14 @@ export default async function ProfilePage({ params }: ProfilePageProps) {
               <Badge variant="brand">
                 TL{trustLevel} · {TRUST_LEVEL_NAMES[trustLevel] ?? '贡献者'}
               </Badge>
-              {profile.educationStage ? (
+              {profile.education && profile.education.length > 0 ? (
+                profile.education.map((e, i) => (
+                  <span key={i} className="flex items-center gap-1">
+                    <GraduationCap className="h-3.5 w-3.5 text-ink-400" aria-hidden />
+                    {formatEducation(e)}
+                  </span>
+                ))
+              ) : profile.educationStage ? (
                 <span className="flex items-center gap-1">
                   <GraduationCap className="h-3.5 w-3.5 text-ink-400" aria-hidden />
                   {profile.educationStage}

@@ -162,6 +162,20 @@
       "when": 1781336996323,
       "tag": "0022_yummy_gauntlet",
       "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1781440254068,
+      "tag": "0023_cynical_hercules",
+      "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1781445866045,
+      "tag": "0024_round_phalanx",
+      "breakpoints": true
     }
   ]
 }

@@ -11,6 +11,7 @@ import {
 } from '@harublog/db';
 import { and, count, eq, gte, inArray, ne, sql } from 'drizzle-orm';
 import { z } from 'zod';
+import { EDUCATION_STAGES, type EducationEntry, sortEducation } from '@/lib/education';
 import { validateName } from '@/lib/identity';
 import { getSession } from '@/lib/session';
 import type { ActionResult } from '@/server/action-result';
@@ -27,18 +28,22 @@ export async function setEmailNotifications(enabled: boolean): Promise<ActionRes
   return { ok: true, data: null };
 }
 
-const EDUCATION_STAGES = ['初中', '高中', '大学', '毕业', '其他'] as const;
+const educationEntrySchema = z.object({
+  stage: z.enum(EDUCATION_STAGES),
+  school: z.string().trim().min(1, '请填写学校').max(100, '学校名最长 100 字'),
+  field: z.string().trim().max(100, '专业/方向最长 100 字').optional(),
+});
 
 const profileSchema = z.object({
   bio: z.string().trim().max(280, '简介最长 280 字').optional(),
-  educationStage: z.enum(EDUCATION_STAGES).or(z.literal('')).optional(),
+  education: z.array(educationEntrySchema).max(10, '最多 10 条教育经历').optional(),
   image: z.string().trim().max(500).optional(),
 });
 
-/** 更新本人公开资料：简介 / 教育阶段 / 头像（头像 url 来自媒体上传）。 */
+/** 更新本人公开资料：简介 / 教育经历 / 头像（头像 url 来自媒体上传）。 */
 export async function updateProfile(input: {
   bio?: string;
-  educationStage?: string;
+  education?: EducationEntry[];
   image?: string;
 }): Promise<ActionResult> {
   const session = await getSession();
@@ -49,13 +54,29 @@ export async function updateProfile(input: {
   if (!parsed.success) {
     return { ok: false, error: parsed.error.issues[0]?.message ?? '资料校验失败' };
   }
-  const { bio, educationStage, image } = parsed.data;
-  const patch: Partial<{ bio: string | null; educationStage: string | null; image: string }> = {};
+  const { bio, education, image } = parsed.data;
+  const patch: Partial<{
+    bio: string | null;
+    education: EducationEntry[] | null;
+    educationStage: string | null;
+    image: string;
+  }> = {};
   if (bio !== undefined) {
     patch.bio = bio.length > 0 ? bio : null;
   }
-  if (educationStage !== undefined) {
-    patch.educationStage = educationStage.length > 0 ? educationStage : null;
+  if (education !== undefined) {
+    // 去掉没填学校的空行 → 归一字段 → 按学历阶段排序；写新结构同时清退旧单字段
+    const cleaned = sortEducation(
+      education
+        .filter((e) => e.school.trim().length > 0)
+        .map((e) => ({
+          stage: e.stage,
+          school: e.school.trim(),
+          ...(e.field && e.field.trim().length > 0 ? { field: e.field.trim() } : {}),
+        })),
+    );
+    patch.education = cleaned.length > 0 ? cleaned : null;
+    patch.educationStage = null;
   }
   if (image !== undefined && image.length > 0) {
     patch.image = image;
@@ -189,6 +210,7 @@ export async function deleteMyAccount(confirmText: string): Promise<ActionResult
         image: null,
         bio: null,
         educationStage: null,
+        education: null,
         status: 'suspended',
         deletedAt: now,
       })

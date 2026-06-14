@@ -7,6 +7,7 @@ import {
   check,
   index,
   integer,
+  jsonb,
   pgTable,
   text,
   timestamp,
@@ -28,8 +29,10 @@ export const user = pgTable(
     updatedAt: timestamp('updatedAt', { withTimezone: true }).notNull().defaultNow(),
     // —— 以下为业务追加列（better-auth additionalFields 对接）——
     bio: text('bio'),
-    // 教育阶段标签（自愿填写，公开展示）：初中/高中/大学/毕业/其他
+    // 教育阶段标签（旧单字段，已被 education 取代）：仅作老资料展示兜底，新写入一律置空
     educationStage: text('education_stage'),
+    // 教育经历（自愿，公开展示）：有序多条，每条 = 学历阶段 + 学校 + 选填专业/方向
+    education: jsonb('education').$type<{ stage: string; school: string; field?: string }[]>(),
     status: text('status').notNull().default('active'),
     // 账号注销（软删）：置位后 PII 已匿名化、会话清除、不可登录；内容署名保留为「已注销用户」
     deletedAt: timestamp('deleted_at', { withTimezone: true }),

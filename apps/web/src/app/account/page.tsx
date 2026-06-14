@@ -30,6 +30,7 @@ export default async function AccountPage() {
         emailNotifications: userTable.emailNotifications,
         bio: userTable.bio,
         educationStage: userTable.educationStage,
+        education: userTable.education,
         image: userTable.image,
         twoFactorEnabled: userTable.twoFactorEnabled,
       })
@@ -97,6 +98,7 @@ export default async function AccountPage() {
           emailNotifications={prefRow?.emailNotifications ?? true}
           initialBio={prefRow?.bio ?? ''}
           initialEducationStage={prefRow?.educationStage ?? ''}
+          initialEducation={prefRow?.education ?? null}
           initialImage={prefRow?.image ?? ''}
           renameQuota={renameQuota}
           twoFactorEnabled={prefRow?.twoFactorEnabled ?? false}
