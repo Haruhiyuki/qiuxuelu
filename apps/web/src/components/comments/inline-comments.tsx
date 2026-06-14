@@ -7,7 +7,7 @@
 // 3. 窄屏：点击正文高亮 <mark> 弹出浮窗展示该段批注。
 // 锚点偏移以段落 DOM 的 textContent 为口径（= kernel extractText）。
 import { Button } from '@harublog/ui';
-import { MessageSquarePlus } from 'lucide-react';
+import { MessageSquare, MessageSquarePlus } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createInlineComment } from '@/server/actions/comment';
@@ -45,8 +45,8 @@ interface AnchorGroup {
 }
 
 const CTX = 16;
-/** 边注卡片之间的最小间距（px） */
-const CARD_GAP = 12;
+/** 边注栏元素（批注点 / 草稿卡）之间的最小间距（px）：点位重叠时据此向下避让 */
+const CARD_GAP = 8;
 
 export function InlineComments({
   docId,
@@ -187,19 +187,12 @@ export function InlineComments({
   // 点击：宽屏（边注栏可见）闪烁对应边注卡；窄屏弹出批注浮窗。悬停与边注卡互相提亮。
   // 偏移口径 = 段落 textContent（与 captureSelection / kernel extractText 一致；worker 已在发布时重映射）。
   useEffect(() => {
+    // 点击正文高亮 → 在落点附近浮现该段批注（宽窄屏一致，独立浮窗、一次一个）
     const onMarkClick = (e: Event) => {
       const el = e.currentTarget as HTMLElement;
       const blockId = el.dataset.blockId;
       if (blockId === undefined) {
         return;
-      }
-      const rail = railRef.current;
-      if (rail !== null && rail.offsetParent !== null) {
-        const card = cardRefs.current.get(blockId);
-        if (card !== null && card !== undefined) {
-          flash(card);
-          return;
-        }
       }
       const rect = el.getBoundingClientRect();
       setPopover({ blockId, x: clampX(rect.left + rect.width / 2, 168), y: rect.bottom + 8 });
@@ -244,6 +237,15 @@ export function InlineComments({
       mark.classList.toggle('is-active', on);
     }
   }, []);
+
+  // 浮窗打开期间，持续提亮其对应正文高亮（让「点开的这条」与正文呼应）
+  useEffect(() => {
+    if (popover === null) {
+      return;
+    }
+    setMarksActive(popover.blockId, true);
+    return () => setMarksActive(popover.blockId, false);
+  }, [popover, setMarksActive]);
 
   // 边注栏排版：卡片 top 对齐锚点段落，相邻卡片堆叠避让；正文高度变化（图片加载等）时重算
   const layoutRail = useCallback(() => {
@@ -435,7 +437,7 @@ export function InlineComments({
             </button>
           </div>
           <div className="mt-3">
-            <CommentList items={popoverGroup.items} />
+            <CommentList items={popoverGroup.items} onLocate={scrollToMark} />
           </div>
         </div>
       ) : null}
@@ -478,33 +480,51 @@ export function InlineComments({
             />
           </div>
         ) : null}
-        {groups.map((g) => (
-          // biome-ignore lint/a11y/noStaticElementInteractions: 悬停联动是纯装饰增强；键盘/读屏的定位路径由卡内引文按钮承担
-          <div
-            key={g.blockId}
-            ref={(el) => {
-              if (el === null) {
-                cardRefs.current.delete(g.blockId);
-              } else {
-                cardRefs.current.set(g.blockId, el);
+        {/* 批注点（默认折叠）：每段一颗对齐锚点的小点，重叠时向下避让；点击浮现该段批注。 */}
+        {groups.map((g) => {
+          const active = activeBlock === g.blockId || popover?.blockId === g.blockId;
+          return (
+            <div
+              key={g.blockId}
+              ref={(el) => {
+                if (el === null) {
+                  cardRefs.current.delete(g.blockId);
+                } else {
+                  cardRefs.current.set(g.blockId, el);
+                }
+              }}
+              style={
+                measured
+                  ? { position: 'absolute', top: tops[g.blockId] ?? 0, left: 0, right: 0 }
+                  : undefined
               }
-            }}
-            style={
-              measured
-                ? { position: 'absolute', top: tops[g.blockId] ?? 0, left: 0, right: 0 }
-                : undefined
-            }
-            onMouseEnter={() => setMarksActive(g.blockId, true)}
-            onMouseLeave={() => setMarksActive(g.blockId, false)}
-            className={`mb-3 rounded-md border bg-paper-50 p-3 shadow-paper transition-[top,border-color,box-shadow] duration-200 ${
-              activeBlock === g.blockId
-                ? 'border-ochre-600/60 shadow-lift'
-                : 'border-ink-200 hover:border-ink-300'
-            }`}
-          >
-            <CommentList items={g.items} compact onLocate={scrollToMark} />
-          </div>
-        ))}
+              className="flex transition-[top] duration-200"
+            >
+              <button
+                type="button"
+                onClick={(e) => {
+                  const r = e.currentTarget.getBoundingClientRect();
+                  setPopover({
+                    blockId: g.blockId,
+                    x: clampX(r.left + r.width / 2, 168),
+                    y: r.bottom + 8,
+                  });
+                }}
+                onMouseEnter={() => setMarksActive(g.blockId, true)}
+                onMouseLeave={() => setMarksActive(g.blockId, false)}
+                aria-label={`查看本段批注（${g.items.length}）`}
+                className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs shadow-paper transition-colors ${
+                  active
+                    ? 'border-ochre-600/60 bg-ochre-50 text-ochre-800'
+                    : 'border-ink-200 bg-paper-50 text-ink-500 hover:border-brand-300 hover:text-brand-700'
+                }`}
+              >
+                <MessageSquare className="h-3 w-3" aria-hidden />
+                {g.items.length}
+              </button>
+            </div>
+          );
+        })}
       </aside>
     </>
   );
