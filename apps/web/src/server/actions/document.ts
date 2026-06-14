@@ -32,6 +32,7 @@ import {
   diffManifests,
   extractText,
   SCHEMA_VERSION,
+  threeWayMerge,
   validateDoc,
 } from '@harublog/kernel';
 import { and, asc, eq, inArray, sql } from 'drizzle-orm';
@@ -42,12 +43,27 @@ import { getSession } from '@/lib/session';
 import type { ActionResult } from '@/server/action-result';
 import { loadActor } from '@/server/actors';
 import { consentGate } from '@/server/consent';
+import {
+  applyResolutions,
+  type CommitConflictView,
+  type CommitOutcome,
+  type ConflictResolutions,
+  entriesOf,
+  textByHashes,
+} from '@/server/merge';
 import { insertNotification } from '@/server/notifications';
 import { publishRevisionTx } from '@/server/publish';
 import { loadRevisionDoc } from '@/server/revision-doc';
 
 /** 业务可预期失败：事务内抛出触发回滚，边界处转成 {ok:false} 中文文案。 */
 class ActionError extends Error {}
+
+/** 提交撞真冲突（同块两人都改）：事务内抛出 → 回滚 → 外层转成 {committed:false, conflicts} 交前端裁决。 */
+class CommitConflict extends Error {
+  constructor(readonly conflicts: CommitConflictView[]) {
+    super('提交存在冲突，需逐块裁决');
+  }
+}
 
 function fail(error: string): { ok: false; error: string } {
   return { ok: false, error };
@@ -365,7 +381,8 @@ export async function updateDocumentMeta(
 export async function commitRevision(
   rawDocId: string,
   rawMessage: string,
-): Promise<ActionResult<{ seq: number }>> {
+  rawResolutions?: ConflictResolutions,
+): Promise<ActionResult<CommitOutcome>> {
   const actor = await requireActor();
   if (!actor) {
     return fail('请先登录');
@@ -378,13 +395,14 @@ export async function commitRevision(
     return fail(messageParsed.error.issues[0]?.message ?? '修订说明校验失败');
   }
   const message = messageParsed.data.length > 0 ? messageParsed.data : null;
+  const resolutions: ConflictResolutions = rawResolutions ?? {};
 
   const docRow = await findDoc(rawDocId);
   if (!docRow) {
     return fail('文章不存在');
   }
   if (docRow.ownerId !== actor.id) {
-    return fail('只有作者本人可以提交修订（协作建议是下一阶段功能）');
+    return fail('只有作者本人可以提交修订');
   }
   // 经 can() 而非裸放行：让 edit_ban/ban 制裁与账号停用在此一票否决
   const decision = can(actor, 'doc.edit_direct', {
@@ -397,7 +415,7 @@ export async function commitRevision(
 
   const db = getDb();
   try {
-    const seq = await db.transaction(async (tx) => {
+    const outcome = await db.transaction(async (tx): Promise<CommitOutcome> => {
       const wcRows = await tx
         .select({ content: workingCopies.content, baseRevisionId: workingCopies.baseRevisionId })
         .from(workingCopies)
@@ -432,18 +450,8 @@ export async function commitRevision(
         .where(and(eq(documentRefs.documentId, rawDocId), eq(documentRefs.name, 'draft')))
         .limit(1);
       const expectedHead = refRows[0]?.revisionId ?? null;
-      // 陈旧基底防线：草稿基于的修订落后于当前头时拒绝提交——否则会把别的会话
-      // 已提交的新内容静默回退（丢更新）。刷新页面后编辑器会基于最新头重建草稿。
-      if (
-        wc.baseRevisionId !== null &&
-        expectedHead !== null &&
-        wc.baseRevisionId !== expectedHead
-      ) {
-        throw new ActionError(
-          '草稿基于的版本已落后于最新修订（其他会话已提交过），请刷新页面核对内容后再提交',
-        );
-      }
 
+      // 当前头（theirs）= 提交所基于的父；同时算旧字数与父哈希集
       let parentEntries: ManifestEntry[] = [];
       let oldChars = 0;
       const parentHashes = new Set<string>();
@@ -464,6 +472,40 @@ export async function commitRevision(
           parentHashes.add(row.hash);
         }
       }
+
+      // 并发合并（ADR-0012）：草稿基底落后于当前头（其他会话已提交）→ 三方合并而非拒绝丢工作。
+      // base=我的基底、ours=我的内容、theirs=当前头。改不同块→自动合并；同块两改→返回冲突逐块裁决。
+      const baseStale =
+        wc.baseRevisionId !== null && expectedHead !== null && wc.baseRevisionId !== expectedHead;
+      let committedEntries: ManifestEntry[] = dbEntries;
+      const merged = baseStale || Object.keys(resolutions).length > 0;
+      if (merged) {
+        const baseEntries =
+          wc.baseRevisionId !== null ? await entriesOf(tx, wc.baseRevisionId) : [];
+        const merge = threeWayMerge(baseEntries, dbEntries, parentEntries);
+        const unresolved = merge.conflicts.filter((c) => resolutions[c.blockId] === undefined);
+        if (unresolved.length > 0) {
+          // 真冲突：把双方文本带回前端逐块裁决（ours 取自内存工作副本、theirs 取自库），
+          // 抛出后整事务回滚——不写任何东西，不留孤儿 blob。
+          const oursText = new Map<string, string>();
+          for (const [hash, node] of manifest.blobs) {
+            oursText.set(hash, extractText(node));
+          }
+          const theirsText = await textByHashes(
+            tx,
+            merge.conflicts.flatMap((c) => (c.theirsHash !== null ? [c.theirsHash] : [])),
+          );
+          throw new CommitConflict(
+            merge.conflicts.map((c) => ({
+              blockId: c.blockId,
+              oursText: c.oursHash !== null ? (oursText.get(c.oursHash) ?? '') : null,
+              theirsText: c.theirsHash !== null ? (theirsText.get(c.theirsHash) ?? '') : null,
+            })),
+          );
+        }
+        committedEntries = applyResolutions(merge.entries, merge.conflicts, resolutions);
+      }
+
       // seq 是文档全局单调计数（与分支无关）——取全文档最大值 +1，避免与建议分支等占用的 seq 碰撞
       const maxSeqRows = await tx
         .select({ maxSeq: sql<number>`coalesce(max(${revisions.seq}), 0)` })
@@ -471,22 +513,16 @@ export async function commitRevision(
         .where(eq(revisions.documentId, rawDocId));
       const parentSeq = Number(maxSeqRows[0]?.maxSeq ?? 0);
 
-      const changes = diffManifests(parentEntries, dbEntries);
+      const changes = diffManifests(parentEntries, committedEntries);
       if (changes.length === 0) {
         throw new ActionError('内容与当前修订完全一致，无需提交');
       }
 
-      const textByHash = new Map<string, string>();
+      // 新 blob 内容寻址去重：父修订（theirs）已有的哈希直接复用——ours 内容里的新块全部入库
+      const oursTextByHash = new Map<string, string>();
       for (const [hash, node] of manifest.blobs) {
-        textByHash.set(hash, extractText(node));
+        oursTextByHash.set(hash, extractText(node));
       }
-      let newChars = 0;
-      for (const entry of dbEntries) {
-        // 按码点计数与旧值的 SQL length()（PG 码点语义）同口径，星平面字符不偏斜
-        newChars += [...(textByHash.get(entry.hash) ?? '')].length;
-      }
-
-      // 新 blob 内容寻址去重：父修订已有的哈希直接复用，跨文档重复交给 onConflictDoNothing
       const blobRows = [...manifest.blobs]
         .filter(([hash]) => !parentHashes.has(hash))
         .map(([hash, node]) => ({
@@ -494,11 +530,24 @@ export async function commitRevision(
           canonVersion: CANON_VERSION,
           schemaVersion: SCHEMA_VERSION,
           content: node,
-          textPlain: textByHash.get(hash) ?? '',
+          textPlain: oursTextByHash.get(hash) ?? '',
           sizeBytes: Buffer.byteLength(canonicalize(node), 'utf8'),
         }));
       if (blobRows.length > 0) {
         await tx.insert(blobs).values(blobRows).onConflictDoNothing({ target: blobs.hash });
+      }
+
+      // newChars：按最终提交内容算（合并时可能含 theirs 块），theirs 文本回库补齐；与 PG length() 同码点口径
+      const committedText = new Map(oursTextByHash);
+      const missing = committedEntries.map((e) => e.hash).filter((h) => !committedText.has(h));
+      if (missing.length > 0) {
+        for (const [h, v] of await textByHashes(tx, missing)) {
+          committedText.set(h, v);
+        }
+      }
+      let newChars = 0;
+      for (const entry of committedEntries) {
+        newChars += [...(committedText.get(entry.hash) ?? '')].length;
       }
 
       const newSeq = parentSeq + 1;
@@ -512,7 +561,7 @@ export async function commitRevision(
           committerId: actor.id,
           kind: 'edit',
           message,
-          manifestHash: hashManifest(dbEntries),
+          manifestHash: hashManifest(committedEntries),
           schemaVersion: SCHEMA_VERSION,
           charsDelta: newChars - oldChars,
           blocksChanged: changes.length,
@@ -539,37 +588,33 @@ export async function commitRevision(
           .onConflictDoNothing({ target: blocks.id });
       }
 
-      // 跨文档块身份劫持防线：树中引用的每个块必须属于本文档。
-      // uuid 形 blockId 从快照回灌路径直通入树，onConflictDoNothing 会静默吞掉
-      // 「插入他文档已有块」的冲突——必须显式校验所属。
-      if (dbEntries.length > 0) {
+      // 跨文档块身份劫持防线：最终树中引用的每个块必须属于本文档。
+      if (committedEntries.length > 0) {
         const owned = await tx
           .select({ id: blocks.id, documentId: blocks.documentId })
           .from(blocks)
           .where(
             inArray(
               blocks.id,
-              dbEntries.map((e) => e.blockId),
+              committedEntries.map((e) => e.blockId),
             ),
           );
         const ownedById = new Map(owned.map((b) => [b.id, b.documentId]));
-        for (const entry of dbEntries) {
+        for (const entry of committedEntries) {
           const ownerDoc = ownedById.get(entry.blockId);
           if (ownerDoc === undefined || ownerDoc !== rawDocId) {
             throw new ActionError('块身份校验失败：存在不属于本文档的块引用，请刷新页面后重试');
           }
         }
-      }
-
-      if (dbEntries.length > 0)
         await tx.insert(revisionBlocks).values(
-          dbEntries.map((entry, position) => ({
+          committedEntries.map((entry, position) => ({
             revisionId,
             position,
             blockId: entry.blockId,
             blobHash: entry.hash,
           })),
         );
+      }
 
       await tx.insert(revisionChanges).values(changes.map((c) => toChangeRow(revisionId, c)));
 
@@ -601,9 +646,13 @@ export async function commitRevision(
         }
       }
 
+      // 工作副本基底前移到新修订；合并时内容也同步为合并后的结果（否则编辑器仍是合并前的 ours、会再撞）
       await tx
         .update(workingCopies)
-        .set({ baseRevisionId: revisionId })
+        .set({
+          baseRevisionId: revisionId,
+          ...(merged ? { content: validateDoc(await loadRevisionDoc(tx, revisionId)) } : {}),
+        })
         .where(and(eq(workingCopies.documentId, rawDocId), eq(workingCopies.userId, actor.id)));
       await tx.update(documents).set({ updatedAt: now }).where(eq(documents.id, rawDocId));
       await tx.insert(auditLog).values({
@@ -612,12 +661,20 @@ export async function commitRevision(
         subjectType: 'revision',
         subjectId: revisionId,
         sectionId: docRow.sectionId,
-        detail: { documentId: rawDocId, seq: newSeq, blocksChanged: changes.length },
+        detail: {
+          documentId: rawDocId,
+          seq: newSeq,
+          blocksChanged: changes.length,
+          merged,
+        },
       });
-      return newSeq;
+      return { committed: true, seq: newSeq, merged };
     });
-    return { ok: true, data: { seq } };
+    return { ok: true, data: outcome };
   } catch (err) {
+    if (err instanceof CommitConflict) {
+      return { ok: true, data: { committed: false, conflicts: err.conflicts } };
+    }
     // 并发竞速也可能先撞 unique(document_id, seq) 而非 CAS——统一回中文冲突提示
     if (isUniqueViolation(err)) {
       return fail('提交冲突：草稿在你提交期间已被其他会话更新，请刷新页面后重试');

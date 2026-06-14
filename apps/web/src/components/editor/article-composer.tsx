@@ -21,8 +21,10 @@ import {
   updateDocumentMeta,
 } from '@/server/actions/document';
 import { setDocumentTags } from '@/server/actions/tags';
+import type { CommitConflictView, ConflictResolutions } from '@/server/merge';
 import { BubbleToolbar } from './bubble-toolbar';
 import { clientExtensions } from './client-extensions';
+import { CommitConflictDialog } from './commit-conflict-dialog';
 import { TableToolbar } from './table-toolbar';
 import { EditorToolbar } from './toolbar';
 
@@ -75,6 +77,13 @@ export function ArticleComposer(props: ArticleComposerProps) {
   const [commitMessage, setCommitMessage] = useState('');
   const [actionPending, setActionPending] = useState(false);
   const [notice, setNotice] = useState<{ kind: 'info' | 'danger'; text: string } | null>(null);
+  // 并发提交真冲突（同块两改）：弹三栏裁决；记住触发的修订说明供裁决后重交（ADR-0012）
+  const [conflict, setConflict] = useState<{
+    message: string;
+    conflicts: CommitConflictView[];
+  } | null>(null);
+  const [resolvePending, setResolvePending] = useState(false);
+  const [resolveError, setResolveError] = useState<string | null>(null);
 
   const titleRef = useRef(title);
   const sectionRef = useRef(sectionId);
@@ -285,18 +294,61 @@ export function ArticleComposer(props: ArticleComposerProps) {
         return;
       }
       const result = await commitRevision(id, commitMessage);
-      if (result.ok) {
-        setCommitOpen(false);
-        setCommitMessage('');
-        setHasRevisions(true);
-        setHeadSeq(result.data.seq);
-        setNotice({ kind: 'info', text: `已提交第 ${result.data.seq} 号修订` });
-        router.refresh();
-      } else {
+      if (!result.ok) {
         setNotice({ kind: 'danger', text: result.error });
+        return;
+      }
+      if (result.data.committed) {
+        finishCommit(result.data.seq, result.data.merged);
+      } else {
+        // 真冲突：弹三栏裁决（记住本次说明供裁决后重交）
+        setConflict({ message: commitMessage, conflicts: result.data.conflicts });
       }
     } finally {
       setActionPending(false);
+    }
+  }
+
+  // 提交成功收尾。merged=三方合并过 → 草稿内容已含他人改动，整页重载让编辑器显示合并结果；否则软刷新。
+  function finishCommit(seq: number, merged: boolean) {
+    setCommitOpen(false);
+    setCommitMessage('');
+    setConflict(null);
+    setHasRevisions(true);
+    setHeadSeq(seq);
+    setNotice({
+      kind: 'info',
+      text: merged ? `已合并并发改动并提交第 ${seq} 号修订` : `已提交第 ${seq} 号修订`,
+    });
+    if (merged) {
+      window.location.reload();
+    } else {
+      router.refresh();
+    }
+  }
+
+  // 三栏裁决后按选择重新提交（合并）
+  async function resolveConflict(resolutions: ConflictResolutions) {
+    const id = docId;
+    if (id === null || conflict === null) {
+      return;
+    }
+    setResolvePending(true);
+    setResolveError(null);
+    const result = await commitRevision(id, conflict.message, resolutions);
+    if (!result.ok) {
+      setResolveError(result.error);
+      setResolvePending(false);
+      return;
+    }
+    if (result.data.committed) {
+      setResolvePending(false);
+      finishCommit(result.data.seq, true);
+    } else {
+      // 期间又有新并发改动 → 冲突集刷新，重裁
+      setConflict({ message: conflict.message, conflicts: result.data.conflicts });
+      setResolveError('期间又有新的并发改动，请重新裁决');
+      setResolvePending(false);
     }
   }
 
@@ -330,10 +382,20 @@ export function ArticleComposer(props: ArticleComposerProps) {
       // 申请发布前自动把当前草稿固化为一次修订（新文章无需手动「提交修订」）：
       // 内容有变则提交；与上次修订一致且已有修订则直接发布；空文章则提示先写内容。
       const commit = await commitRevision(id, '');
-      if (commit.ok) {
+      if (commit.ok && !commit.data.committed) {
+        // 发布前固化草稿撞并发冲突：先弹裁决，解决后再发布
+        setConflict({ message: '', conflicts: commit.data.conflicts });
+        return;
+      }
+      if (commit.ok && commit.data.committed) {
         setHasRevisions(true);
         setHeadSeq(commit.data.seq);
-      } else if (!hasRevisions) {
+        if (commit.data.merged) {
+          // 自动合并了他人改动：内容已变，先重载让作者复核合并结果，再决定是否发布
+          finishCommit(commit.data.seq, true);
+          return;
+        }
+      } else if (!commit.ok && !hasRevisions) {
         setNotice({ kind: 'danger', text: commit.error });
         return;
       }
@@ -363,6 +425,18 @@ export function ArticleComposer(props: ArticleComposerProps) {
   return (
     <div className="min-h-svh">
       {confirmDialog}
+      {conflict !== null ? (
+        <CommitConflictDialog
+          conflicts={conflict.conflicts}
+          pending={resolvePending}
+          error={resolveError}
+          onResolve={resolveConflict}
+          onCancel={() => {
+            setConflict(null);
+            setResolveError(null);
+          }}
+        />
+      ) : null}
       {/* 顶部操作条：返回 / 状态 / 保存指示 / 发布设置 / 提交 / 发布 */}
       <div className="sticky top-0 z-30 border-ink-200 border-b bg-paper-100/90 backdrop-blur-md">
         <div className="mx-auto flex w-full max-w-5xl items-center gap-2 px-4 py-2.5 sm:gap-3 sm:px-6">

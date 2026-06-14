@@ -27,7 +27,7 @@ import {
   type SuggestionStatus,
   transitionSuggestion,
 } from '@harublog/domain';
-import type { BlockNode, DocJson, ManifestEntry, MergeConflict } from '@harublog/kernel';
+import type { BlockNode, DocJson, ManifestEntry } from '@harublog/kernel';
 import {
   buildManifest,
   CANON_VERSION,
@@ -45,6 +45,12 @@ import { getSession } from '@/lib/session';
 import type { ActionResult } from '@/server/action-result';
 import { loadActor } from '@/server/actors';
 import { consentGate } from '@/server/consent';
+import {
+  applyResolutions,
+  type ConflictResolutions,
+  type ConflictView,
+  entriesOf,
+} from '@/server/merge';
 import { insertNotification } from '@/server/notifications';
 import { maybeAutoPromote } from '@/server/promote';
 import { loadRevisionDoc } from '@/server/revision-doc';
@@ -586,53 +592,12 @@ async function closeQueue(
 // ── 接受建议：三方块级合并（快进/自动变基/冲突裁决，ADR-0004 §3.3）──────────────
 
 /** 冲突裁决结果：blockId → 采用主线(ours)还是建议(theirs)。 */
-export type ConflictResolutions = Record<string, 'ours' | 'theirs'>;
-
-export interface ConflictView {
-  blockId: string;
-  baseHash: string | null;
-  oursHash: string | null;
-  theirsHash: string | null;
-}
+// ConflictResolutions / ConflictView / applyResolutions / entriesOf 已抽到 @/server/merge（与直接提交共用）
+export type { ConflictResolutions, ConflictView };
 
 export type MergeOutcome =
   | { merged: true; seq: number }
   | { merged: false; conflicts: ConflictView[] };
-
-/** 把冲突裁决应用到合并结果 entries 上（both-modified→换 hash；删/改→按选择增删）。 */
-function applyResolutions(
-  entries: ManifestEntry[],
-  conflicts: MergeConflict[],
-  resolutions: ConflictResolutions,
-): ManifestEntry[] {
-  const out = entries.map((e) => ({ ...e }));
-  for (const c of conflicts) {
-    const choice = resolutions[c.blockId];
-    const chosenHash = choice === 'theirs' ? c.theirsHash : c.oursHash;
-    const idx = out.findIndex((e) => e.blockId === c.blockId);
-    if (chosenHash === null) {
-      if (idx >= 0) out.splice(idx, 1);
-    } else if (idx >= 0) {
-      const cur = out[idx];
-      if (cur !== undefined) cur.hash = chosenHash;
-    } else {
-      out.push({ blockId: c.blockId, hash: chosenHash });
-    }
-  }
-  return out;
-}
-
-async function entriesOf(
-  tx: Pick<ReturnType<typeof getDb>, 'select'>,
-  revisionId: string,
-): Promise<ManifestEntry[]> {
-  const rows = await tx
-    .select({ blockId: revisionBlocks.blockId, hash: revisionBlocks.blobHash })
-    .from(revisionBlocks)
-    .where(eq(revisionBlocks.revisionId, revisionId))
-    .orderBy(asc(revisionBlocks.position));
-  return rows.map((r) => ({ blockId: r.blockId, hash: r.hash }));
-}
 
 export async function mergeSuggestion(
   rawId: string,

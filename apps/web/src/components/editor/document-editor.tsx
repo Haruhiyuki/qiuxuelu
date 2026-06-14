@@ -9,8 +9,10 @@ import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { docStatusLabel } from '@/lib/doc-labels';
 import { commitRevision, requestPublish, saveWorkingCopy } from '@/server/actions/document';
+import type { CommitConflictView, ConflictResolutions } from '@/server/merge';
 import { BubbleToolbar } from './bubble-toolbar';
 import { clientExtensions } from './client-extensions';
+import { CommitConflictDialog } from './commit-conflict-dialog';
 import { TableToolbar } from './table-toolbar';
 import { EditorToolbar } from './toolbar';
 
@@ -51,6 +53,13 @@ export function DocumentEditor(props: DocumentEditorProps) {
   const [commitMessage, setCommitMessage] = useState('');
   const [actionPending, setActionPending] = useState(false);
   const [notice, setNotice] = useState<{ kind: 'info' | 'danger'; text: string } | null>(null);
+  // 并发提交真冲突的三栏裁决（ADR-0012）
+  const [conflict, setConflict] = useState<{
+    message: string;
+    conflicts: CommitConflictView[];
+  } | null>(null);
+  const [resolvePending, setResolvePending] = useState(false);
+  const [resolveError, setResolveError] = useState<string | null>(null);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const { confirm, confirmDialog } = useConfirm();
 
@@ -135,18 +144,57 @@ export function DocumentEditor(props: DocumentEditorProps) {
         return;
       }
       const result = await commitRevision(props.docId, commitMessage);
-      if (result.ok) {
-        setCommitOpen(false);
-        setCommitMessage('');
-        setHasRevisions(true);
-        setHeadSeq(result.data.seq);
-        setNotice({ kind: 'info', text: `已提交第 ${result.data.seq} 号修订` });
-        router.refresh();
-      } else {
+      if (!result.ok) {
         setNotice({ kind: 'danger', text: result.error });
+        return;
+      }
+      if (result.data.committed) {
+        finishCommit(result.data.seq, result.data.merged);
+      } else {
+        setConflict({ message: commitMessage, conflicts: result.data.conflicts });
       }
     } finally {
       setActionPending(false);
+    }
+  }
+
+  // merged=三方合并过 → 整页重载显示合并结果；否则软刷新
+  function finishCommit(seq: number, merged: boolean) {
+    setCommitOpen(false);
+    setCommitMessage('');
+    setConflict(null);
+    setHasRevisions(true);
+    setHeadSeq(seq);
+    setNotice({
+      kind: 'info',
+      text: merged ? `已合并并发改动并提交第 ${seq} 号修订` : `已提交第 ${seq} 号修订`,
+    });
+    if (merged) {
+      window.location.reload();
+    } else {
+      router.refresh();
+    }
+  }
+
+  async function resolveConflict(resolutions: ConflictResolutions) {
+    if (conflict === null) {
+      return;
+    }
+    setResolvePending(true);
+    setResolveError(null);
+    const result = await commitRevision(props.docId, conflict.message, resolutions);
+    if (!result.ok) {
+      setResolveError(result.error);
+      setResolvePending(false);
+      return;
+    }
+    if (result.data.committed) {
+      setResolvePending(false);
+      finishCommit(result.data.seq, true);
+    } else {
+      setConflict({ message: conflict.message, conflicts: result.data.conflicts });
+      setResolveError('期间又有新的并发改动，请重新裁决');
+      setResolvePending(false);
     }
   }
 
@@ -181,6 +229,18 @@ export function DocumentEditor(props: DocumentEditorProps) {
   return (
     <div className="flex flex-col gap-4">
       {confirmDialog}
+      {conflict !== null ? (
+        <CommitConflictDialog
+          conflicts={conflict.conflicts}
+          pending={resolvePending}
+          error={resolveError}
+          onResolve={resolveConflict}
+          onCancel={() => {
+            setConflict(null);
+            setResolveError(null);
+          }}
+        />
+      ) : null}
       <header className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
           <h1 className="font-serif text-xl font-semibold text-ink-900">{props.title}</h1>
