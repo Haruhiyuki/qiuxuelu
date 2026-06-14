@@ -203,6 +203,146 @@ export function remapAnchor(anchor: Anchor, newText: string): RemapResult {
   return { startOffset, endOffset, state: 'orphaned' };
 }
 
+/** 跨块重映射输入：发布修订里每个块的纯文本（口径 = extractText）。 */
+export interface BlockText {
+  blockId: string;
+  text: string;
+}
+
+export interface CrossRemapResult {
+  blockId: string;
+  startOffset: number;
+  endOffset: number;
+  state: AnchorState;
+  /** 命中文本：调用方据此更新 quotedText，令锚点随文本演化收敛、不过早失锚。 */
+  matchedText?: string;
+  /** 命中时重算的前后文：刷新消歧上下文，避免多次编辑后上下文陈旧。 */
+  prefix?: string;
+  suffix?: string;
+}
+
+const CTX_LEN = 16;
+
+function contextOf(text: string, start: number, end: number): { prefix?: string; suffix?: string } {
+  const out: { prefix?: string; suffix?: string } = {};
+  const prefix = text.slice(Math.max(0, start - CTX_LEN), start);
+  const suffix = text.slice(end, Math.min(text.length, end + CTX_LEN));
+  if (prefix.length > 0) out.prefix = prefix;
+  if (suffix.length > 0) out.suffix = suffix;
+  return out;
+}
+
+/**
+ * 跨块锚点重映射（在 remapAnchor 之上再加一层「全文找回」）：最大化行内批注与修订的兼容。
+ * 块被拆分/合并/删除使 blockId 消失，或引文被移出原块时，单块 remapAnchor 只会失锚；
+ * 这里：
+ *   先在「主块」(anchor.blockId) 内按原五级阶梯重映射——锚点优先黏在原块，避免被别处巧合吸走；
+ *   主块不在、或主块内找不到，再在整篇所有块里找回：
+ *     ① 全文唯一精确匹配 → 重映射到该块；
+ *     ② 多处精确 → 前后文消歧（同分优先原块、再取离原偏移最近）；
+ *     ③ 无精确 → 各块滑窗模糊匹配，取全局最优（Dice ≥ 阈值）；
+ *     ④ 全失败 → orphaned（保留原 blockId 与引文，永不静默丢弃）。
+ */
+export function remapAnchorAcrossBlocks(
+  anchor: Anchor & { blockId: string },
+  blocks: readonly BlockText[],
+): CrossRemapResult {
+  const { quotedText, startOffset } = anchor;
+  const orphan: CrossRemapResult = {
+    blockId: anchor.blockId,
+    startOffset: anchor.startOffset,
+    endOffset: anchor.endOffset,
+    state: 'orphaned',
+  };
+  if (quotedText.length === 0) {
+    return orphan;
+  }
+
+  // 主块优先：原块还在就先在原块内重映射（命中即留原块，避免被别处重复文本巧合吸走）
+  const home = blocks.find((b) => b.blockId === anchor.blockId);
+  if (home !== undefined) {
+    const r = remapAnchor(anchor, home.text);
+    if (r.state !== 'orphaned') {
+      return {
+        blockId: anchor.blockId,
+        startOffset: r.startOffset,
+        endOffset: r.endOffset,
+        state: r.state,
+        matchedText: r.matchedText,
+        ...contextOf(home.text, r.startOffset, r.endOffset),
+      };
+    }
+  }
+
+  // 全文精确匹配（跨块收集所有命中）
+  const exact: { blockId: string; start: number; text: string }[] = [];
+  for (const b of blocks) {
+    for (const idx of collectExactMatches(b.text, quotedText)) {
+      exact.push({ blockId: b.blockId, start: idx, text: b.text });
+    }
+  }
+  if (exact.length >= 1) {
+    let best = exact[0] as { blockId: string; start: number; text: string };
+    if (exact.length > 1) {
+      let bestScore = -1;
+      for (const cand of exact) {
+        const score = contextScore(anchor, cand.text, cand.start, cand.start + quotedText.length);
+        const candHome = cand.blockId === anchor.blockId;
+        const bestHome = best.blockId === anchor.blockId;
+        // 同分消歧：优先原块；再取离原偏移最近
+        const tie =
+          score === bestScore &&
+          ((candHome && !bestHome) ||
+            (candHome === bestHome &&
+              Math.abs(cand.start - startOffset) < Math.abs(best.start - startOffset)));
+        if (score > bestScore || tie) {
+          bestScore = score;
+          best = cand;
+        }
+      }
+    }
+    const end = best.start + quotedText.length;
+    return {
+      blockId: best.blockId,
+      startOffset: best.start,
+      endOffset: end,
+      state: 'remapped',
+      matchedText: quotedText,
+      ...contextOf(best.text, best.start, end),
+    };
+  }
+
+  // 全文模糊匹配（各块滑窗，取全局最优）
+  let fuzzy: { blockId: string; start: number; end: number; score: number; text: string } | null =
+    null;
+  for (const b of blocks) {
+    const hit = fuzzyFind(quotedText, b.text, startOffset);
+    if (hit !== null && (fuzzy === null || hit.score > fuzzy.score)) {
+      fuzzy = {
+        blockId: b.blockId,
+        start: hit.start,
+        end: hit.end,
+        score: hit.score,
+        text: b.text,
+      };
+    }
+  }
+  if (fuzzy !== null) {
+    const start = snapToCodePoint(fuzzy.text, fuzzy.start, 'back');
+    const end = snapToCodePoint(fuzzy.text, fuzzy.end, 'forward');
+    return {
+      blockId: fuzzy.blockId,
+      startOffset: start,
+      endOffset: end,
+      state: 'remapped',
+      matchedText: fuzzy.text.slice(start, end),
+      ...contextOf(fuzzy.text, start, end),
+    };
+  }
+
+  return orphan;
+}
+
 /**
  * 锚点构造辅助：截取引文与前后各 ctxLen 字符上下文。
  * 区间必须非空——空引文无法重映射，直接拒绝。

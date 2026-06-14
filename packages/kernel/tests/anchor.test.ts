@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import type { Anchor, RemapResult } from '../src/anchor/index';
-import { makeAnchor, remapAnchor } from '../src/anchor/index';
+import type { Anchor, BlockText, RemapResult } from '../src/anchor/index';
+import { makeAnchor, remapAnchor, remapAnchorAcrossBlocks } from '../src/anchor/index';
 
 describe('anchor/makeAnchor', () => {
   it('截取引文与前后各 ctxLen 字符上下文', () => {
@@ -143,5 +143,86 @@ describe('anchor/remapAnchor', () => {
       endOffset: 3,
       state: 'orphaned',
     });
+  });
+});
+
+describe('anchor/remapAnchorAcrossBlocks', () => {
+  // 引文「错题本」锚点：原块 b1，offsets 2-5
+  const base: Anchor & { blockId: string } = {
+    blockId: 'b1',
+    startOffset: 2,
+    endOffset: 5,
+    quotedText: '错题本',
+    prefix: '我的',
+    suffix: '一直',
+  };
+
+  it('原块仍在且引文未动 → 留原块、live', () => {
+    const blocks: BlockText[] = [
+      { blockId: 'b1', text: '我的错题本一直陪着我' },
+      { blockId: 'b2', text: '另一段无关文字' },
+    ];
+    const r = remapAnchorAcrossBlocks(base, blocks);
+    expect(r.blockId).toBe('b1');
+    expect(r.state).toBe('live');
+    expect(r.startOffset).toBe(2);
+  });
+
+  it('块被拆分：原 blockId 消失，引文落到新块 → 跨块 remapped', () => {
+    // b1 被拆成 b3（前半，含错题本）+ b4（后半），原 blockId b1 已不存在
+    const blocks: BlockText[] = [
+      { blockId: 'b3', text: '我的错题本' },
+      { blockId: 'b4', text: '一直陪着我走到最后' },
+    ];
+    const r = remapAnchorAcrossBlocks(base, blocks);
+    expect(r.state).toBe('remapped');
+    expect(r.blockId).toBe('b3');
+    expect(r.startOffset).toBe(2);
+    expect(r.endOffset).toBe(5);
+  });
+
+  it('引文被移出原块到兄弟块（原块仍在但已换内容）→ 跨块 remapped 到兄弟块', () => {
+    const blocks: BlockText[] = [
+      { blockId: 'b1', text: '这段已经改写成别的内容了' },
+      { blockId: 'b2', text: '后来我才懂得，错题本才是关键' },
+    ];
+    const r = remapAnchorAcrossBlocks(base, blocks);
+    expect(r.state).toBe('remapped');
+    expect(r.blockId).toBe('b2');
+    expect(blocks[1]?.text.slice(r.startOffset, r.endOffset)).toBe('错题本');
+  });
+
+  it('原块没了、多块都含引文：前后文消歧（上下文吻合者胜）', () => {
+    // 锚点原块 gone 已消失，错题本同时出现在 bx 与 by；by 的前后文（我的…一直）与锚点吻合
+    const gone: Anchor & { blockId: string } = { ...base, blockId: 'gone' };
+    const blocks: BlockText[] = [
+      { blockId: 'bx', text: '错题本随便提一句' },
+      { blockId: 'by', text: '我的错题本一直最重要' },
+    ];
+    const r = remapAnchorAcrossBlocks(gone, blocks);
+    expect(r.state).toBe('remapped');
+    expect(r.blockId).toBe('by');
+  });
+
+  it('全文都找不到引文 → orphaned，保留原 blockId', () => {
+    const blocks: BlockText[] = [{ blockId: 'b9', text: '完全不相关的另一篇内容' }];
+    const r = remapAnchorAcrossBlocks(base, blocks);
+    expect(r.state).toBe('orphaned');
+    expect(r.blockId).toBe('b1');
+  });
+
+  it('跨块模糊命中返回 matchedText（供调用方更新 quotedText 以收敛）', () => {
+    // 原块没了；新块里引文仅一字之差（更→很），靠模糊匹配找回（长引文，Dice ≥ 阈值）
+    const longAnchor: Anchor & { blockId: string } = {
+      blockId: 'g1',
+      startOffset: 0,
+      endOffset: 11,
+      quotedText: '复盘远比盲目刷题更重要',
+    };
+    const blocks: BlockText[] = [{ blockId: 'g2', text: '我一直觉得复盘远比盲目刷题很重要' }];
+    const r = remapAnchorAcrossBlocks(longAnchor, blocks);
+    expect(r.state).toBe('remapped');
+    expect(r.blockId).toBe('g2');
+    expect(r.matchedText).toBe('复盘远比盲目刷题很重要');
   });
 });

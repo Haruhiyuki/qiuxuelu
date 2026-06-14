@@ -1,8 +1,9 @@
 // 行内评论锚点重映射（架构 §3.4）：文章发布新修订后，把已有行内批注锚点重定位到新文本。
-// 用 kernel remapAnchor（引文 + 前后文模糊匹配，码点安全）；块被删除 → orphaned，永不静默丢弃。
+// 用 kernel remapAnchorAcrossBlocks：先在原块按五级阶梯重映射，原块没了/找不到再全文找回
+// （块被拆分/合并/移动也能跟随）；引文 + 前后文模糊匹配、码点安全；全文都找不到才 orphaned，永不静默丢弃。
 import type { Database } from '@harublog/db';
 import { blobs, commentAnchors, comments, documentRefs, revisionBlocks } from '@harublog/db';
-import { type Anchor, remapAnchor } from '@harublog/kernel';
+import { type Anchor, type BlockText, remapAnchorAcrossBlocks } from '@harublog/kernel';
 import { and, eq } from 'drizzle-orm';
 
 export interface RemapStats {
@@ -29,13 +30,13 @@ export async function remapDocumentAnchors(db: Database, docId: string): Promise
     return stats;
   }
 
-  // 新发布修订的每块纯文本
+  // 新发布修订的每块纯文本（跨块找回需要全部块，不只锚点原块）
   const blockRows = await db
     .select({ blockId: revisionBlocks.blockId, text: blobs.textPlain })
     .from(revisionBlocks)
     .innerJoin(blobs, eq(blobs.hash, revisionBlocks.blobHash))
     .where(eq(revisionBlocks.revisionId, publishedRevisionId));
-  const textByBlock = new Map(blockRows.map((b) => [b.blockId, b.text]));
+  const blocks: BlockText[] = blockRows.map((b) => ({ blockId: b.blockId, text: b.text ?? '' }));
 
   // 该文全部 visible 行内批注锚点
   const anchorRows = await db
@@ -60,9 +61,17 @@ export async function remapDocumentAnchors(db: Database, docId: string): Promise
 
   for (const a of anchorRows) {
     stats.total++;
-    const newText = textByBlock.get(a.blockId);
-    if (newText === undefined) {
-      // 块已不在发布版本中 → 失锚
+    const anchor: Anchor & { blockId: string } = {
+      blockId: a.blockId,
+      startOffset: a.startOffset ?? 0,
+      endOffset: a.endOffset ?? 0,
+      quotedText: a.quotedText,
+      prefix: a.prefix ?? undefined,
+      suffix: a.suffix ?? undefined,
+    };
+    const result = remapAnchorAcrossBlocks(anchor, blocks);
+    if (result.state === 'orphaned') {
+      // 全文都找不到 → 失锚（保留原 blockId / 引文 / 上下文，下次发布仍会重试，文本回来即可复活）
       await db
         .update(commentAnchors)
         .set({ state: 'orphaned', revisionId: publishedRevisionId })
@@ -70,26 +79,22 @@ export async function remapDocumentAnchors(db: Database, docId: string): Promise
       stats.orphaned++;
       continue;
     }
-    const anchor: Anchor = {
-      startOffset: a.startOffset ?? 0,
-      endOffset: a.endOffset ?? 0,
-      quotedText: a.quotedText,
-      prefix: a.prefix ?? undefined,
-      suffix: a.suffix ?? undefined,
-    };
-    const result = remapAnchor(anchor, newText);
+    // 命中：连同 blockId（可能跨块）、命中文本（令锚点随演化收敛）、刷新的上下文一并落库
     await db
       .update(commentAnchors)
       .set({
+        blockId: result.blockId,
         startOffset: result.startOffset,
         endOffset: result.endOffset,
+        quotedText: result.matchedText ?? a.quotedText,
+        prefix: result.prefix ?? null,
+        suffix: result.suffix ?? null,
         state: result.state,
         revisionId: publishedRevisionId,
       })
       .where(eq(commentAnchors.commentId, a.commentId));
     if (result.state === 'live') stats.live++;
-    else if (result.state === 'remapped') stats.remapped++;
-    else stats.orphaned++;
+    else stats.remapped++;
   }
 
   return stats;
