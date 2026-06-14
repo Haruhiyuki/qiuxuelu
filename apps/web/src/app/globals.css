@@ -249,6 +249,20 @@ mark.comment-mark.is-active {
   text-decoration-color: var(--color-ochre-600);
 }
 
+/* 正在编辑的草稿批注：用更实的赭黄底 + 实线，明确「正在批注这段」（与已存批注同一视觉语言，仅更强） */
+mark.comment-mark.is-draft {
+  background-color: var(--color-ochre-100);
+  text-decoration-color: var(--color-ochre-600);
+  border-radius: 0.125rem;
+  animation: comment-draft-in 0.18s ease;
+}
+
+@keyframes comment-draft-in {
+  from {
+    background-color: transparent;
+  }
+}
+
 /* 列表↔正文互相定位时的闪烁提示 */
 .flash-target {
   animation: comment-flash 1.2s ease;

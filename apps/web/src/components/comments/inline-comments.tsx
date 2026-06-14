@@ -7,6 +7,7 @@
 // 3. 窄屏：点击正文高亮 <mark> 弹出浮窗展示该段批注。
 // 锚点偏移以段落 DOM 的 textContent 为口径（= kernel extractText）。
 import { Button } from '@harublog/ui';
+import { MessageSquarePlus } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createInlineComment } from '@/server/actions/comment';
@@ -76,6 +77,17 @@ export function InlineComments({
   const [tops, setTops] = useState<Record<string, number>>({});
   const [railHeight, setRailHeight] = useState(0);
   const [measured, setMeasured] = useState(false);
+  // 是否宽屏（xl+，存在右侧边注栏）：决定编辑框落在边注栏卡片还是浮层
+  const [isWide, setIsWide] = useState(false);
+  const draftCardRef = useRef<HTMLDivElement | null>(null);
+
+  const cancelDraft = useCallback(() => {
+    setOpen(false);
+    setPending(null);
+    setText('');
+    setError(null);
+    setNotice(null);
+  }, []);
 
   // 按锚点段落分组（卡片以段落为单位对齐；同段多条批注合入一张卡）
   const groups = useMemo<AnchorGroup[]>(() => {
@@ -142,6 +154,34 @@ export function InlineComments({
     document.addEventListener('mouseup', captureSelection);
     return () => document.removeEventListener('mouseup', captureSelection);
   }, [captureSelection]);
+
+  useEffect(() => {
+    const mq = window.matchMedia('(min-width: 1280px)');
+    const update = () => setIsWide(mq.matches);
+    update();
+    mq.addEventListener('change', update);
+    return () => mq.removeEventListener('change', update);
+  }, []);
+
+  // 编辑中：把待批注的文字按批注样式高亮（is-draft，与已存批注同一视觉语言），取消/提交后还原
+  useEffect(() => {
+    if (!open || pending === null) {
+      return;
+    }
+    const block = document.getElementById(`b-${pending.blockId}`);
+    if (block === null) {
+      return;
+    }
+    const marks = highlightQuote(block, pending.quotedText, pending.startOffset, '__draft__');
+    for (const m of marks) {
+      m.classList.add('is-draft');
+    }
+    return () => {
+      for (const m of marks) {
+        unwrapMark(m);
+      }
+    };
+  }, [open, pending]);
 
   // 正文内高亮：把每条批注的字符区间在对应段落里包成 <mark>。
   // 点击：宽屏（边注栏可见）闪烁对应边注卡；窄屏弹出批注浮窗。悬停与边注卡互相提亮。
@@ -225,6 +265,18 @@ export function InlineComments({
         height: card.offsetHeight,
       });
     }
+    // 草稿编辑卡也参与排版：对齐其锚点段落，与已有卡片堆叠避让
+    if (open && pending !== null && isWide) {
+      const block = document.getElementById(`b-${pending.blockId}`);
+      const card = draftCardRef.current;
+      if (block !== null && card !== null) {
+        entries.push({
+          blockId: '__draft__',
+          anchor: block.getBoundingClientRect().top + window.scrollY - railTop,
+          height: card.offsetHeight,
+        });
+      }
+    }
     entries.sort((a, b) => a.anchor - b.anchor);
     let cursor = 0;
     const next: Record<string, number> = {};
@@ -236,7 +288,14 @@ export function InlineComments({
     setTops((prev) => (sameTops(prev, next) ? prev : next));
     setRailHeight(cursor);
     setMeasured(true);
-  }, [groups]);
+  }, [groups, open, pending, isWide]);
+
+  // 草稿卡随文本增高时重新排版避让
+  useEffect(() => {
+    if (open && isWide) {
+      layoutRail();
+    }
+  }, [text, open, isWide, layoutRail]);
 
   useLayoutEffect(() => {
     layoutRail();
@@ -322,50 +381,34 @@ export function InlineComments({
           type="button"
           onMouseDown={(e) => {
             e.preventDefault();
+            // 收起浏览器蓝色选区，让批注样式高亮接管
+            window.getSelection()?.removeAllRanges();
             setOpen(true);
           }}
-          style={{ left: pending.x, top: pending.y - 40 }}
-          className="-translate-x-1/2 fixed z-30 rounded-sm bg-overlay px-2.5 py-1 font-medium text-on-overlay text-xs shadow-float transition-colors hover:bg-overlay-hover"
+          style={{ left: pending.x, top: pending.y - 44 }}
+          className="pop-in -translate-x-1/2 fixed z-30 inline-flex items-center gap-1.5 rounded-full border border-ink-200 bg-paper-50 px-3 py-1.5 font-medium text-ink-700 text-xs shadow-float transition-colors hover:border-brand-300 hover:bg-brand-50 hover:text-brand-700"
         >
-          批注「{pending.quotedText.slice(0, 12)}
-          {pending.quotedText.length > 12 ? '…' : ''}」
+          <MessageSquarePlus className="h-3.5 w-3.5" aria-hidden />
+          批注
         </button>
       ) : null}
 
-      {pending !== null && open ? (
+      {/* 窄屏（无边注栏）：编辑框以浮层锚定在选区下方 */}
+      {pending !== null && open && !isWide ? (
         <div
-          style={{ left: pending.x, top: pending.y + 8 }}
-          className="fade-in -translate-x-1/2 fixed z-30 w-80 rounded-md border border-ink-200 bg-paper-50 p-3 shadow-float"
+          style={{ left: pending.x, top: pending.y + 10 }}
+          className="pop-in -translate-x-1/2 fixed z-30 w-[min(22rem,calc(100vw-2rem))] rounded-lg border border-ink-200 bg-paper-50 p-4 shadow-float"
         >
-          <p className="mb-2 border-ochre-600 border-l-2 pl-2 text-ink-500 text-sm">
-            {pending.quotedText.slice(0, 60)}
-          </p>
-          <MentionTextarea
-            value={text}
-            onChange={setText}
-            rows={3}
-            placeholder="写下针对这段文字的批注…（用 @ 提及他人）"
-            disabled={busy}
+          <DraftEditor
+            quotedText={pending.quotedText}
+            text={text}
+            onText={setText}
+            busy={busy}
+            error={error}
+            notice={notice}
+            onSubmit={submit}
+            onCancel={cancelDraft}
           />
-          {error !== null ? <p className="mt-1 text-accent-700 text-sm">{error}</p> : null}
-          {notice !== null ? <p className="mt-1 text-moss-700 text-sm">{notice}</p> : null}
-          <div className="mt-2 flex items-center gap-3">
-            <Button type="button" size="sm" onClick={submit} disabled={busy}>
-              {busy ? '提交中…' : '提交批注'}
-            </Button>
-            <button
-              type="button"
-              onClick={() => {
-                setOpen(false);
-                setText('');
-                setError(null);
-                setNotice(null);
-              }}
-              className="text-ink-500 text-sm hover:text-ink-700"
-            >
-              取消
-            </button>
-          </div>
         </div>
       ) : null}
 
@@ -405,12 +448,35 @@ export function InlineComments({
         className="relative hidden xl:block"
         style={measured ? { minHeight: railHeight } : undefined}
       >
-        {canComment && groups.length === 0 ? (
+        {canComment && groups.length === 0 && !open ? (
           <p className="sticky top-24 border-ink-200 border-l-2 pl-3 text-ink-400 text-xs leading-relaxed">
             选中正文中的一段文字，
             <br />
             即可在此留下批注。
           </p>
+        ) : null}
+        {/* 草稿编辑卡：落在右侧边注栏、对齐锚点段落（成熟产品的「边注里写批注」范式） */}
+        {pending !== null && open && isWide ? (
+          <div
+            ref={draftCardRef}
+            style={
+              measured
+                ? { position: 'absolute', top: tops.__draft__ ?? 0, left: 0, right: 0 }
+                : undefined
+            }
+            className="pop-in z-10 mb-3 rounded-md border border-ochre-600/60 bg-paper-50 p-3 shadow-float ring-1 ring-ochre-600/15"
+          >
+            <DraftEditor
+              quotedText={pending.quotedText}
+              text={text}
+              onText={setText}
+              busy={busy}
+              error={error}
+              notice={notice}
+              onSubmit={submit}
+              onCancel={cancelDraft}
+            />
+          </div>
         ) : null}
         {groups.map((g) => (
           // biome-ignore lint/a11y/noStaticElementInteractions: 悬停联动是纯装饰增强；键盘/读屏的定位路径由卡内引文按钮承担
@@ -441,6 +507,63 @@ export function InlineComments({
         ))}
       </aside>
     </>
+  );
+}
+
+/** 批注编辑框（边注栏草稿卡与窄屏浮层共用）：引文小注 + @提及文本域 + 提交/取消。 */
+function DraftEditor({
+  quotedText,
+  text,
+  onText,
+  busy,
+  error,
+  notice,
+  onSubmit,
+  onCancel,
+}: {
+  quotedText: string;
+  text: string;
+  onText: (v: string) => void;
+  busy: boolean;
+  error: string | null;
+  notice: string | null;
+  onSubmit: () => void;
+  onCancel: () => void;
+}) {
+  return (
+    <div className="flex flex-col gap-2.5">
+      <p className="line-clamp-2 border-ochre-600 border-l-2 pl-2 text-ink-500 text-xs italic leading-relaxed">
+        「{quotedText}」
+      </p>
+      <MentionTextarea
+        value={text}
+        onChange={onText}
+        rows={3}
+        placeholder="写下针对这段文字的批注…（用 @ 提及他人）"
+        disabled={busy}
+        autoFocus
+      />
+      {error !== null ? <p className="text-accent-700 text-xs">{error}</p> : null}
+      {notice !== null ? <p className="text-moss-700 text-xs">{notice}</p> : null}
+      <div className="flex items-center justify-end gap-2">
+        <button
+          type="button"
+          onClick={onCancel}
+          disabled={busy}
+          className="rounded-md px-2.5 py-1 text-ink-500 text-sm transition-colors hover:bg-paper-200 hover:text-ink-700 disabled:opacity-50"
+        >
+          取消
+        </button>
+        <Button
+          type="button"
+          size="sm"
+          onClick={onSubmit}
+          disabled={busy || text.trim().length === 0}
+        >
+          {busy ? '提交中…' : '提交批注'}
+        </Button>
+      </div>
+    </div>
   );
 }
 

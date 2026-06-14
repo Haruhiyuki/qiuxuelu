@@ -19,6 +19,7 @@ export interface MentionTextareaProps {
   placeholder?: string;
   rows?: number;
   disabled?: boolean;
+  autoFocus?: boolean;
 }
 
 export function MentionTextarea({
@@ -27,8 +28,19 @@ export function MentionTextarea({
   placeholder,
   rows = 3,
   disabled,
+  autoFocus,
 }: MentionTextareaProps) {
   const ref = useRef<HTMLTextAreaElement | null>(null);
+  // 自动聚焦：批注编辑框弹出即可输入（光标置末）
+  useEffect(() => {
+    if (autoFocus) {
+      const el = ref.current;
+      if (el !== null) {
+        el.focus();
+        el.setSelectionRange(el.value.length, el.value.length);
+      }
+    }
+  }, [autoFocus]);
   const [items, setItems] = useState<Candidate[]>([]);
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(0);
