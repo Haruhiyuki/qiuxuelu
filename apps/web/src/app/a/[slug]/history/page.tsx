@@ -74,9 +74,11 @@ export default async function HistoryPage({ params }: HistoryPageProps) {
     }
   }
 
-  // 回滚权：作者经所有权特例、编辑经角色线（与提交同闸 doc.edit_direct）
+  // 回退权：本页「回退到此版本」是作者的草稿操作——把草稿还原到旧版本，再到写作器重新发布。
+  // 故仅作者本人可见（非作者撤销协作改动走巡查队列的即时回退，语义不同）；can() 仍统一把关制裁/停用。
+  const isOwner = session !== null && session.user.id === doc.ownerId;
   let canRestore = false;
-  if (session) {
+  if (session && isOwner) {
     const actor = await loadActor(session.user.id);
     canRestore =
       actor !== null &&
@@ -94,7 +96,7 @@ export default async function HistoryPage({ params }: HistoryPageProps) {
       }).allow;
   }
 
-  // 当前草稿头：回滚到它本身无意义，按钮不显示
+  // 当前草稿头：回退到它本身无意义，按钮不显示
   const draftRefRows = await db
     .select({ revisionId: documentRefs.revisionId })
     .from(documentRefs)
@@ -217,7 +219,12 @@ export default async function HistoryPage({ params }: HistoryPageProps) {
                       </Link>
                     ) : null}
                     {canRestore && rev.id !== draftHeadId ? (
-                      <RestoreButton docId={doc.id} revisionId={rev.id} seq={rev.seq} />
+                      <RestoreButton
+                        docId={doc.id}
+                        revisionId={rev.id}
+                        seq={rev.seq}
+                        published={publishedRevisionId !== null}
+                      />
                     ) : null}
                   </div>
                 </div>

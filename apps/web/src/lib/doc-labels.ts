@@ -9,7 +9,7 @@ const DOC_STATUS_LABELS: Record<string, string> = {
 const REVISION_KIND_LABELS: Record<string, string> = {
   edit: '编辑',
   merge_suggestion: '合并建议',
-  rollback: '回滚',
+  rollback: '回退',
   collab_checkpoint: '协作快照',
   import: '导入',
 };

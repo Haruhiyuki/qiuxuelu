@@ -744,11 +744,11 @@ export async function requestPublish(
 }
 
 /**
- * 回滚草稿到某历史修订（架构 §5「回退 = 创建指回旧树的新修订，历史不删」）。
+ * 把草稿回退到某历史修订（架构 §5「回退 = 创建指回旧树的新修订，历史不删」）。
  * 在草稿分支上创建一个 kind='rollback' 新修订，其树 = 目标修订的树（内容被还原），
  * 旧修订与中间修订全部保留——这是「全历史可直观追溯」的一等操作，不是删除。
- * 鉴权同提交（can('doc.edit_direct')：作者经所有权特例、编辑经角色线）。
- * 回滚后若文章已发布，线上版本不动；作者需重新申请发布才会让还原内容上线。
+ * 同时把作者工作副本还原到该内容；鉴权同提交（can('doc.edit_direct')）。
+ * 回退只动草稿：文章已发布的话线上版本不变，作者需在写作器重新发布才会让还原内容上线。
  */
 export async function restoreRevision(
   rawDocId: string,
@@ -779,7 +779,7 @@ export async function restoreRevision(
   const db = getDb();
   try {
     const seq = await db.transaction(async (tx) => {
-      // 目标修订必须属于本文档（防跨文档回滚）
+      // 目标修订必须属于本文档（防跨文档回退）
       const targetRows = await tx
         .select({ id: revisions.id, seq: revisions.seq, schemaVersion: revisions.schemaVersion })
         .from(revisions)
@@ -813,10 +813,10 @@ export async function restoreRevision(
         .limit(1);
       const expectedHead = refRows[0]?.revisionId ?? null;
       if (expectedHead === null) {
-        throw new ActionError('这篇文章还没有草稿修订，无法回滚');
+        throw new ActionError('这篇文章还没有草稿修订，无法回退');
       }
       if (expectedHead === rawTargetRevisionId) {
-        throw new ActionError('目标修订就是当前草稿，无需回滚');
+        throw new ActionError('目标修订就是当前草稿，无需回退');
       }
 
       const headTree = await tx
@@ -837,7 +837,7 @@ export async function restoreRevision(
 
       const changes = diffManifests(headEntries, targetEntries);
       if (changes.length === 0) {
-        throw new ActionError('目标修订与当前草稿内容一致，无需回滚');
+        throw new ActionError('目标修订与当前草稿内容一致，无需回退');
       }
 
       const newSeq = parentSeq + 1;
@@ -850,7 +850,7 @@ export async function restoreRevision(
           authorId: actor.id,
           committerId: actor.id,
           kind: 'rollback',
-          message: `回滚到第 ${target.seq} 号修订`,
+          message: `回退到第 ${target.seq} 号修订`,
           manifestHash: hashManifest(targetEntries),
           schemaVersion: target.schemaVersion,
           charsDelta: 0,
@@ -859,7 +859,7 @@ export async function restoreRevision(
         .returning({ id: revisions.id });
       const revisionId = revInserted[0]?.id;
       if (revisionId === undefined) {
-        throw new ActionError('回滚修订写入失败，请稍后重试');
+        throw new ActionError('回退修订写入失败，请稍后重试');
       }
 
       await tx.insert(revisionBlocks).values(
@@ -885,7 +885,7 @@ export async function restoreRevision(
         )
         .returning({ documentId: documentRefs.documentId });
       if (moved.length === 0) {
-        throw new ActionError('回滚冲突：草稿在你操作期间已被更新，请刷新页面后重试');
+        throw new ActionError('回退冲突：草稿在你操作期间已被更新，请刷新页面后重试');
       }
 
       // 还原作者工作副本到目标内容，并把基底指向新修订（后续编辑基于还原后的内容）
@@ -923,9 +923,9 @@ export async function restoreRevision(
     return { ok: true, data: { seq } };
   } catch (err) {
     if (isUniqueViolation(err)) {
-      return fail('回滚冲突：草稿在你操作期间已被更新，请刷新页面后重试');
+      return fail('回退冲突：草稿在你操作期间已被更新，请刷新页面后重试');
     }
-    return toFailure(err, '回滚失败，请稍后重试');
+    return toFailure(err, '回退失败，请稍后重试');
   }
 }
 
