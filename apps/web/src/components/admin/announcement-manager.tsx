@@ -1,9 +1,11 @@
 'use client';
 
-// 公告管理（管理员）：新建/编辑表单 + 列表（置顶切换、下线/重发）。
+// 公告管理（管理员）：新建/编辑表单（标题 + 摘要 + 富文本正文）+ 列表（置顶切换、下线/重发）。
+import type { DocJson } from '@harublog/kernel';
+import { extractText } from '@harublog/kernel';
 import { Alert, Button, Input, Label, Textarea, useToast } from '@harublog/ui';
 import { useRouter } from 'next/navigation';
-import { type FormEvent, useState } from 'react';
+import { type FormEvent, useRef, useState } from 'react';
 import {
   type AnnouncementInput,
   createAnnouncement,
@@ -12,34 +14,69 @@ import {
   updateAnnouncement,
 } from '@/server/actions/announcement';
 import type { AnnouncementView } from '@/server/announcements';
+import { AnnouncementBodyEditor } from './announcement-body-editor';
 
-const emptyForm: AnnouncementInput = {
+const EMPTY_DOC: DocJson = { type: 'doc', content: [] };
+
+// 标量表单字段（正文 DocJson 另由 ref 持有）
+interface ScalarForm {
+  title: string;
+  summary: string;
+  level: 'info' | 'notice';
+  pinned: boolean;
+  linkHref: string;
+  linkLabel: string;
+}
+
+const emptyForm: ScalarForm = {
   title: '',
-  body: '',
+  summary: '',
   level: 'info',
   pinned: false,
   linkHref: '',
   linkLabel: '',
 };
 
+// 旧公告（仅有纯文本 body、无 bodyDoc）进编辑器时，按换行还原成段落 DocJson
+function plaintextToDoc(text: string): DocJson {
+  const lines = text
+    .split('\n')
+    .map((l) => l.trim())
+    .filter(Boolean);
+  return {
+    type: 'doc',
+    content: lines.map((line) => ({ type: 'paragraph', content: [{ type: 'text', text: line }] })),
+  } as DocJson;
+}
+
+function initialDocOf(a: AnnouncementView): DocJson {
+  return a.bodyDoc ? (a.bodyDoc as DocJson) : plaintextToDoc(a.body);
+}
+
 export function AnnouncementManager({ items }: { items: AnnouncementView[] }) {
   const router = useRouter();
   const toast = useToast();
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [form, setForm] = useState<AnnouncementInput>(emptyForm);
+  const [form, setForm] = useState<ScalarForm>(emptyForm);
+  // 正文：编辑器初始内容（仅切换新建/编辑时变，避免逐键重挂）+ 实时值（ref，提交时取）
+  const [initialBodyDoc, setInitialBodyDoc] = useState<DocJson>(EMPTY_DOC);
+  const bodyDocRef = useRef<DocJson>(EMPTY_DOC);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
   function startEdit(a: AnnouncementView) {
+    const doc = initialDocOf(a);
     setEditingId(a.id);
     setForm({
       title: a.title,
-      body: a.body,
+      summary: a.summary ?? '',
       level: a.level,
       pinned: a.pinned,
       linkHref: a.linkHref ?? '',
       linkLabel: a.linkLabel ?? '',
     });
+    setInitialBodyDoc(doc);
+    bodyDocRef.current = doc;
     setError(null);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
@@ -47,21 +84,28 @@ export function AnnouncementManager({ items }: { items: AnnouncementView[] }) {
   function resetForm() {
     setEditingId(null);
     setForm(emptyForm);
+    setInitialBodyDoc(EMPTY_DOC);
+    bodyDocRef.current = EMPTY_DOC;
     setError(null);
   }
 
   async function submit(e: FormEvent) {
     e.preventDefault();
     setError(null);
-    if (form.title.trim().length === 0 || form.body.trim().length === 0) {
-      setError('标题与内容都要填写');
+    if (form.title.trim().length === 0) {
+      setError('请填写标题');
       return;
     }
+    if (extractText(bodyDocRef.current).trim().length === 0) {
+      setError('请填写正文');
+      return;
+    }
+    const input: AnnouncementInput = { ...form, bodyDoc: bodyDocRef.current };
     setBusy(true);
     const r =
       editingId === null
-        ? await createAnnouncement(form)
-        : await updateAnnouncement(editingId, form);
+        ? await createAnnouncement(input)
+        : await updateAnnouncement(editingId, input);
     if (r.ok) {
       toast(editingId === null ? '已发布公告' : '已更新公告', 'success');
       resetForm();
@@ -130,14 +174,25 @@ export function AnnouncementManager({ items }: { items: AnnouncementView[] }) {
           />
         </div>
         <div className="flex flex-col gap-1.5">
-          <Label htmlFor="an-body">内容</Label>
+          <Label htmlFor="an-summary">摘要（选填，列表与首页摘录展示；留空则自动截取正文）</Label>
           <Textarea
-            id="an-body"
-            value={form.body}
-            rows={4}
-            maxLength={2000}
-            onChange={(e) => setForm({ ...form, body: e.target.value })}
-            placeholder="正文支持换行；如需跳转可在下方填链接。"
+            id="an-summary"
+            value={form.summary}
+            rows={2}
+            maxLength={300}
+            onChange={(e) => setForm({ ...form, summary: e.target.value })}
+            placeholder="一句话概括这条近闻"
+          />
+        </div>
+        <div className="flex flex-col gap-1.5">
+          {/* key：切换新建/编辑时重挂编辑器，载入对应初始正文 */}
+          <Label>正文</Label>
+          <AnnouncementBodyEditor
+            key={editingId ?? 'new'}
+            initialDoc={initialBodyDoc}
+            onChange={(doc) => {
+              bodyDocRef.current = doc;
+            }}
           />
         </div>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -145,7 +200,7 @@ export function AnnouncementManager({ items }: { items: AnnouncementView[] }) {
             <Label htmlFor="an-link">链接（选填）</Label>
             <Input
               id="an-link"
-              value={form.linkHref ?? ''}
+              value={form.linkHref}
               maxLength={500}
               onChange={(e) => setForm({ ...form, linkHref: e.target.value })}
               placeholder="/s/college 或 https://…"
@@ -155,7 +210,7 @@ export function AnnouncementManager({ items }: { items: AnnouncementView[] }) {
             <Label htmlFor="an-link-label">链接文字（选填）</Label>
             <Input
               id="an-link-label"
-              value={form.linkLabel ?? ''}
+              value={form.linkLabel}
               maxLength={40}
               onChange={(e) => setForm({ ...form, linkLabel: e.target.value })}
               placeholder="查看详情"
@@ -223,7 +278,7 @@ export function AnnouncementManager({ items }: { items: AnnouncementView[] }) {
                   </div>
                   <p className="mt-1 font-medium text-ink-900 text-sm">{a.title}</p>
                   <p className="mt-0.5 line-clamp-2 text-ink-500 text-xs leading-relaxed">
-                    {a.body}
+                    {a.summary?.trim() || a.body}
                   </p>
                 </div>
                 <div className="flex shrink-0 flex-wrap items-center gap-2 text-sm">

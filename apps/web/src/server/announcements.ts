@@ -7,7 +7,12 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 export interface AnnouncementView {
   id: string;
   title: string;
+  /** 一句话摘要（选填）；展示侧用 announcementExcerpt() 回退 body。 */
+  summary: string | null;
+  /** 正文纯文本镜像（始终有值）：摘录、meta、旧行兜底用。 */
   body: string;
+  /** 富正文（kernel DocJson）；旧行为 null，详情页回退 body 纯文本。 */
+  bodyDoc: unknown;
   level: 'info' | 'notice';
   status: string;
   pinned: boolean;
@@ -20,7 +25,9 @@ export interface AnnouncementView {
 const baseSelect = {
   id: announcements.id,
   title: announcements.title,
+  summary: announcements.summary,
   body: announcements.body,
+  bodyDoc: announcements.bodyDoc,
   level: announcements.level,
   status: announcements.status,
   pinned: announcements.pinned,
@@ -33,7 +40,9 @@ const baseSelect = {
 function toView(r: {
   id: string;
   title: string;
+  summary: string | null;
   body: string;
+  bodyDoc: unknown;
   level: string;
   status: string;
   pinned: boolean;
@@ -43,6 +52,15 @@ function toView(r: {
   publishedAt: Date;
 }): AnnouncementView {
   return { ...r, level: (r.level === 'notice' ? 'notice' : 'info') as 'info' | 'notice' };
+}
+
+/** 摘录：优先用人工摘要，否则取正文纯文本截断（近闻列表、首页、meta 共用）。 */
+export function announcementExcerpt(
+  a: Pick<AnnouncementView, 'summary' | 'body'>,
+  max = 120,
+): string {
+  const raw = (a.summary?.trim() || a.body).replaceAll('\n', ' ').trim();
+  return raw.length > max ? `${raw.slice(0, max)}…` : raw;
 }
 
 /** 近闻页：已发布公告，按发布时间倒序。 */

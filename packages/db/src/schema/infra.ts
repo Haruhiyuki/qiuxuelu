@@ -5,6 +5,7 @@ import {
   boolean,
   check,
   index,
+  integer,
   jsonb,
   pgTable,
   text,
@@ -15,13 +16,20 @@ import { user } from './auth';
 import { blobs } from './content';
 import { sections } from './sections';
 
-// 站点新闻/公告（近闻页 + 首页公告栏）：管理员发布。body 为纯文本（保留换行），可带一个 CTA 链接。
+// 站点新闻/公告（近闻页 + 首页公告栏）：管理员发布，正文复用博客编辑器（kernel DocJson）。
 export const announcements = pgTable(
   'announcements',
   {
     id: uuid('id').primaryKey().defaultRandom(),
     title: text('title').notNull(),
+    // 一句话摘要（选填）：近闻列表/首页摘录用；为空时回退 body 纯文本截断。
+    summary: text('summary'),
+    // body 现作为「正文纯文本镜像」：从 bodyDoc 提取，供摘录/meta/搜索与旧行兜底（保留 notNull）。
     body: text('body').notNull(),
+    // 富正文（kernel DocJson）：复用博客渲染器渲染；旧行为 null 时详情页回退 body 纯文本。
+    bodyDoc: jsonb('body_doc'),
+    // 正文编辑器 schema 版本（ADR-0003），随 SCHEMA_VERSION 写入，便于将来迁移。
+    schemaVersion: integer('schema_version').notNull().default(1),
     // info=普通新闻；notice=重要公告（样式更醒目）
     level: text('level').notNull().default('info'),
     // draft 不公开；published 进近闻页；archived 下线

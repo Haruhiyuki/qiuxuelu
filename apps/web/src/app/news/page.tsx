@@ -6,7 +6,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { Breadcrumb } from '@/components/breadcrumb';
 import { formatDate } from '@/lib/format';
-import { listPublishedAnnouncements } from '@/server/announcements';
+import { announcementExcerpt, listPublishedAnnouncements } from '@/server/announcements';
 
 export const dynamic = 'force-dynamic';
 
@@ -67,8 +67,8 @@ export default async function NewsPage() {
                     {a.title}
                   </Link>
                 </h2>
-                <p className="mt-2 line-clamp-3 whitespace-pre-wrap text-ink-600 text-sm leading-relaxed">
-                  {a.body}
+                <p className="mt-2 line-clamp-3 text-ink-600 text-sm leading-relaxed">
+                  {announcementExcerpt(a, 160)}
                 </p>
                 <Link
                   href={`/news/${a.id}`}

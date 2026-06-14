@@ -3,6 +3,7 @@
 // 站点公告管理（管理员+）：先 can('announcement.manage') 再干活，写审计。近闻页 + 首页公告栏的数据来源。
 import { announcements, auditLog, getDb } from '@harublog/db';
 import { can, explainDeny } from '@harublog/domain';
+import { type DocJson, extractText, SCHEMA_VERSION, validateDoc } from '@harublog/kernel';
 import { eq } from 'drizzle-orm';
 import { z } from 'zod';
 import { getSession } from '@/lib/session';
@@ -11,9 +12,10 @@ import { loadActor } from '@/server/actors';
 
 const uuid = z.uuid();
 
-const inputSchema = z.object({
+// 标量字段走 zod；正文（bodyDoc=kernel DocJson）单独过 validateDoc（不信任前端 JSON）。
+const scalarSchema = z.object({
   title: z.string().trim().min(1, '标题不能为空').max(120, '标题最长 120 字'),
-  body: z.string().trim().min(1, '内容不能为空').max(2000, '内容最长 2000 字'),
+  summary: z.string().trim().max(300, '摘要最长 300 字').optional(),
   level: z.enum(['info', 'notice']),
   pinned: z.boolean(),
   // 链接选填：站内路径或 http(s) 外链；与渲染器同款安全门
@@ -26,7 +28,60 @@ const inputSchema = z.object({
   linkLabel: z.string().trim().max(40).optional(),
 });
 
-export type AnnouncementInput = z.infer<typeof inputSchema>;
+export interface AnnouncementInput extends z.infer<typeof scalarSchema> {
+  /** 正文：博客编辑器产出的 kernel DocJson（服务端 validateDoc 校验）。 */
+  bodyDoc: unknown;
+}
+
+interface PreparedValues {
+  title: string;
+  summary: string | null;
+  body: string;
+  bodyDoc: DocJson;
+  schemaVersion: number;
+  level: 'info' | 'notice';
+  pinned: boolean;
+  linkHref: string | null;
+  linkLabel: string | null;
+}
+
+// 校验 + 归一：标量过 zod、正文过 validateDoc，并从正文提取纯文本镜像（body）供摘录/检索/旧行兜底。
+function prepare(
+  input: AnnouncementInput,
+): { ok: true; values: PreparedValues } | { ok: false; error: string } {
+  const parsed = scalarSchema.safeParse(input);
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message ?? '校验失败' };
+  }
+  let doc: DocJson;
+  try {
+    doc = validateDoc(input.bodyDoc);
+  } catch {
+    return { ok: false, error: '正文格式不合法' };
+  }
+  const plaintext = extractText(doc).trim();
+  if (plaintext.length === 0) {
+    return { ok: false, error: '正文不能为空' };
+  }
+  if (plaintext.length > 20000) {
+    return { ok: false, error: '正文过长（上限约 2 万字）' };
+  }
+  const { title, summary, level, pinned, linkHref, linkLabel } = parsed.data;
+  return {
+    ok: true,
+    values: {
+      title,
+      summary: summary && summary.length > 0 ? summary : null,
+      body: plaintext,
+      bodyDoc: doc,
+      schemaVersion: SCHEMA_VERSION,
+      level,
+      pinned,
+      linkHref: linkHref && linkHref.length > 0 ? linkHref : null,
+      linkLabel: linkLabel && linkLabel.length > 0 ? linkLabel : null,
+    },
+  };
+}
 
 type ManagerAuth = { ok: false; error: string } | { ok: true; actorId: string };
 
@@ -53,22 +108,25 @@ export async function createAnnouncement(
   if (!auth.ok) {
     return { ok: false, error: auth.error };
   }
-  const parsed = inputSchema.safeParse(input);
-  if (!parsed.success) {
-    return { ok: false, error: parsed.error.issues[0]?.message ?? '校验失败' };
+  const prepared = prepare(input);
+  if (!prepared.ok) {
+    return { ok: false, error: prepared.error };
   }
-  const { title, body, level, pinned, linkHref, linkLabel } = parsed.data;
+  const v = prepared.values;
   const db = getDb();
   const now = new Date();
   const inserted = await db
     .insert(announcements)
     .values({
-      title,
-      body,
-      level,
-      pinned,
-      linkHref: linkHref && linkHref.length > 0 ? linkHref : null,
-      linkLabel: linkLabel && linkLabel.length > 0 ? linkLabel : null,
+      title: v.title,
+      summary: v.summary,
+      body: v.body,
+      bodyDoc: v.bodyDoc,
+      schemaVersion: v.schemaVersion,
+      level: v.level,
+      pinned: v.pinned,
+      linkHref: v.linkHref,
+      linkLabel: v.linkLabel,
       authorId: auth.actorId,
       status: 'published',
       publishedAt: now,
@@ -83,7 +141,7 @@ export async function createAnnouncement(
     action: 'announcement.create',
     subjectType: 'announcement',
     subjectId: id,
-    detail: { title, level, pinned },
+    detail: { title: v.title, level: v.level, pinned: v.pinned },
   });
   return { ok: true, data: { id } };
 }
@@ -99,21 +157,24 @@ export async function updateAnnouncement(
   if (!uuid.safeParse(rawId).success) {
     return { ok: false, error: '参数非法' };
   }
-  const parsed = inputSchema.safeParse(input);
-  if (!parsed.success) {
-    return { ok: false, error: parsed.error.issues[0]?.message ?? '校验失败' };
+  const prepared = prepare(input);
+  if (!prepared.ok) {
+    return { ok: false, error: prepared.error };
   }
-  const { title, body, level, pinned, linkHref, linkLabel } = parsed.data;
+  const v = prepared.values;
   const db = getDb();
   await db
     .update(announcements)
     .set({
-      title,
-      body,
-      level,
-      pinned,
-      linkHref: linkHref && linkHref.length > 0 ? linkHref : null,
-      linkLabel: linkLabel && linkLabel.length > 0 ? linkLabel : null,
+      title: v.title,
+      summary: v.summary,
+      body: v.body,
+      bodyDoc: v.bodyDoc,
+      schemaVersion: v.schemaVersion,
+      level: v.level,
+      pinned: v.pinned,
+      linkHref: v.linkHref,
+      linkLabel: v.linkLabel,
       updatedAt: new Date(),
     })
     .where(eq(announcements.id, rawId));
@@ -122,7 +183,7 @@ export async function updateAnnouncement(
     action: 'announcement.update',
     subjectType: 'announcement',
     subjectId: rawId,
-    detail: { title, level, pinned },
+    detail: { title: v.title, level: v.level, pinned: v.pinned },
   });
   return { ok: true, data: null };
 }
