@@ -25,15 +25,54 @@
 
 服务器内存紧张（~1.6G，且跑着 ~10 个别的服务）：**绝不在服务器上构建**，构建一律在本地完成、只传产物。
 
-## 实际拓扑：在跑的 vs. 未部署（2026-06-14 摸清）
+## 实际拓扑：在跑的服务（2026-06-14 摸清并补齐）
 
-testblog **当前只跑三件**：`harublog-web`（:3100）、`harublog-minio`（:9000）、PostgreSQL 14（本机 :5432，库 `harublog_testblog`）。以下组件**从未部署**，对应功能在测试站处于休眠：
+| 组件 | systemd 单元 | 端口/路径 | 常驻内存 | 状态 |
+|----|----|----|----|----|
+| web（Next standalone） | `harublog-web` | :3100 | ~95M | 在跑 |
+| 对象存储 MinIO | `harublog-minio` | :9000 | ~110M | 在跑 |
+| PostgreSQL 14 | `postgresql@14-main` | :5432，库 `harublog_testblog` | ~35M | 在跑 |
+| **Meilisearch**（块级搜索） | `harublog-meili` | :7700 | ~100M（封顶 400M） | **2026-06-14 立** |
+| **worker**（outbox 消费） | `harublog-worker` | 无端口 | ~43M（封顶 200M） | **2026-06-14 立** |
+| collab 网关（Hocuspocus，实时协作） | — | :3201 | — | **仍未部署**（Yjs 实时协作在测试站不可用；单人编辑/审批/建议不受影响） |
 
-| 组件 | 状态 | 影响 | 部署方式 |
-|----|----|----|----|
-| **worker**（`apps/worker`） | 未部署 | 消费 `search_outbox` 的 ① Meilisearch 同步 ② **行内批注锚点重映射** ③ 通知邮件，全都不发生；outbox 只积压不消费（当前 3 条 pending，无害） | 经 `tsx src/index.ts` **运行时跑 TS、无构建步骤**。需把 `apps/worker/src` + 它 import 的 `packages/{kernel,db,mailer,search}` 源码 + `node_modules`(tsx/drizzle/meilisearch/mailer) + env(`DATABASE_URL`/`MEILI*`/`RESEND*`) 一并上服务器，配 `harublog-worker` systemd 单元。**且 worker 启动即 `ensureBlocksIndex()` 连 Meilisearch，Meili 没起就起不来**——所以 worker 与 Meilisearch 必须一起上 |
-| **Meilisearch**（:7700） | 未安装 | `/search` 退化为「搜索服务暂时不可用」（web 有兜底，不崩）；worker 无法启动 | 单机二进制 + systemd（同 MinIO 套路：本机下好 scp 上去）。**额外常驻进程，吃内存**——上之前先权衡邻居安全红线 |
-| **collab 网关**（`apps/collab`，Hocuspocus，:3201） | 未部署 | 实时协作（Yjs 草稿态）在测试站不可用；单人编辑/审批/建议等非实时路径不受影响 | Node 服务 + env(`COLLAB_SECRET` 与 web 一致) + systemd；同样是额外常驻进程 |
+**worker 与 Meilisearch 是一套**：worker 消费 `search_outbox` 做 ① Meilisearch 块级同步 ② 行内批注锚点重映射（含跨块）③ 通知邮件；且 worker 启动即 `ensureBlocksIndex()` 连 Meili，**Meili 没起 worker 就起不来**，必须一起上、Meili 先起。
+
+### Meilisearch + worker 部署流程（已验证）
+
+**Meilisearch**（同 MinIO 套路：本机下二进制 → scp，服务器下载太慢）：
+```bash
+# 本机：取最新稳定版二进制（linux-amd64），scp 上去
+TAG=$(curl -s https://api.github.com/repos/meilisearch/meilisearch/releases/latest | sed -nE 's/.*"tag_name": *"([^"]+)".*/\1/p' | head -1)
+curl -fL -o /tmp/meilisearch.linux-amd64 "https://github.com/meilisearch/meilisearch/releases/download/${TAG}/meilisearch-linux-amd64"
+scp -i ~/.ssh/harublog_deploy /tmp/meilisearch.linux-amd64 root@119.23.77.86:/tmp/
+# 服务器：装二进制；生成强 master key（48 hex），写 meili.env 并同步进 web.env（原值是占位符 "disabled"）
+#   meili.env: MEILI_MASTER_KEY=<key> / MEILI_ENV=production / MEILI_NO_ANALYTICS=true
+#             / MEILI_DB_PATH=/opt/harublog/meili-data / MEILI_HTTP_ADDR=127.0.0.1:7700
+#   web.env:  sed 改 MEILI_MASTER_KEY=<同一个 key>（先备份 web.env.bak），改完 systemctl restart harublog-web
+#   单元 harublog-meili.service：EnvironmentFile=meili.env, ExecStart=/usr/local/bin/meilisearch,
+#                               MemoryMax=400M, Restart=on-failure
+# 健康：curl 127.0.0.1:7700/health → {"status":"available"}
+```
+（web.env `MEILISEARCH_HOST=http://127.0.0.1:7700`、`MEILI_MASTER_KEY` 两端必须一致；client 0.58 ↔ server v1.x REST 兼容。）
+
+**worker**（**不在服务器跑 tsx**，本机 esbuild 打成单文件 CJS——所有依赖纯 JS：postgres.js / meilisearch / resend / drizzle，无原生模块）：
+```bash
+# 本机：打包（worker 服务 + 一次性 reindex）
+pnpm dlx esbuild apps/worker/src/index.ts   --bundle --platform=node --format=cjs --target=node20 --outfile=/tmp/hb-worker.cjs
+pnpm dlx esbuild apps/worker/src/reindex.ts --bundle --platform=node --format=cjs --target=node20 --outfile=/tmp/hb-reindex.cjs
+scp -i ~/.ssh/harublog_deploy /tmp/hb-worker.cjs /tmp/hb-reindex.cjs root@119.23.77.86:/tmp/
+# 服务器：放 /opt/harublog/worker/，单元 harublog-worker.service：
+#   EnvironmentFile=/opt/harublog/web.env（复用 DATABASE_URL/MEILI*/RESEND*），ExecStart=$(command -v node) …/worker.cjs,
+#   MemoryMax=200M, Restart=on-failure, StandardOutput/Error=append:/var/log/harublog-worker.log
+# 改 worker 代码后：本机重新 esbuild → scp → systemctl restart harublog-worker（同 path-A 思路，无构建依赖）
+```
+**首次/全量重建索引**（worker 只消费新 outbox 事件，存量已发布文章需补投一次）——直接走 worker 真实管道、单写者无竞态：
+```sql
+insert into search_outbox (topic, payload)
+  select 'doc.published', jsonb_build_object('docId', id::text) from documents where status='published';
+```
+worker 轮询（2s）即排空：每篇 syncDocument 到 Meili + remap 其锚点。验证：Meili `/indexes/blocks/stats` 文档数 > 0；`curl 127.0.0.1:3100/search?q=…` 不含「搜索服务暂时不可用」。（也有打好的 `reindex.cjs` 做纯净全量重建，需以 `systemd-run -p EnvironmentFile=/opt/harublog/web.env node …/reindex.cjs` 跑——web.env 含空格/`<>` 值，别用 bash `source`。）
 
 **关键推论**：行内批注锚点重映射（含跨块）依赖 worker，worker 依赖 Meilisearch。要让锚点重映射在 testblog 真正生效，得**同时**把 Meilisearch + worker 立起来——这是给紧内存服务器**新增两个常驻服务**的决定，属高危外向操作，**先征得用户同意**，并在上线后复核邻居站与总内存。纯 web 迭代（path-A）不涉及这些。
 
