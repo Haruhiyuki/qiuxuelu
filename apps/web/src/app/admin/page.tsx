@@ -62,6 +62,12 @@ export default async function AdminHome() {
       desc: '复核协作直编，必要时回退',
       visible: has('queue.claim'),
     },
+    {
+      href: '/admin/news',
+      title: '近闻公告',
+      desc: '发布站点新闻与公告，置顶上首页',
+      visible: has('announcement.manage'),
+    },
     { href: '/admin/users', title: '用户管理', desc: '角色任命、制裁、信任等级', visible: isAdmin },
     { href: '/admin/audit', title: '审计日志', desc: '高危操作的可追溯记录', visible: isAdmin },
   ];
