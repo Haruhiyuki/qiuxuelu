@@ -52,6 +52,7 @@ import {
   textByHashes,
 } from '@/server/merge';
 import { insertNotification } from '@/server/notifications';
+import { maybeAutoPromote } from '@/server/promote';
 import { publishRevisionTx } from '@/server/publish';
 import { loadRevisionDoc } from '@/server/revision-doc';
 
@@ -1235,6 +1236,8 @@ export async function directEditPublished(
       });
       return newSeq;
     });
+    // 他人直编修订（=实质协作）落地后，检查私有页是否够阈值转公共（ADR-0007，幂等、失败不连累主流程）
+    await maybeAutoPromote(db, rawDocId);
     return { ok: true, data: { seq } };
   } catch (err) {
     if (isUniqueViolation(err)) {

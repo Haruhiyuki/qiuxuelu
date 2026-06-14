@@ -67,9 +67,12 @@ async function main(): Promise<void> {
         value: TRUST_THRESHOLDS_COLD_START,
       },
       {
-        // 私有→公共自动升级阈值（他人贡献累计数，ADR-0007）；治理阈值入配置不硬编码
+        // 私有→公共自动升级阈值（实质协作累计数，ADR-0007 + ADR-0013）；治理阈值入配置不硬编码
         key: 'doc.publicize',
-        value: { threshold: 20, note: '私有页累计他人贡献（建议+评论+他人直编）超此数自动转公共' },
+        value: {
+          threshold: 50,
+          note: '私有页累计实质协作（非作者：被采纳的修订申请 + 他人直编修订）超此数自动转公共',
+        },
       },
     ])
     .onConflictDoNothing({ target: siteSettings.key });

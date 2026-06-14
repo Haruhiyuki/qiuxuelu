@@ -3,7 +3,6 @@
 // 写审计、祝贺原作者、保留原作者身份（ownerId 不变）。
 import {
   auditLog,
-  comments,
   type Database,
   documents,
   revisions,
@@ -11,12 +10,14 @@ import {
   suggestions,
 } from '@harublog/db';
 import type { SQL } from 'drizzle-orm';
-import { type AnyColumn, and, eq, isNotNull, ne, sql } from 'drizzle-orm';
+import { type AnyColumn, and, eq, isNotNull, ne, notExists, sql } from 'drizzle-orm';
 import { insertNotification } from '@/server/notifications';
 
-const DEFAULT_THRESHOLD = 20;
+// 转公共门槛：累计 50 次「实质协作」（被采纳的修订申请 + 他人直编修订）。
+// 仍可由 site_settings(key='doc.publicize') 覆盖（治理阈值不硬编码红线）。
+const DEFAULT_THRESHOLD = 50;
 
-/** 读 site_settings 的转公共阈值（key='doc.publicize'）；缺失/损坏回落默认 20。 */
+/** 读 site_settings 的转公共阈值（key='doc.publicize'）；缺失/损坏回落默认 50。 */
 export async function getPublicizeThreshold(db: Pick<Database, 'select'>): Promise<number> {
   const rows = await db
     .select({ value: siteSettings.value })
@@ -34,9 +35,13 @@ export async function getPublicizeThreshold(db: Pick<Database, 'select'>): Promi
 }
 
 /**
- * 统计一篇文档的「他人贡献」记录数（= 升级计数口径）：
- * 非作者的 ① 编辑建议 ② 评论（含行内）③ 直编修订（排除作者本人与建议分支内修订）。
- * 三者求和——最能反映「社区参与度 → 公共价值」。作者匿名（ownerId=null）时一律计入。
+ * 统计一篇文档的「实质协作」次数（= 升级计数口径，ADR-0007）：
+ * 非作者的 ① 被采纳的修订申请（suggestions.status='merged'）② 直编落地的主线修订。
+ * 二者求和——只数真正改动了内容并被接纳的协作；评论、编辑建议、未采纳/撤回的修订申请等
+ * 更轻的参与方式一律不计。作者匿名（ownerId=null）时其余人的贡献一律计入。
+ *
+ * 去重：合入修订申请会在主线生成 merge commit（suggestion_id=null），它已由 ① 计一次，
+ * 故 ② 用 mergedRevisionId 把这些 merge commit 排除，避免同一次采纳被数两遍。
  */
 export async function countCollabRecords(
   db: Pick<Database, 'select'>,
@@ -45,35 +50,38 @@ export async function countCollabRecords(
 ): Promise<number> {
   const notOwner = (col: AnyColumn): SQL => (ownerId === null ? sql`true` : ne(col, ownerId));
 
-  const [sg, cm, rv] = await Promise.all([
+  const [sg, rv] = await Promise.all([
+    // ① 被采纳（已合入）的修订申请
     db
       .select({ n: sql<number>`count(*)::int` })
       .from(suggestions)
-      .where(and(eq(suggestions.documentId, docId), notOwner(suggestions.authorId))),
-    db
-      .select({ n: sql<number>`count(*)::int` })
-      .from(comments)
       .where(
         and(
-          eq(comments.documentId, docId),
-          eq(comments.status, 'visible'),
-          notOwner(comments.authorId),
+          eq(suggestions.documentId, docId),
+          eq(suggestions.status, 'merged'),
+          notOwner(suggestions.authorId),
         ),
       ),
+    // ② 他人直编落地的主线修订（排除 ① 的 merge commit，避免重复计数）
     db
       .select({ n: sql<number>`count(*)::int` })
       .from(revisions)
-      // 主线修订（suggestionId is null）里非作者署名的（= 他人直编落地）
       .where(
         and(
           eq(revisions.documentId, docId),
           notOwner(revisions.authorId),
           sql`${revisions.suggestionId} is null`,
           isNotNull(revisions.authorId),
+          notExists(
+            db
+              .select({ x: sql`1` })
+              .from(suggestions)
+              .where(eq(suggestions.mergedRevisionId, revisions.id)),
+          ),
         ),
       ),
   ]);
-  return Number(sg[0]?.n ?? 0) + Number(cm[0]?.n ?? 0) + Number(rv[0]?.n ?? 0);
+  return Number(sg[0]?.n ?? 0) + Number(rv[0]?.n ?? 0);
 }
 
 /**
@@ -124,8 +132,8 @@ export async function promoteToPublic(
 }
 
 /**
- * 自动升级检查：私有文档累计他人贡献超阈值即升级。在「新增他人贡献」的写路径后调用
- * （建议创建/合入、评论创建等），幂等且廉价（先看可见性再计数）。失败不应影响主流程。
+ * 自动升级检查：私有文档累计实质协作超阈值即升级。在「可能改变计数」的写路径后调用
+ * （修订申请合入、他人直编修订落地），幂等且廉价（先看可见性再计数）。失败不应影响主流程。
  */
 export async function maybeAutoPromote(db: Database, docId: string): Promise<void> {
   try {
