@@ -1,5 +1,5 @@
-// web 编辑器扩展集 = 共享 schema（@harublog/editor，与 collab 网关一致）+ 仅 UI 的增强：
-// Figure 挂 React NodeView、占位符、拖拽/粘贴上传。三个编辑器（单人/协作/建议）统一从这里取。
+// web 编辑器扩展集 = 共享 schema（@harublog/editor）+ 仅 UI 的增强：
+// Figure 挂 React NodeView、占位符、拖拽/粘贴上传。各编辑器（撰写/协作直编/修订）统一从这里取。
 import { buildExtensions, Callout, Figure, MathBlock } from '@harublog/editor';
 import type { Extensions } from '@tiptap/core';
 import Placeholder from '@tiptap/extension-placeholder';
@@ -14,7 +14,6 @@ import { SlashCommand } from './slash-command';
 import { uploadImageFile } from './upload';
 
 export interface ClientExtensionsOptions {
-  collaboration?: boolean;
   placeholder?: string;
 }
 
@@ -24,9 +23,7 @@ const WITH_NODE_VIEW = new Set(['figure', 'callout', 'mathBlock']);
 
 export function clientExtensions(options: ClientExtensionsOptions = {}): Extensions {
   // 共享 schema 里需要交互的块替换为带 React NodeView 的版本（schema 不变，仅渲染增强）
-  const base = buildExtensions({ collaboration: options.collaboration }).filter(
-    (ext) => !WITH_NODE_VIEW.has(ext.name),
-  );
+  const base = buildExtensions().filter((ext) => !WITH_NODE_VIEW.has(ext.name));
   const FigureWithView = Figure.extend({
     // 同 mathBlock：figure 也是 atom，说明/替代文本输入框的事件交给它自己（防被当成文档编辑）
     addNodeView: () =>

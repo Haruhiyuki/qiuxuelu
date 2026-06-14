@@ -2,12 +2,7 @@
 // 内部依赖仅 @harublog/kernel（依赖铁律：editor 只依赖 kernel）。
 export { BlockId } from './block-id';
 export { Callout, type CalloutVariant } from './callout';
-export {
-  type BuildExtensionsOptions,
-  buildExtensions,
-  COLLAB_FRAGMENT,
-  getEditorSchema,
-} from './extensions';
+export { buildExtensions, getEditorSchema } from './extensions';
 export { Figure, type FigureOptions } from './figure';
 export { MathBlock } from './math-block';
 export { kernelToTiptap, tiptapToKernel } from './normalize';
