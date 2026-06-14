@@ -148,7 +148,8 @@ export function ArticleComposer(props: ArticleComposerProps) {
     immediatelyRender: false,
     editorProps: {
       attributes: {
-        class: 'prose-zh mx-auto min-h-[50vh] w-full max-w-[42rem] px-1 py-8 focus:outline-none',
+        // 不再叠加自己的 max-w/mx-auto/px：宽度与左缘交给外层写作栏统一约束，正文左缘与标题严格对齐
+        class: 'prose-zh min-h-[50vh] w-full py-8 focus:outline-none',
         'aria-label': '正文编辑区',
       },
     },
@@ -500,7 +501,7 @@ export function ArticleComposer(props: ArticleComposerProps) {
         </div>
       ) : null}
 
-      {/* 写作区：标题 + 工具栏 + 正文，居中单栏，读起来像成稿 */}
+      {/* 写作区：标题 / 工具栏 / 正文 同处一栏，三者左缘严格对齐，读起来像成稿 */}
       <div className="mx-auto w-full max-w-[44rem] px-6">
         <textarea
           ref={titleAreaRef}
@@ -511,7 +512,7 @@ export function ArticleComposer(props: ArticleComposerProps) {
           aria-label="文章标题"
           className="mt-8 w-full resize-none overflow-hidden border-none bg-transparent font-semibold font-serif text-3xl text-ink-900 leading-snug tracking-wide outline-none placeholder:text-ink-300 sm:text-4xl"
         />
-        <div className="mt-3 flex flex-wrap items-center gap-2 text-ink-400 text-sm">
+        <div className="mt-3 mb-5 flex flex-wrap items-center gap-2 text-ink-400 text-sm">
           <span>{props.sections.find((s) => s.id === sectionId)?.name ?? '未选板块'}</span>
           {tags.length > 0 ? <span aria-hidden>·</span> : null}
           {tags.map((t) => (
@@ -527,20 +528,17 @@ export function ArticleComposer(props: ArticleComposerProps) {
             编辑
           </button>
         </div>
-      </div>
 
-      <div className="mt-6 border-ink-200 border-t">
+        {/* 工具栏作为本栏直接子节点：吸顶生效、且自然取本栏宽度——不再满屏白条溢出 */}
         {editor ? (
           <>
             <EditorToolbar editor={editor} />
             <BubbleToolbar editor={editor} />
             <TableToolbar editor={editor} />
-            <div className="mx-auto w-full max-w-[44rem] px-6">
-              <EditorContent editor={editor} />
-            </div>
+            <EditorContent editor={editor} />
           </>
         ) : (
-          <p className="mx-auto max-w-[44rem] px-6 py-16 text-ink-400 text-sm">编辑器加载中…</p>
+          <p className="py-16 text-ink-400 text-sm">编辑器加载中…</p>
         )}
       </div>
 
