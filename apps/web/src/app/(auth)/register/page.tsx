@@ -143,10 +143,10 @@ export default function RegisterPage() {
             autoComplete="nickname"
             value={name}
             onChange={(e) => setName(e.target.value)}
-            placeholder="2–20 字，可中文，全站唯一"
+            placeholder="2–20 字，可用中文"
             required
           />
-          <p className="text-ink-400 text-xs">署名与 @提及都用它；注册后 7 天内最多改 2 次。</p>
+          <p className="text-ink-400 text-xs">用作署名和 @ 名字；注册后 7 天内最多可改 2 次。</p>
         </div>
 
         <div className="flex flex-col gap-1.5">

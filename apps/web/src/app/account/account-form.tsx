@@ -279,7 +279,7 @@ export function AccountForm({
                 >
                   更换头像
                 </Button>
-                <span className="text-ink-400 text-xs">JPEG/PNG/WebP/GIF，自动转 WebP</span>
+                <span className="text-ink-400 text-xs">支持常见图片格式</span>
                 <input
                   ref={avatarRef}
                   type="file"
@@ -303,7 +303,7 @@ export function AccountForm({
                 maxLength={280}
                 rows={3}
                 onChange={(e) => setBio(e.target.value)}
-                placeholder="一句话介绍你自己（最长 280 字，公开展示）"
+                placeholder="一句话介绍你自己"
               />
             </div>
             <div className="flex flex-col gap-2">
@@ -377,7 +377,7 @@ export function AccountForm({
           </form>
         </SettingsCard>
 
-        <SettingsCard title="名字" description="署名与 @提及一体，全站唯一。">
+        <SettingsCard title="名字" description="用作署名，也是 @ 你的名字，全站唯一。">
           <form onSubmit={saveName} className="flex flex-col gap-3">
             {nameNotice ? (
               <Alert variant={nameNotice.kind === 'info' ? 'info' : 'danger'}>
@@ -504,10 +504,7 @@ export function AccountForm({
       </SettingsGroup>
 
       <SettingsGroup id="notifications" title="通知">
-        <SettingsCard
-          title="邮件通知"
-          description="站内通知不受此开关影响；高频的评论/回复不发邮件。"
-        >
+        <SettingsCard title="邮件通知" description="评论、回复等高频提醒不发邮件；站内通知照常。">
           <label className="flex cursor-pointer items-center gap-3 text-ink-700 text-sm">
             <input
               type="checkbox"

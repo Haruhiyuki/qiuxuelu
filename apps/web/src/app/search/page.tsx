@@ -89,9 +89,9 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
 
       {query.length === 0 ? (
         <p className="mt-8 text-ink-500 text-sm">
-          按标题、正文、作者或标签检索。提示：任意页面按{' '}
+          按标题、正文、作者或标签搜索。任意页面按{' '}
           <kbd className="rounded border border-ink-200 px-1.5 py-0.5 font-sans text-xs">⌘K</kbd>{' '}
-          可随时唤起速搜。
+          也能快速搜索。
         </p>
       ) : failed ? (
         <p className="mt-8 text-accent-700 text-sm">搜索服务暂时不可用，请稍后再试。</p>

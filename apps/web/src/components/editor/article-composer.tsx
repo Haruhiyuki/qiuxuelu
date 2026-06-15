@@ -363,8 +363,8 @@ export function ArticleComposer(props: ArticleComposerProps) {
     const ok = await confirm({
       title: props.canSelfPublish ? '发布文章？' : '申请发布？',
       description: props.canSelfPublish
-        ? '你已是贡献者（T2+），发布后文章立即公开可见，并进入巡查队列接受复核。'
-        : '提交后将进入审校队列，志愿者审校通过后文章公开可见；期间你仍可继续修改。',
+        ? '发布后文章立即公开，之后仍可继续修改。'
+        : '提交后由志愿者审校，通过后公开；期间仍可继续修改。',
       confirmLabel: props.canSelfPublish ? '发布' : '申请发布',
     });
     if (!ok) {
@@ -493,7 +493,7 @@ export function ArticleComposer(props: ArticleComposerProps) {
       <div className="mx-auto w-full max-w-[44rem] px-6">
         <section className="mt-12 border-ink-200 border-t pt-8">
           <h2 className="font-medium font-serif text-ink-800 text-lg">发布设置</h2>
-          <p className="mt-1 text-ink-400 text-sm">这些设置会在发布时生效，随时可改、自动保存。</p>
+          <p className="mt-1 text-ink-400 text-sm">发布时生效，可随时修改。</p>
           <div className="mt-5 flex flex-col gap-5">
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="compose-section">板块</Label>
@@ -526,7 +526,7 @@ export function ArticleComposer(props: ArticleComposerProps) {
                 maxLength={200}
                 value={summary}
                 onChange={(e) => onSummaryChange(e.target.value)}
-                placeholder="一句话概括这篇文章（最长 200 字）"
+                placeholder="一句话概括这篇文章"
               />
               <span className="text-ink-400 text-xs">{summary.length}/200</span>
             </div>
@@ -575,9 +575,9 @@ export function ArticleComposer(props: ArticleComposerProps) {
         {!isDraft ? (
           <section className="mt-8 border-ink-200 border-t pt-8">
             <h2 className="font-medium font-serif text-ink-800 text-lg">提交修订</h2>
-            <p className="mt-1 text-ink-400 text-sm">把这次改动作为一条修订追加到版本历史。</p>
+            <p className="mt-1 text-ink-400 text-sm">把这次改动记入版本历史。</p>
             <div className="mt-4 flex flex-col gap-3">
-              <Label htmlFor="commit-message">修订说明（可选，便于历史回溯）</Label>
+              <Label htmlFor="commit-message">修订说明（可选）</Label>
               <Textarea
                 id="commit-message"
                 rows={2}
@@ -611,8 +611,8 @@ export function ArticleComposer(props: ArticleComposerProps) {
                 </p>
                 <p className="mt-1 text-ink-400 text-sm">
                   {props.canSelfPublish
-                    ? '内容随写随存为草稿；发布后立即公开，并进入巡查队列复核。'
-                    : '内容随写随存为草稿；提交后进入审校队列，通过后公开。'}
+                    ? '内容自动存为草稿；发布后立即公开。'
+                    : '内容自动存为草稿；提交后由志愿者审校，通过后公开。'}
                 </p>
               </div>
               <Button

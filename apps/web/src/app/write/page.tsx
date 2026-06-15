@@ -233,7 +233,7 @@ export default async function WritePage() {
             <EmptyState
               icon={<PenLine />}
               title="草稿箱是空的"
-              description="点右上角「写文章」开始——内容会自动保存，随时回来继续。"
+              description="点右上角「写文章」开始写，内容会自动保存。"
             />
           )}
           {drafts.some((d) => d.status === 'pending') ? (

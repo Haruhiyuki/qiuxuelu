@@ -280,8 +280,7 @@ export function SearchCommand() {
             ) : (
               <div className="flex flex-col items-center gap-1 px-6 py-12 text-center">
                 <Search className="h-8 w-8 text-ink-300" aria-hidden />
-                <p className="mt-1 text-ink-500 text-sm">输入关键词，直达命中的文章段落</p>
-                <p className="text-ink-400 text-xs">支持标题与正文全文检索</p>
+                <p className="mt-1 text-ink-500 text-sm">输入关键词开始搜索</p>
               </div>
             )
           ) : null}

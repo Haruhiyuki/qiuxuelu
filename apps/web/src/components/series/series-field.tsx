@@ -150,7 +150,7 @@ export function SeriesField({ docId, ensureDoc, options, initialSeriesId }: Seri
           <option value={NEW}>+ 新建系列…</option>
         </select>
       )}
-      <span className="text-ink-400 text-xs">把本文归入一个系列，读者可在文章底部顺序阅读。</span>
+      <span className="text-ink-400 text-xs">归入系列后，读者可在文章底部顺序阅读。</span>
     </div>
   );
 }
