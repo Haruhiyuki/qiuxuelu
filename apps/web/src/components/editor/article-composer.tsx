@@ -404,13 +404,14 @@ export function ArticleComposer(props: ArticleComposerProps) {
       const result = await requestPublish(id);
       if (result.ok) {
         if (result.data.published) {
-          setDocStatus('published');
-          setNotice({ kind: 'info', text: '已发布，文章现已公开可见。' });
+          // 已真正发布：直接跳到文章页（保持 pending 状态指示，避免跳转前闪烁）
+          setNotice({ kind: 'info', text: '已发布，正在跳转到文章…' });
+          router.push(`/a/${result.data.slug}`);
         } else {
           setDocStatus('pending');
           setNotice({ kind: 'info', text: '已提交发布申请，审校通过后文章将公开可见' });
+          router.refresh();
         }
-        router.refresh();
       } else {
         setNotice({ kind: 'danger', text: result.error });
       }

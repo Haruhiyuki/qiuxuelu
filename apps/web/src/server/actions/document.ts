@@ -771,7 +771,7 @@ export async function deleteDocument(rawDocId: string): Promise<ActionResult> {
 
 export async function requestPublish(
   rawDocId: string,
-): Promise<ActionResult<{ published: boolean }>> {
+): Promise<ActionResult<{ published: boolean; slug: string }>> {
   const actor = await requireActor();
   if (!actor) {
     return fail('请先登录');
@@ -822,7 +822,7 @@ export async function requestPublish(
           notifyAuthor: false,
         });
       });
-      return { ok: true, data: { published: true } };
+      return { ok: true, data: { published: true, slug: docRow.slug } };
     } catch (err) {
       return toFailure(err, '发布失败，请稍后重试');
     }
@@ -880,7 +880,7 @@ export async function requestPublish(
         detail: { documentId: rawDocId, revisionId: head },
       });
     });
-    return { ok: true, data: { published: false } };
+    return { ok: true, data: { published: false, slug: docRow.slug } };
   } catch (err) {
     return toFailure(err, '申请发布失败，请稍后重试');
   }

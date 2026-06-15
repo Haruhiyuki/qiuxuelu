@@ -1,6 +1,6 @@
 import { SITE_NAME } from '@harublog/config';
 import { getDb } from '@harublog/db';
-import { Bell, PenLine } from 'lucide-react';
+import { PenLine } from 'lucide-react';
 import Link from 'next/link';
 import { getSession } from '@/lib/session';
 import { hasPublishGrant, loadActor } from '@/server/actors';
@@ -9,8 +9,8 @@ import { countUnread } from '@/server/notifications';
 import { MobileNav } from './mobile-nav';
 import { NavLink } from './nav-link';
 import { SearchTrigger } from './search/search-trigger';
-import { SignOutButton } from './sign-out-button';
 import { ThemeToggle } from './theme-toggle';
+import { UserMenu } from './user-menu';
 
 export async function SiteHeader() {
   const session = await getSession();
@@ -86,37 +86,19 @@ export async function SiteHeader() {
           <ThemeToggle />
           {session ? (
             <>
-              <Link
-                href="/notifications"
-                aria-label={unread > 0 ? `通知（${unread} 条未读）` : '通知'}
-                className="relative text-ink-600 transition-colors hover:text-brand-700"
-              >
-                <Bell className="h-5 w-5" aria-hidden />
-                {unread > 0 ? (
-                  <span className="-right-1.5 -top-1 absolute inline-flex min-w-4 justify-center rounded-full bg-danger-fill px-1 font-medium text-[10px] text-on-fill leading-4">
-                    {unread > 99 ? '99+' : unread}
-                  </span>
-                ) : null}
-              </Link>
-              <Link
-                href={`/u/${session.user.id}`}
-                className="max-w-[10rem] truncate font-medium text-ink-800 transition-colors hover:text-brand-700"
-              >
-                {session.user.name}
-              </Link>
               <Link href="/write" className="text-ink-600 transition-colors hover:text-brand-700">
                 创作中心
-              </Link>
-              <Link
-                href="/bookmarks"
-                className="text-ink-600 transition-colors hover:text-brand-700"
-              >
-                收藏
               </Link>
               <Link href="/account" className="text-ink-600 transition-colors hover:text-brand-700">
                 设置
               </Link>
-              <SignOutButton />
+              {/* 个人资料：悬停浮出用户菜单（我的主页 / 通知 / 收藏 / 退出） */}
+              <UserMenu
+                userId={session.user.id}
+                userName={session.user.name}
+                userImage={session.user.image ?? null}
+                unread={unread}
+              />
             </>
           ) : (
             <>
