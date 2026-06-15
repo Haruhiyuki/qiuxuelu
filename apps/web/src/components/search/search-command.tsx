@@ -2,9 +2,9 @@
 
 // ⌘K 速搜命令面板（成熟产品式：Algolia DocSearch / Linear / Notion 那种）。
 // 全局挂载一次（随站点页头一起），监听 ⌘K/Ctrl+K、「/」以及自定义事件 harublog:open-search 打开。
-// 防抖调用 quickSearch（服务端 Server Action），结果按文档分组、命中直达段落锚点；
-// 键盘 ↑↓ 选择、↵ 打开、esc 关闭；空查询展示最近搜索（localStorage）。
-import { ArrowRight, Clock, CornerDownLeft, FileText, Loader2, Search } from 'lucide-react';
+// 防抖调用 quickSearch（服务端 Server Action），结果每篇一条（已去重），命中直达最佳段落。
+// 列表首项恒为「查看全部结果」：回车默认进详细结果页，↑↓ 选具体文章、esc 关闭。
+import { Clock, CornerDownLeft, FileText, Loader2, Search } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
@@ -126,33 +126,40 @@ export function SearchCommand() {
   }, [query, open]);
 
   const q = query.trim();
-  const hasViewAll = q.length > 0;
+  const hasQuery = q.length > 0;
 
-  // 分组结果附带「扁平索引」，供键盘上下选择对齐
-  const rendered = useMemo(() => {
-    let i = 0;
-    return (result?.groups ?? []).map((g) => ({
-      ...g,
-      hits: g.hits.map((h) => ({ ...h, idx: i++ })),
-    }));
+  // 命中文章：去重后每篇一条，取最佳命中块
+  const articles = useMemo(() => {
+    if (result === null || result.failed) {
+      return [];
+    }
+    return result.groups.flatMap((g) => {
+      const best = g.hits[0];
+      return best === undefined
+        ? []
+        : [
+            {
+              slug: g.slug,
+              title: g.title,
+              sectionName: g.sectionName,
+              authorName: g.authorName,
+              blockId: best.blockId,
+              snippet: best.snippet,
+            },
+          ];
+    });
   }, [result]);
 
-  // 可选中项的目标链接：各命中段落 + 末尾「查看全部结果」
+  // 可选中项：第 0 项恒为「查看全部结果」（回车默认进结果页），其后为各篇文章
   const items = useMemo(() => {
-    const out: string[] = [];
-    if (result !== null && !result.failed) {
-      for (const g of result.groups) {
-        for (const h of g.hits) {
-          out.push(`/a/${g.slug}#b-${h.blockId}`);
-        }
-      }
+    if (!hasQuery) {
+      return [] as string[];
     }
-    if (hasViewAll) {
-      out.push(`/search?q=${encodeURIComponent(q)}`);
-    }
-    return out;
-  }, [result, hasViewAll, q]);
-  const viewAllIdx = items.length - 1;
+    return [
+      `/search?q=${encodeURIComponent(q)}`,
+      ...articles.map((a) => `/a/${a.slug}#b-${a.blockId}`),
+    ];
+  }, [hasQuery, q, articles]);
 
   const go = useCallback(
     (href: string) => {
@@ -193,7 +200,8 @@ export function SearchCommand() {
     }
     if (e.key === 'Enter') {
       e.preventDefault();
-      const href = items[active] ?? items[items.length - 1];
+      // 默认（active=0）→ 全部结果页；选中具体文章 → 打开该文
+      const href = items[active] ?? items[0];
       if (href !== undefined) {
         go(href);
       }
@@ -293,69 +301,61 @@ export function SearchCommand() {
             </div>
           ) : null}
 
-          {q.length > 0 && result !== null && !result.failed && rendered.length > 0 ? (
-            <ul className="flex flex-col gap-3 py-1">
-              {rendered.map((g) => (
-                <li key={g.docId}>
-                  <div className="flex items-center gap-2 px-2.5 pb-1">
-                    <span className="truncate font-medium font-serif text-ink-800 text-sm">
-                      {g.title}
-                    </span>
-                    <span className="shrink-0 text-ink-400 text-xs">
-                      {g.sectionName}
-                      {g.authorName.length > 0 ? ` · ${g.authorName}` : ''}
-                    </span>
-                  </div>
-                  <ul>
-                    {g.hits.map((h) => (
-                      <li key={h.blockId}>
-                        <button
-                          type="button"
-                          data-idx={h.idx}
-                          onMouseMove={() => setActive(h.idx)}
-                          onClick={() => go(`/a/${g.slug}#b-${h.blockId}`)}
-                          className={`flex w-full items-start gap-2.5 rounded-lg px-2.5 py-2 text-left transition-colors ${
-                            active === h.idx ? 'bg-brand-50' : ''
-                          }`}
-                        >
-                          <FileText
-                            className="mt-0.5 h-4 w-4 shrink-0 text-brand-500"
-                            aria-hidden
-                          />
-                          <span className="min-w-0 flex-1 text-ink-600 text-sm leading-relaxed">
-                            <SearchSnippet html={h.snippet} />
-                          </span>
-                          {active === h.idx ? (
-                            <CornerDownLeft
-                              className="mt-0.5 h-3.5 w-3.5 shrink-0 text-ink-400"
-                              aria-hidden
-                            />
-                          ) : null}
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                </li>
-              ))}
+          {hasQuery && result !== null && !result.failed && articles.length > 0 ? (
+            <ul className="flex flex-col gap-0.5 py-1">
+              {/* 首项：查看全部结果（回车默认到此） */}
+              <li>
+                <button
+                  type="button"
+                  data-idx={0}
+                  onMouseMove={() => setActive(0)}
+                  onClick={() => go(`/search?q=${encodeURIComponent(q)}`)}
+                  className={`flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2.5 text-left transition-colors ${
+                    active === 0 ? 'bg-brand-50' : ''
+                  }`}
+                >
+                  <Search className="h-4 w-4 shrink-0 text-brand-600" aria-hidden />
+                  <span className="flex-1 font-medium text-brand-700 text-sm">
+                    查看「{q}」的全部结果
+                  </span>
+                  {result.total > 0 ? (
+                    <span className="shrink-0 text-ink-400 text-xs">{result.total} 篇</span>
+                  ) : null}
+                  <CornerDownLeft className="h-3.5 w-3.5 shrink-0 text-ink-400" aria-hidden />
+                </button>
+              </li>
+              {/* 命中文章（每篇一条） */}
+              {articles.map((a, i) => {
+                const idx = i + 1;
+                return (
+                  <li key={a.slug}>
+                    <button
+                      type="button"
+                      data-idx={idx}
+                      onMouseMove={() => setActive(idx)}
+                      onClick={() => go(`/a/${a.slug}#b-${a.blockId}`)}
+                      className={`flex w-full items-start gap-2.5 rounded-lg px-2.5 py-2 text-left transition-colors ${
+                        active === idx ? 'bg-brand-50' : ''
+                      }`}
+                    >
+                      <FileText className="mt-0.5 h-4 w-4 shrink-0 text-brand-500" aria-hidden />
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate font-medium text-ink-800 text-sm">
+                          {a.title}
+                        </span>
+                        <span className="mt-0.5 block truncate text-ink-500 text-xs leading-relaxed">
+                          <SearchSnippet html={a.snippet} />
+                        </span>
+                        <span className="mt-0.5 block truncate text-ink-400 text-xs">
+                          {a.sectionName}
+                          {a.authorName.length > 0 ? ` · ${a.authorName}` : ''}
+                        </span>
+                      </span>
+                    </button>
+                  </li>
+                );
+              })}
             </ul>
-          ) : null}
-
-          {hasViewAll && result !== null && !result.failed ? (
-            <button
-              type="button"
-              data-idx={viewAllIdx}
-              onMouseMove={() => setActive(viewAllIdx)}
-              onClick={() => go(`/search?q=${encodeURIComponent(q)}`)}
-              className={`mt-1 flex w-full items-center gap-2 rounded-lg px-2.5 py-2.5 text-left font-medium text-sm transition-colors ${
-                active === viewAllIdx ? 'bg-brand-50' : ''
-              }`}
-            >
-              <ArrowRight className="h-4 w-4 shrink-0 text-brand-600" aria-hidden />
-              <span className="flex-1 text-brand-700">查看「{q}」的全部结果</span>
-              {result.total > 0 ? (
-                <span className="shrink-0 text-ink-400 text-xs">约 {result.total} 个段落</span>
-              ) : null}
-            </button>
           ) : null}
         </div>
 

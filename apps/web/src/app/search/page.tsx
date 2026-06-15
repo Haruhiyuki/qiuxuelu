@@ -16,7 +16,6 @@ interface SearchPageProps {
     q?: string;
     page?: string;
     section?: string;
-    tag?: string;
     sort?: string;
   }>;
 }
@@ -28,7 +27,6 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
   const query = (sp.q ?? '').trim();
   const page = Math.max(1, Number(sp.page) || 1);
   const section = typeof sp.section === 'string' && sp.section.length > 0 ? sp.section : null;
-  const tag = typeof sp.tag === 'string' && sp.tag.length > 0 ? sp.tag : null;
   const sort: SearchSort = sp.sort === 'newest' ? 'newest' : 'relevance';
 
   const result =
@@ -38,7 +36,6 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
           page,
           pageSize: PAGE_SIZE,
           sectionSlug: section,
-          tag,
           sort,
           withFacets: true,
         })
@@ -46,25 +43,15 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
   const groups = result?.groups ?? [];
   const total = result?.total ?? 0;
   const sectionFacets = result?.sectionFacets ?? [];
-  const tagFacets = result?.tagFacets ?? [];
   const failed = result?.failed ?? false;
 
-  // 保留查询态的链接构造（切板块/标签/排序回到第 1 页）
-  const hrefWith = (next: {
-    section?: string | null;
-    tag?: string | null;
-    sort?: SearchSort;
-    page?: number;
-  }) => {
+  // 保留查询态的链接构造（切板块/排序回到第 1 页）
+  const hrefWith = (next: { section?: string | null; sort?: SearchSort; page?: number }) => {
     const params = new URLSearchParams({ q: query });
     const sec = next.section !== undefined ? next.section : section;
-    const tg = next.tag !== undefined ? next.tag : tag;
     const srt = next.sort ?? sort;
     if (sec !== null && sec !== undefined) {
       params.set('section', sec);
-    }
-    if (tg !== null && tg !== undefined) {
-      params.set('tag', tg);
     }
     if (srt === 'newest') {
       params.set('sort', 'newest');
@@ -146,37 +133,12 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
             </div>
           </div>
 
-          {/* 标签分面（按当前查询的命中标签） */}
-          {tagFacets.length > 0 ? (
-            <div className="mt-2 flex flex-wrap items-center gap-2">
-              <span className="text-ink-400 text-xs">标签</span>
-              {tagFacets.map((t) => {
-                const active = tag === t.name;
-                return (
-                  <Link
-                    key={t.name}
-                    href={hrefWith({ tag: active ? null : t.name, page: 1 })}
-                    className={`rounded-full px-2.5 py-0.5 text-sm transition-colors ${
-                      active
-                        ? 'bg-brand-600 text-on-fill'
-                        : 'bg-paper-200 text-ink-600 hover:bg-paper-300 hover:text-brand-700'
-                    }`}
-                  >
-                    #{t.name}
-                    <span className="ml-1 text-xs opacity-70">{t.count}</span>
-                  </Link>
-                );
-              })}
-            </div>
-          ) : null}
-
           <p className="mt-5 text-ink-500 text-sm">
             约 {total} 篇相关文章
             {activeSectionName != null ? ` · 板块「${activeSectionName}」` : ''}
-            {tag != null ? ` · 标签 #${tag}` : ''}
           </p>
 
-          <SearchResults groups={groups} hrefWith={hrefWith} />
+          <SearchResults groups={groups} />
 
           <Pagination
             page={page}
@@ -185,7 +147,6 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
             params={{
               q: query,
               ...(section !== null ? { section } : {}),
-              ...(tag !== null ? { tag } : {}),
               ...(sort === 'newest' ? { sort } : {}),
             }}
           />
@@ -239,13 +200,7 @@ function SortBtn({
   );
 }
 
-function SearchResults({
-  groups,
-  hrefWith,
-}: {
-  groups: SearchGroup[];
-  hrefWith: (next: { tag?: string | null; page?: number }) => string;
-}) {
+function SearchResults({ groups }: { groups: SearchGroup[] }) {
   return (
     <ul className="mt-4 flex flex-col gap-3">
       {groups.map((g) => {
@@ -280,7 +235,7 @@ function SearchResults({
                 {g.tags.slice(0, 4).map((t) => (
                   <Link
                     key={t}
-                    href={hrefWith({ tag: t, page: 1 })}
+                    href={`/t/${encodeURIComponent(t)}`}
                     className="rounded-full bg-paper-200 px-2 py-0.5 text-ink-500 text-xs transition-colors hover:bg-paper-300 hover:text-brand-700"
                   >
                     #{t}

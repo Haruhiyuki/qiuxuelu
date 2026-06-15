@@ -1,6 +1,7 @@
-// 站内搜索读路径：在 @harublog/search（Meilisearch 块级索引）之上做「按文档去重 + 板块/标签分面」。
+// 站内搜索读路径：在 @harublog/search（Meilisearch 块级索引）之上做「按文档去重 + 板块分面」。
 // 全文页与 ⌘K 速搜共用 runSearch，保证去重/降级语义一致。Meilisearch 非真相源——查询失败降级不崩页。
 // 索引已设 distinctAttribute=docId：一篇文章只回一个最佳命中块（不再同文多段刷屏）。
+// 作者/标签已并入可搜字段（自由文本即可命中），故无需单独的标签筛选 UI——保持简单。
 
 import { getDb, sections } from '@harublog/db';
 import { searchBlocks } from '@harublog/search';
@@ -30,12 +31,6 @@ export interface SearchFacet {
   count: number;
 }
 
-/** 标签分面：取值即标签名。 */
-export interface TagFacet {
-  name: string;
-  count: number;
-}
-
 export type SearchSort = 'relevance' | 'newest';
 
 export interface RunSearchArgs {
@@ -44,10 +39,8 @@ export interface RunSearchArgs {
   pageSize?: number;
   /** 限定板块；null=全部。 */
   sectionSlug?: string | null;
-  /** 限定标签；null=全部。 */
-  tag?: string | null;
   sort?: SearchSort;
-  /** 是否返回板块/标签分面计数（结果页用，速搜不用）。 */
+  /** 是否返回板块分面计数（结果页用，速搜不用）。 */
   withFacets?: boolean;
   /** 每组最多展示几条段落（去重后一般为 1，仍保留兜底）。 */
   hitsPerGroup?: number;
@@ -58,13 +51,9 @@ export interface RunSearchResult {
   /** 命中文章估计总数（distinct docId，用于翻页与计数）。 */
   total: number;
   sectionFacets: SearchFacet[];
-  tagFacets: TagFacet[];
   /** Meilisearch 不可用时为 true：调用方降级提示。 */
   failed: boolean;
 }
-
-/** 标签分面最多展示个数（避免长尾刷屏）。 */
-const MAX_TAG_FACETS = 12;
 
 /** sectionSlug → 板块名（结果页分面展示用）。板块表很小，直查即可。 */
 async function sectionNameMap(): Promise<Map<string, string>> {
@@ -73,13 +62,7 @@ async function sectionNameMap(): Promise<Map<string, string>> {
 }
 
 export async function runSearch(args: RunSearchArgs): Promise<RunSearchResult> {
-  const empty: RunSearchResult = {
-    groups: [],
-    total: 0,
-    sectionFacets: [],
-    tagFacets: [],
-    failed: false,
-  };
+  const empty: RunSearchResult = { groups: [], total: 0, sectionFacets: [], failed: false };
   const query = args.query.trim();
   if (query.length === 0) {
     return empty;
@@ -88,20 +71,13 @@ export async function runSearch(args: RunSearchArgs): Promise<RunSearchResult> {
   const pageSize = args.pageSize ?? 20;
   const sort: SearchSort = args.sort ?? 'relevance';
   const sectionSlug = args.sectionSlug ?? undefined;
-  const tag = args.tag ?? undefined;
 
   try {
-    // 结果（带过滤/排序/翻页）与分面（不带板块/标签过滤，按查询给全集计数，便于切换）并行
+    // 结果（带板块过滤/排序/翻页）与板块分面（不带板块过滤，便于切换）并行
     const [main, facetRes] = await Promise.all([
-      searchBlocks(query, {
-        limit: pageSize,
-        offset: (page - 1) * pageSize,
-        sectionSlug,
-        tag,
-        sort,
-      }),
+      searchBlocks(query, { limit: pageSize, offset: (page - 1) * pageSize, sectionSlug, sort }),
       args.withFacets
-        ? searchBlocks(query, { limit: 0, facets: ['sectionSlug', 'tags'] })
+        ? searchBlocks(query, { limit: 0, facets: ['sectionSlug'] })
         : Promise.resolve(null),
     ]);
 
@@ -125,7 +101,6 @@ export async function runSearch(args: RunSearchArgs): Promise<RunSearchResult> {
     const groups = [...byDoc.values()];
 
     let sectionFacets: SearchFacet[] = [];
-    let tagFacets: TagFacet[] = [];
     const secDist = facetRes?.facetDistribution?.sectionSlug;
     if (secDist !== undefined) {
       const nameBySlug = await sectionNameMap();
@@ -134,16 +109,8 @@ export async function runSearch(args: RunSearchArgs): Promise<RunSearchResult> {
         .filter((f) => f.count > 0)
         .sort((a, b) => b.count - a.count);
     }
-    const tagDist = facetRes?.facetDistribution?.tags;
-    if (tagDist !== undefined) {
-      tagFacets = Object.entries(tagDist)
-        .map(([name, count]) => ({ name, count }))
-        .filter((f) => f.count > 0)
-        .sort((a, b) => b.count - a.count)
-        .slice(0, MAX_TAG_FACETS);
-    }
 
-    return { groups, total: main.estimatedTotal, sectionFacets, tagFacets, failed: false };
+    return { groups, total: main.estimatedTotal, sectionFacets, failed: false };
   } catch {
     // 搜索服务不可用：降级，不崩页（Meilisearch 非真相源）
     return { ...empty, failed: true };
