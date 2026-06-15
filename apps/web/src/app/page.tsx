@@ -246,53 +246,60 @@ export default async function HomePage({
         </div>
       ) : null}
 
-      <div className="grid items-start gap-8 lg:grid-cols-[15rem_minmax(0,1fr)]">
-        {/* 左列：板块 + 标签（交叉筛选） */}
-        <aside className="lg:sticky lg:top-20 lg:self-start">
-          <div className="rounded-lg border border-ink-200 bg-paper-50 p-4 shadow-paper">
-            <h2 className="px-1 font-medium font-serif text-ink-500 text-xs tracking-wide">板块</h2>
-            <ul className="mt-2 flex flex-col gap-0.5">
-              <FilterRow
-                href={hrefOf(null, activeTag, sort)}
-                active={sectionId === null}
-                label="全部"
-                count={total}
-              />
-              {sectionList.map((s) => (
-                <FilterRow
-                  key={s.id}
-                  href={hrefOf(s.slug, activeTag, sort)}
-                  active={activeSection?.id === s.id}
-                  label={s.name}
-                  count={countBy.get(s.id) ?? 0}
+      <div className="grid items-start gap-x-10 gap-y-6 lg:grid-cols-[13rem_minmax(0,1fr)]">
+        {/* 左列：板块 + 标签（交叉筛选）——无框无底，仿板块页分类列表 */}
+        <aside className="lg:sticky lg:top-24 lg:self-start">
+          <nav aria-label="板块">
+            <FilterHeading label="板块" />
+            <ul className="mt-3 flex flex-wrap gap-1.5 lg:flex-col lg:gap-0.5">
+              <li>
+                <CategoryItem
+                  href={hrefOf(null, activeTag, sort)}
+                  label="全部"
+                  count={total}
+                  active={sectionId === null}
                 />
+              </li>
+              {sectionList.map((s) => (
+                <li key={s.id}>
+                  <CategoryItem
+                    href={hrefOf(s.slug, activeTag, sort)}
+                    label={s.name}
+                    count={countBy.get(s.id) ?? 0}
+                    active={activeSection?.id === s.id}
+                  />
+                </li>
               ))}
             </ul>
 
-            <div className="my-3 border-ink-200/70 border-t" />
+            <div className="my-4 border-ink-200/70 border-t" />
 
-            <h2 className="px-1 font-medium font-serif text-ink-500 text-xs tracking-wide">标签</h2>
-            <div className="mt-2 max-h-72 overflow-y-auto pr-1">
-              <div className="flex flex-wrap gap-1.5">
-                <TagChip
-                  href={hrefOf(sectionSlug, null, sort)}
-                  active={activeTag === null}
-                  label="全部"
-                />
-                {tagList.map((t) => (
-                  <TagChip
-                    key={t.name}
-                    href={hrefOf(sectionSlug, t.name, sort)}
-                    active={activeTag === t.name}
-                    label={`#${t.name}`}
+            <FilterHeading label="标签" />
+            <div className="mt-3 max-h-72 overflow-y-auto pr-1">
+              <ul className="flex flex-wrap gap-1.5 lg:flex-col lg:gap-0.5">
+                <li>
+                  <CategoryItem
+                    href={hrefOf(sectionSlug, null, sort)}
+                    label="全部"
+                    active={activeTag === null}
                   />
+                </li>
+                {tagList.map((t) => (
+                  <li key={t.name}>
+                    <CategoryItem
+                      href={hrefOf(sectionSlug, t.name, sort)}
+                      label={`#${t.name}`}
+                      count={Number(t.n)}
+                      active={activeTag === t.name}
+                    />
+                  </li>
                 ))}
-              </div>
+              </ul>
               {tagList.length === 0 ? (
                 <p className="px-1 py-2 text-ink-400 text-xs">还没有标签。</p>
               ) : null}
             </div>
-          </div>
+          </nav>
         </aside>
 
         {/* 右列：文章列表 + 排序 + 分页 */}
@@ -356,47 +363,42 @@ export default async function HomePage({
   );
 }
 
-function FilterRow({
-  href,
-  active,
-  label,
-  count,
-}: {
-  href: string;
-  active: boolean;
-  label: string;
-  count: number;
-}) {
+/** 左列小标题：朱砂短竖标 + 字距标签（仿板块页「分类」） */
+function FilterHeading({ label }: { label: string }) {
   return (
-    <li>
-      <Link
-        href={href}
-        aria-current={active ? 'true' : undefined}
-        className={`flex items-center justify-between gap-2 rounded-sm px-2.5 py-1.5 text-sm transition-colors ${
-          active
-            ? 'bg-brand-100 font-medium text-brand-800'
-            : 'text-ink-600 hover:bg-paper-200 hover:text-ink-900'
-        }`}
-      >
-        <span className="truncate">{label}</span>
-        <span className="shrink-0 text-xs tabular-nums opacity-70">{count}</span>
-      </Link>
-    </li>
+    <p className="flex items-center gap-2 font-medium text-ink-400 text-xs tracking-[0.2em]">
+      <span aria-hidden className="h-3 w-0.5 rounded-xs bg-accent-600" />
+      {label}
+    </p>
   );
 }
 
-function TagChip({ href, active, label }: { href: string; active: boolean; label: string }) {
+/** 分类项：横排（窄屏）= 胶囊，竖排（宽屏）= 行，命中态高亮；count 可选。 */
+function CategoryItem({
+  href,
+  label,
+  count,
+  active,
+}: {
+  href: string;
+  label: string;
+  count?: number;
+  active: boolean;
+}) {
   return (
     <Link
       href={href}
-      aria-current={active ? 'true' : undefined}
-      className={`rounded-full border px-2.5 py-0.5 text-xs transition-colors ${
+      aria-current={active ? 'page' : undefined}
+      className={`flex items-center justify-between gap-2 rounded-md px-2.5 py-1.5 text-sm transition-colors ${
         active
-          ? 'border-brand-400 bg-brand-50 font-medium text-brand-800'
-          : 'border-ink-200 text-ink-600 hover:border-brand-300 hover:text-brand-700'
+          ? 'bg-brand-50 font-medium text-brand-800'
+          : 'text-ink-600 hover:bg-paper-200 hover:text-ink-900'
       }`}
     >
-      {label}
+      <span className="truncate">{label}</span>
+      {count !== undefined ? (
+        <span className="shrink-0 text-ink-400 text-xs tabular-nums">{count}</span>
+      ) : null}
     </Link>
   );
 }
