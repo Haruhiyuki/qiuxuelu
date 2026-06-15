@@ -8,7 +8,7 @@
 // 阅读（窄屏）：点正文高亮 → 浮窗展示该段批注。
 // 锚点偏移以段落 DOM 的 textContent 为口径（= kernel extractText）。
 import { Button } from '@harublog/ui';
-import { MessageSquarePlus } from 'lucide-react';
+import { ChevronUp, MessageSquare, MessageSquarePlus } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createInlineComment } from '@/server/actions/comment';
@@ -76,7 +76,7 @@ export function InlineComments({
   const [isTouch, setIsTouch] = useState(false);
 
   const popoverRef = useRef<HTMLDivElement | null>(null);
-  const cardRefs = useRef(new Map<string, HTMLDivElement>());
+  const cardRefs = useRef(new Map<string, HTMLElement>());
 
   const cancelDraft = useCallback(() => {
     setOpen(false);
@@ -490,29 +490,61 @@ export function InlineComments({
                 {canComment ? '选中正文中的一段文字，即可在此留下批注。' : '还没有批注。'}
               </p>
             ) : null}
+            {/* 默认折叠为引文行（平时隐藏批注内容），点击该行或正文高亮才展开本段批注；一次展开一条 */}
             {sortedGroups.map((g) => {
-              const active = focusedBlock === g.blockId || activeBlock === g.blockId;
+              const expanded = focusedBlock === g.blockId;
+              const refCb = (el: HTMLElement | null) => {
+                if (el === null) {
+                  cardRefs.current.delete(g.blockId);
+                } else {
+                  cardRefs.current.set(g.blockId, el);
+                }
+              };
+              if (expanded) {
+                return (
+                  // biome-ignore lint/a11y/noStaticElementInteractions: 悬停联动是纯装饰增强；定位由卡内引文按钮承担
+                  <div
+                    key={g.blockId}
+                    ref={refCb}
+                    onMouseEnter={() => setMarksActive(g.blockId, true)}
+                    onMouseLeave={() => setMarksActive(g.blockId, false)}
+                    className="scroll-mt-3 rounded-md border border-ochre-600/60 bg-ochre-50/40 p-3"
+                  >
+                    <button
+                      type="button"
+                      onClick={() => setFocusedBlock(null)}
+                      className="mb-2 flex w-full items-center gap-1.5 text-ink-500 text-xs transition-colors hover:text-ink-700"
+                    >
+                      <MessageSquare className="h-3.5 w-3.5" aria-hidden />
+                      本段批注（{g.items.length}）
+                      <ChevronUp className="ml-auto h-3.5 w-3.5" aria-hidden />
+                    </button>
+                    <CommentList items={g.items} compact onLocate={scrollToMark} />
+                  </div>
+                );
+              }
               return (
-                // biome-ignore lint/a11y/noStaticElementInteractions: 悬停联动是纯装饰增强；定位由卡内引文按钮承担
-                <div
+                <button
                   key={g.blockId}
-                  ref={(el) => {
-                    if (el === null) {
-                      cardRefs.current.delete(g.blockId);
-                    } else {
-                      cardRefs.current.set(g.blockId, el);
-                    }
-                  }}
+                  ref={refCb}
+                  type="button"
+                  onClick={() => setFocusedBlock(g.blockId)}
                   onMouseEnter={() => setMarksActive(g.blockId, true)}
                   onMouseLeave={() => setMarksActive(g.blockId, false)}
-                  className={`scroll-mt-3 rounded-md border p-3 transition-colors ${
-                    active
+                  className={`scroll-mt-3 flex w-full items-center gap-2 rounded-md border px-3 py-2 text-left text-sm transition-colors ${
+                    activeBlock === g.blockId
                       ? 'border-ochre-600/60 bg-ochre-50/40'
                       : 'border-ink-200 bg-paper-50 hover:border-ink-300'
                   }`}
                 >
-                  <CommentList items={g.items} compact onLocate={scrollToMark} />
-                </div>
+                  <MessageSquare className="h-3.5 w-3.5 shrink-0 text-ink-400" aria-hidden />
+                  <span className="min-w-0 flex-1 truncate text-ink-500 text-xs italic">
+                    「{g.items[0]?.quotedText ?? ''}」
+                  </span>
+                  <span className="shrink-0 rounded-full bg-paper-200 px-1.5 text-ink-500 text-xs tabular-nums">
+                    {g.items.length}
+                  </span>
+                </button>
               );
             })}
           </div>
