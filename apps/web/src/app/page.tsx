@@ -1,5 +1,6 @@
 // 首页：双列信息流。左列 = 板块（上）+ 标签（下，内滚动），可板块×标签交叉筛选；
 // 右列 = 文章列表，多种排序（默认最新），精选文章分散插入第一页并标注，分页在右列。
+import { SITE_DESCRIPTION } from '@harublog/config';
 import {
   docReactions,
   documents,
@@ -12,7 +13,7 @@ import {
 } from '@harublog/db';
 import { EmptyState } from '@harublog/ui';
 import { and, asc, desc, eq, isNull, sql } from 'drizzle-orm';
-import { PenLine } from 'lucide-react';
+import { ArrowRight, PenLine } from 'lucide-react';
 import Link from 'next/link';
 import { AnnouncementBar } from '@/components/announcement-bar';
 import { ButtonLink } from '@/components/button-link';
@@ -304,6 +305,25 @@ export default async function HomePage({
           />
         </div>
       ) : null}
+
+      {/* 精简标语：保留「共笔·互校·开放」的气质，去掉旧版的板块/写作按钮，改导向社区公约 */}
+      <section className="rise-in mb-6 border-ink-200 border-b pb-6">
+        <p className="flex items-center gap-3 text-ink-500 text-sm tracking-[0.3em]">
+          <span aria-hidden className="h-px w-8 bg-accent-600" />
+          共笔 · 互校 · 开放
+        </p>
+        <h1 className="mt-3 max-w-2xl font-semibold font-serif text-2xl text-ink-900 leading-snug tracking-wide sm:text-3xl">
+          把走过的路，写成后来者的地图
+        </h1>
+        <p className="mt-2 max-w-xl text-ink-500 text-sm leading-relaxed">{SITE_DESCRIPTION}</p>
+        <Link
+          href="/covenant"
+          className="mt-3 inline-flex items-center gap-1 text-brand-700 text-sm transition-colors hover:text-brand-900"
+        >
+          了解社区公约
+          <ArrowRight className="h-4 w-4" aria-hidden />
+        </Link>
+      </section>
 
       <div className="grid items-start gap-x-10 gap-y-6 lg:grid-cols-[13rem_minmax(0,1fr)]">
         {/* 左列（桌面）：板块 + 标签，撑满屏高；移动端隐藏，改用右列「筛选」抽屉 */}
