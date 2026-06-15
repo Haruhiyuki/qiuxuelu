@@ -10,22 +10,18 @@ import { createPortal } from 'react-dom';
 export function HomeFilterDrawer({ children }: { children: ReactNode }) {
   const [open, setOpen] = useState(false);
 
+  // 仅监听 Esc 关闭；不锁 body 滚动 / 不改页面高度（避免 iOS Safari 底部被填色）
   useEffect(() => {
     if (!open) {
       return;
     }
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         setOpen(false);
       }
     };
     document.addEventListener('keydown', onKey);
-    return () => {
-      document.body.style.overflow = prev;
-      document.removeEventListener('keydown', onKey);
-    };
+    return () => document.removeEventListener('keydown', onKey);
   }, [open]);
 
   return (
@@ -66,13 +62,6 @@ export function HomeFilterDrawer({ children }: { children: ReactNode }) {
                   </button>
                 </div>
                 <div className="min-h-0 flex-1 overflow-hidden">{children}</div>
-                <button
-                  type="button"
-                  onClick={() => setOpen(false)}
-                  className="mt-3 shrink-0 rounded-md bg-fill py-2 text-center font-medium text-on-fill text-sm transition-colors hover:bg-fill-hover"
-                >
-                  查看结果
-                </button>
               </div>
             </div>,
             document.body,
