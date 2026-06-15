@@ -62,9 +62,6 @@ export async function SiteHeader() {
             <NavLink href="/news" match="/news">
               近闻
             </NavLink>
-            <NavLink href="/covenant" match="/covenant">
-              公约
-            </NavLink>
             {showAdmin ? (
               <NavLink href="/admin" match="/admin">
                 管理
@@ -73,8 +70,14 @@ export async function SiteHeader() {
           </nav>
         </div>
         <SearchTrigger />
-        {/* 桌面账户簇（md+）：窄屏整组收进汉堡菜单 */}
+        {/* 桌面账户簇（md+）：从左到右按「内容 → 操作 → 工具 → 身份」分组——
+            创作中心(枢纽) · 写文章(主操作) · 主题(工具) · 头像菜单(身份，含设置/通知/收藏/退出) */}
         <div className="hidden items-center gap-3 text-sm md:flex md:gap-4">
+          {session ? (
+            <Link href="/write" className="text-ink-600 transition-colors hover:text-brand-700">
+              创作中心
+            </Link>
+          ) : null}
           {/* 写文章：直达写作页（未登录跳登录，拒绝变引导） */}
           <Link
             href={session ? '/write/new' : '/login'}
@@ -85,21 +88,12 @@ export async function SiteHeader() {
           </Link>
           <ThemeToggle />
           {session ? (
-            <>
-              <Link href="/write" className="text-ink-600 transition-colors hover:text-brand-700">
-                创作中心
-              </Link>
-              <Link href="/account" className="text-ink-600 transition-colors hover:text-brand-700">
-                设置
-              </Link>
-              {/* 个人资料：悬停浮出用户菜单（我的主页 / 通知 / 收藏 / 退出） */}
-              <UserMenu
-                userId={session.user.id}
-                userName={session.user.name}
-                userImage={session.user.image ?? null}
-                unread={unread}
-              />
-            </>
+            <UserMenu
+              userId={session.user.id}
+              userName={session.user.name}
+              userImage={session.user.image ?? null}
+              unread={unread}
+            />
           ) : (
             <>
               <Link href="/login" className="text-ink-600 transition-colors hover:text-brand-700">

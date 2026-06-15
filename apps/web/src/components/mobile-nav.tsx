@@ -141,9 +141,6 @@ export function MobileNav(props: MobileNavProps) {
                     <DrawerLink href="/news" match="/news" pathname={pathname}>
                       近闻
                     </DrawerLink>
-                    <DrawerLink href="/covenant" match="/covenant" pathname={pathname}>
-                      公约
-                    </DrawerLink>
                     {props.showAdmin ? (
                       <DrawerLink href="/admin" match="/admin" pathname={pathname}>
                         管理

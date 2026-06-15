@@ -3,7 +3,7 @@
 // 桌面页头的「个人资料」用户菜单：头像+名字为触发，悬停（或点击/聚焦）浮出弹窗，
 // 内含 我的主页 / 通知 / 收藏 / 退出。悬停桥（弹窗 pt-2 间距仍属同一子树）保证移入不闪关；
 // Escape 与点击外部关闭。移动端不渲染（窄屏走汉堡抽屉）。
-import { Bell, Bookmark, ChevronDown, LogOut, UserRound } from 'lucide-react';
+import { Bell, Bookmark, ChevronDown, LogOut, Settings, UserRound } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { type ReactNode, useEffect, useRef, useState } from 'react';
@@ -121,6 +121,13 @@ export function UserMenu({ userId, userName, userImage, unread }: UserMenuProps)
               onSelect={() => setOpen(false)}
             >
               收藏
+            </MenuLink>
+            <MenuLink
+              href="/account"
+              icon={<Settings className="h-4 w-4" aria-hidden />}
+              onSelect={() => setOpen(false)}
+            >
+              设置
             </MenuLink>
             <div className="my-1 border-ink-100 border-t" />
             <button
