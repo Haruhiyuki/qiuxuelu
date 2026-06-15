@@ -1,20 +1,14 @@
 'use client';
 
 // 移动端筛选抽屉：点「筛选」从右侧滑出，内含与桌面左栏相同的板块/标签筛选（服务端渲染传入 children）。
-// 选中某筛选（URL 变化）即自动关闭。桌面端（lg+）隐藏触发按钮，直接用左栏。
+// 抽屉保持打开、可连续切换（选筛选后内容随 URL 实时更新，不关闭）；点 ✕/遮罩/Esc/「查看结果」才关。
+// 桌面端（lg+）隐藏触发按钮，直接用左栏。
 import { SlidersHorizontal } from 'lucide-react';
-import { useSearchParams } from 'next/navigation';
 import { type ReactNode, useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 
 export function HomeFilterDrawer({ children }: { children: ReactNode }) {
   const [open, setOpen] = useState(false);
-  const sp = useSearchParams();
-
-  // 选完筛选（searchParams 变化）即关闭
-  useEffect(() => {
-    setOpen(false);
-  }, [sp]);
 
   useEffect(() => {
     if (!open) {
@@ -72,6 +66,13 @@ export function HomeFilterDrawer({ children }: { children: ReactNode }) {
                   </button>
                 </div>
                 <div className="min-h-0 flex-1 overflow-hidden">{children}</div>
+                <button
+                  type="button"
+                  onClick={() => setOpen(false)}
+                  className="mt-3 shrink-0 rounded-md bg-fill py-2 text-center font-medium text-on-fill text-sm transition-colors hover:bg-fill-hover"
+                >
+                  查看结果
+                </button>
               </div>
             </div>,
             document.body,
