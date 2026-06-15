@@ -9,6 +9,7 @@
 import { Button } from '@harublog/ui';
 import { MessageSquare, MessageSquarePlus } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import type { CSSProperties } from 'react';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createInlineComment } from '@/server/actions/comment';
 import { MentionText } from './mention-text';
@@ -65,8 +66,13 @@ export function InlineComments({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
-  // 点击批注点 / 正文高亮 → 临时浮现的批注框
-  const [popover, setPopover] = useState<{ blockId: string; x: number; y: number } | null>(null);
+  // 点击批注点 / 正文高亮 → 临时浮现的批注框（存锚点矩形，渲染时按上下空间翻转 + 限高）
+  const [popover, setPopover] = useState<{
+    blockId: string;
+    cx: number;
+    aTop: number;
+    aBottom: number;
+  } | null>(null);
   // 正文 mark 悬停 → 对应批注点提亮
   const [activeBlock, setActiveBlock] = useState<string | null>(null);
   // 是否宽屏（xl+，存在右栏放批注点/草稿卡）：决定编辑/浮现落在右栏还是浮层
@@ -238,8 +244,9 @@ export function InlineComments({
       const r = anchor.getBoundingClientRect();
       setPopover({
         blockId,
-        x: clampX(r.left + r.width / 2, 168),
-        y: Math.min(r.bottom + 8, window.innerHeight - 120),
+        cx: clampX(r.left + r.width / 2, 168),
+        aTop: r.top,
+        aBottom: r.bottom,
       });
     };
     const onMarkEnter = (e: Event) => {
@@ -410,6 +417,18 @@ export function InlineComments({
   const popoverGroup =
     popover !== null ? (groups.find((g) => g.blockId === popover.blockId) ?? null) : null;
 
+  // 浮现框定位：下方空间够（或比上方多）就向下展开，否则翻到上方；限高到可用空间，内部滚动 → 不溢出屏幕
+  let popoverStyle: CSSProperties | undefined;
+  if (popover !== null) {
+    const spaceBelow = window.innerHeight - popover.aBottom;
+    const spaceAbove = popover.aTop;
+    const below = spaceBelow >= 220 || spaceBelow >= spaceAbove;
+    const maxHeight = Math.max(140, (below ? spaceBelow : spaceAbove) - 16);
+    popoverStyle = below
+      ? { left: popover.cx, top: popover.aBottom + 8, maxHeight }
+      : { left: popover.cx, bottom: window.innerHeight - popover.aTop + 8, maxHeight };
+  }
+
   return (
     <>
       {/* 触屏：底部固定按钮，避开 iOS/安卓选字时贴着选区浮现的原生菜单 */}
@@ -475,8 +494,8 @@ export function InlineComments({
       {popover !== null && popoverGroup !== null ? (
         <div
           ref={popoverRef}
-          style={{ left: popover.x, top: popover.y }}
-          className="fade-in -translate-x-1/2 fixed z-30 flex max-h-[60vh] w-[21rem] max-w-[calc(100vw-2rem)] flex-col rounded-md border border-ink-200 bg-paper-50 shadow-float"
+          style={popoverStyle}
+          className="fade-in -translate-x-1/2 fixed z-30 flex w-[21rem] max-w-[calc(100vw-2rem)] flex-col overflow-hidden rounded-md border border-ink-200 bg-paper-50 shadow-float"
           role="dialog"
           aria-label="本段批注"
         >
@@ -493,7 +512,7 @@ export function InlineComments({
               ✕
             </button>
           </div>
-          <div className="overflow-y-auto p-4">
+          <div className="min-h-0 flex-1 overflow-y-auto p-4">
             <CommentList items={popoverGroup.items} onLocate={scrollToMark} />
           </div>
         </div>
@@ -561,8 +580,9 @@ export function InlineComments({
                   const r = e.currentTarget.getBoundingClientRect();
                   setPopover({
                     blockId: g.blockId,
-                    x: clampX(r.left + r.width / 2, 168),
-                    y: Math.min(r.bottom + 8, window.innerHeight - 120),
+                    cx: clampX(r.left + r.width / 2, 168),
+                    aTop: r.top,
+                    aBottom: r.bottom,
                   });
                 }}
                 onMouseEnter={() => setMarksActive(g.blockId, true)}
