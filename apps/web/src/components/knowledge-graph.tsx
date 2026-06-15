@@ -1,11 +1,12 @@
 'use client';
 
 // 知识图谱（语雀式）：以当前帖为中心，按「站内提及」铺开最多三层邻域。
-// 左侧力导向图（自包含 SVG，无第三方依赖）：渐变圆节点 + 文档字形 + 标题，柔和曲线边，
-// 每对节点只画一条线（无向去重）；中心带光环、非邻居淡出。
-// 单击节点：把它移到中心（fetchDocGraph 取新邻域，旧节点平滑移位、新节点自中心渐入）；
-// 双击节点：打开其文章。右栏信息面板（中心文档卡 + 作者/更新/关系 + 被引用/引用了列表）。
-// 布局确定性（无随机、不抖动）；尊重 prefers-reduced-motion。
+// 关键：节点用「持久世界坐标」——一旦排好就不再重算，换中心时既有节点原地不动，
+// 只「平移/缩放视窗」到新邻域、并让新节点就地渐入。于是是在一张稳定的图上逐步探索，
+// 视角方向基本不变（绝不翻转）。初次布局走力导向（FR + 按 depth 径向分层）；之后增量：
+// 既有节点钉死，仅把新节点放到其锚点附近做轻量松弛避免重叠。
+// 单击节点：把它移到视角中心（fetchDocGraph 取新邻域）；双击节点：打开其文章。
+// 每对节点只画一条线（无向去重）；尊重 prefers-reduced-motion。
 import { ArrowUpRight, FileText, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -15,58 +16,65 @@ import { fetchDocGraph } from '@/server/actions/graph';
 import type { LayeredGraph, LayeredNode } from '@/server/references';
 
 const NODE_R = [27, 22, 19, 17]; // 各 depth 的节点半径（中心略大）
-const VB_HALF = 450;
-const FIT_MARGIN = 96;
-const MAX_SCALE = 2.2;
-const FIXED_VIEWBOX = `${-VB_HALF} ${-VB_HALF} ${VB_HALF * 2} ${VB_HALF * 2}`;
 // 力导向（Fruchterman–Reingold + 按 depth 径向偏置；确定性）
 const FR_K = 116;
 const FR_ITERS = 440;
 const FR_RING = 116;
 const FR_RADIAL = 0.05;
+const INC_ITERS = 180; // 增量布局：只松弛新节点的迭代数
 const GOLDEN = Math.PI * (3 - Math.sqrt(5));
-const ANIM_MS = 480; // 换中心补间时长
+const ANIM_MS = 520; // 平移/缩放视窗 + 新节点渐入时长
+const BASE_VIEW = 880; // 视窗基准边长：据当前缩放反向缩放字号/线宽，保持视觉大小稳定
+const MIN_VIEW = 360; // 视窗最小边长：少节点时不过度放大
+const VIEW_MARGIN = 72; // 视窗留白（世界单位）
 
 const easeOutCubic = (t: number) => 1 - (1 - t) ** 3;
 
-interface PlacedNode extends LayeredNode {
+interface Pos {
   x: number;
   y: number;
-  r: number;
 }
 
-interface Layout {
-  nodes: PlacedNode[];
-  edges: { source: string; target: string }[];
-  posMap: Map<string, PlacedNode>;
+interface View {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
 }
 
 function clip(s: string, n: number): string {
   return [...s].length > n ? `${[...s].slice(0, n).join('')}…` : s;
 }
 
-/** 力导向布局：黄金角种子 + 斥力/边弹簧 + 按 depth 径向偏置，中心钉原点；包围盒等比拟合居中。 */
-function computeLayout(graph: LayeredGraph, maxDepth: number): Layout {
-  const nodes = graph.nodes.filter((n) => n.depth <= maxDepth);
-  const idSet = new Set(nodes.map((n) => n.id));
-  const edges = graph.edges.filter((e) => idSet.has(e.source) && idSet.has(e.target));
-  const n = nodes.length;
-  const idx = new Map(nodes.map((nd, i) => [nd.id, i]));
-  const centerIdx = nodes.findIndex((nd) => nd.depth === 0);
+function radiusFor(depth: number): number {
+  return NODE_R[Math.min(depth, NODE_R.length - 1)] ?? 12;
+}
 
+/**
+ * 力导向松弛（原地改写 pos）：斥力（全对）+ 边弹簧 +（可选）按 depth 的径向偏置。
+ * pinned 中的节点只施力不移动——初次布局钉中心，增量布局钉全部既有节点。
+ * depthOf 非空时启用径向分层（围绕世界原点），仅用于初次整图布局。
+ */
+function relax(
+  ids: string[],
+  pos: Map<string, Pos>,
+  edges: { source: string; target: string }[],
+  pinned: Set<string>,
+  iters: number,
+  depthOf: Map<string, number> | null,
+): void {
+  const n = ids.length;
+  const idx = new Map(ids.map((id, i) => [id, i]));
   const px = new Float64Array(n);
   const py = new Float64Array(n);
+  const pin = new Uint8Array(n);
   for (let i = 0; i < n; i++) {
-    const d = nodes[i]?.depth ?? 1;
-    if (d === 0) {
-      continue;
-    }
-    const a = i * GOLDEN;
-    const r = d * FR_RING;
-    px[i] = Math.cos(a) * r;
-    py[i] = Math.sin(a) * r;
+    const id = ids[i] as string;
+    const p = pos.get(id);
+    px[i] = p?.x ?? 0;
+    py[i] = p?.y ?? 0;
+    pin[i] = pinned.has(id) ? 1 : 0;
   }
-
   const E: [number, number][] = [];
   for (const e of edges) {
     const a = idx.get(e.source);
@@ -75,11 +83,10 @@ function computeLayout(graph: LayeredGraph, maxDepth: number): Layout {
       E.push([a, b]);
     }
   }
-
   const dx = new Float64Array(n);
   const dy = new Float64Array(n);
-  for (let it = 0; it < FR_ITERS; it++) {
-    const temp = FR_K * 0.92 * (1 - it / FR_ITERS) + 1.5;
+  for (let it = 0; it < iters; it++) {
+    const temp = FR_K * 0.92 * (1 - it / iters) + 1.5;
     dx.fill(0);
     dy.fill(0);
     for (let i = 0; i < n; i++) {
@@ -115,71 +122,148 @@ function computeLayout(graph: LayeredGraph, maxDepth: number): Layout {
       dx[b] = (dx[b] ?? 0) + ux;
       dy[b] = (dy[b] ?? 0) + uy;
     }
-    for (let i = 0; i < n; i++) {
-      const d = nodes[i]?.depth ?? 0;
-      if (d === 0) {
-        continue;
+    if (depthOf !== null) {
+      for (let i = 0; i < n; i++) {
+        const d = depthOf.get(ids[i] as string) ?? 0;
+        if (d === 0) {
+          continue;
+        }
+        const xi = px[i] ?? 0;
+        const yi = py[i] ?? 0;
+        const r = Math.hypot(xi, yi) || 0.01;
+        const pull = FR_RADIAL * (d * FR_RING - r) * 12;
+        dx[i] = (dx[i] ?? 0) + (xi / r) * pull;
+        dy[i] = (dy[i] ?? 0) + (yi / r) * pull;
       }
-      const xi = px[i] ?? 0;
-      const yi = py[i] ?? 0;
-      const r = Math.hypot(xi, yi) || 0.01;
-      const pull = FR_RADIAL * (d * FR_RING - r) * 12;
-      dx[i] = (dx[i] ?? 0) + (xi / r) * pull;
-      dy[i] = (dy[i] ?? 0) + (yi / r) * pull;
     }
     for (let i = 0; i < n; i++) {
-      if (i === centerIdx) {
-        px[i] = 0;
-        py[i] = 0;
+      if (pin[i] === 1) {
         continue;
       }
-      const ddx = dx[i] ?? 0;
-      const ddy = dy[i] ?? 0;
-      const dl = Math.hypot(ddx, ddy);
+      const fdx = dx[i] ?? 0;
+      const fdy = dy[i] ?? 0;
+      const dl = Math.hypot(fdx, fdy);
       if (dl > 0) {
         const step = Math.min(dl, temp);
-        px[i] = (px[i] ?? 0) + (ddx / dl) * step;
-        py[i] = (py[i] ?? 0) + (ddy / dl) * step;
+        px[i] = (px[i] ?? 0) + (fdx / dl) * step;
+        py[i] = (py[i] ?? 0) + (fdy / dl) * step;
       }
     }
   }
+  for (let i = 0; i < n; i++) {
+    if (pin[i] === 0) {
+      pos.set(ids[i] as string, { x: px[i] ?? 0, y: py[i] ?? 0 });
+    }
+  }
+}
 
+/** 初次整图布局：黄金角种子 + 中心钉原点 + 按 depth 径向分层。写入 world。 */
+function frInitial(world: Map<string, Pos>, graph: LayeredGraph): void {
+  graph.nodes.forEach((nd, i) => {
+    if (nd.depth === 0) {
+      world.set(nd.id, { x: 0, y: 0 });
+    } else {
+      const a = i * GOLDEN;
+      const r = nd.depth * FR_RING;
+      world.set(nd.id, { x: Math.cos(a) * r, y: Math.sin(a) * r });
+    }
+  });
+  const pinned = new Set(graph.nodes.filter((n) => n.depth === 0).map((n) => n.id));
+  const depthOf = new Map(graph.nodes.map((n) => [n.id, n.depth]));
+  relax(
+    graph.nodes.map((n) => n.id),
+    world,
+    graph.edges,
+    pinned,
+    FR_ITERS,
+    depthOf,
+  );
+}
+
+/** 增量布局：既有节点全部钉死，仅把新节点放到锚点附近、做轻量松弛避免重叠。 */
+function placeIncremental(world: Map<string, Pos>, graph: LayeredGraph): void {
+  const newNodes = graph.nodes.filter((n) => !world.has(n.id));
+  if (newNodes.length === 0) {
+    return;
+  }
+  // 邻接（用于给新节点找已定位的锚点）
+  const adj = new Map<string, string[]>();
+  const add = (a: string, b: string) => {
+    const arr = adj.get(a);
+    if (arr === undefined) {
+      adj.set(a, [b]);
+    } else {
+      arr.push(b);
+    }
+  };
+  for (const e of graph.edges) {
+    add(e.source, e.target);
+    add(e.target, e.source);
+  }
+  const newSet = new Set(newNodes.map((n) => n.id));
+  const centerPos = world.get(graph.centerId) ?? { x: 0, y: 0 };
+  newNodes.forEach((nd, i) => {
+    // 锚点：优先选已定位的邻居，否则退回当前中心
+    let ax = centerPos.x;
+    let ay = centerPos.y;
+    for (const m of adj.get(nd.id) ?? []) {
+      const p = world.get(m);
+      if (p !== undefined && !newSet.has(m)) {
+        ax = p.x;
+        ay = p.y;
+        break;
+      }
+    }
+    const a = i * GOLDEN;
+    world.set(nd.id, { x: ax + Math.cos(a) * FR_RING, y: ay + Math.sin(a) * FR_RING });
+  });
+  const pinned = new Set(graph.nodes.filter((n) => !newSet.has(n.id)).map((n) => n.id));
+  relax(
+    graph.nodes.map((n) => n.id),
+    world,
+    graph.edges,
+    pinned,
+    INC_ITERS,
+    null,
+  );
+}
+
+/** 确保 graph 的全部节点都有世界坐标：world 空走整图布局，否则增量补新节点。 */
+function placeGraph(world: Map<string, Pos>, graph: LayeredGraph): void {
+  if (world.size === 0) {
+    frInitial(world, graph);
+  } else {
+    placeIncremental(world, graph);
+  }
+}
+
+/** 据当前 graph 节点的世界坐标算出「正方形视窗」（含标签留白），少节点时设最小边长。 */
+function computeView(graph: LayeredGraph, world: Map<string, Pos>): View {
   let minX = Number.POSITIVE_INFINITY;
   let minY = Number.POSITIVE_INFINITY;
   let maxX = Number.NEGATIVE_INFINITY;
   let maxY = Number.NEGATIVE_INFINITY;
-  for (let i = 0; i < n; i++) {
-    const r = NODE_R[Math.min(nodes[i]?.depth ?? 0, NODE_R.length - 1)] ?? 12;
-    const x = px[i] ?? 0;
-    const y = py[i] ?? 0;
-    minX = Math.min(minX, x - r);
-    maxX = Math.max(maxX, x + r);
-    minY = Math.min(minY, y - r);
-    maxY = Math.max(maxY, y + r);
+  for (const nd of graph.nodes) {
+    const p = world.get(nd.id);
+    if (p === undefined) {
+      continue;
+    }
+    const pad = radiusFor(nd.depth) + 28; // 给节点下方标题留白
+    minX = Math.min(minX, p.x - pad);
+    maxX = Math.max(maxX, p.x + pad);
+    minY = Math.min(minY, p.y - pad);
+    maxY = Math.max(maxY, p.y + pad);
   }
   if (!Number.isFinite(minX)) {
-    minX = -1;
-    minY = -1;
-    maxX = 1;
-    maxY = 1;
+    minX = -100;
+    minY = -100;
+    maxX = 100;
+    maxY = 100;
   }
   const cx = (minX + maxX) / 2;
   const cy = (minY + maxY) / 2;
-  const usable = (VB_HALF - FIT_MARGIN) * 2;
-  const scale = Math.min(
-    MAX_SCALE,
-    usable / Math.max(1, maxX - minX),
-    usable / Math.max(1, maxY - minY),
-  );
-
-  const placed: PlacedNode[] = nodes.map((nd, i) => ({
-    ...nd,
-    x: ((px[i] ?? 0) - cx) * scale,
-    y: ((py[i] ?? 0) - cy) * scale,
-    r: NODE_R[Math.min(nd.depth, NODE_R.length - 1)] ?? 12,
-  }));
-
-  return { nodes: placed, edges, posMap: new Map(placed.map((p) => [p.id, p])) };
+  const side = Math.max(maxX - minX, maxY - minY, MIN_VIEW) + VIEW_MARGIN * 2;
+  return { x: cx - side / 2, y: cy - side / 2, w: side, h: side };
 }
 
 /** 节点内的「文档」字形：三条白色横线（与语雀同款），随半径缩放。 */
@@ -199,20 +283,86 @@ function DocGlyph({ r }: { r: number }) {
 
 export function KnowledgeGraph({ initialGraph }: { initialGraph: LayeredGraph }) {
   const router = useRouter();
-  const [graph, setGraph] = useState<LayeredGraph>(initialGraph);
+  // 持久世界坐标：跨「换中心」不重算，既有节点原地不动
+  const worldRef = useRef<Map<string, Pos>>(new Map());
+
+  const [graph, setGraph] = useState<LayeredGraph>(() => {
+    placeGraph(worldRef.current, initialGraph);
+    return initialGraph;
+  });
   const [loading, setLoading] = useState(false);
   const [hoverId, setHoverId] = useState<string | null>(null);
   const [tab, setTab] = useState<'in' | 'out'>('in');
 
-  const availDepth = useMemo(() => graph.nodes.reduce((m, n) => Math.max(m, n.depth), 0), [graph]);
-  const layout = useMemo(() => computeLayout(graph, Math.max(1, availDepth)), [graph, availDepth]);
+  // 视窗（平移/缩放的补间目标）
+  const [view, setView] = useState<View>(() => computeView(initialGraph, worldRef.current));
+  const viewRef = useRef(view);
+  useEffect(() => {
+    viewRef.current = view;
+  });
+
+  // 节点不透明度：新出现的节点 0→1 渐入；既有节点恒为 1（不移动、不闪烁）
+  const [fade, setFade] = useState<Map<string, number>>(
+    () => new Map(initialGraph.nodes.map((n) => [n.id, 1])),
+  );
+  const fadeRef = useRef(fade);
+  useEffect(() => {
+    fadeRef.current = fade;
+  });
+
+  // 换图：把视窗平移/缩放到新邻域 + 新节点就地渐入；既有节点世界坐标不变（不翻转）
+  useEffect(() => {
+    const target = computeView(graph, worldRef.current);
+    const fromView = viewRef.current;
+    const startFade = new Map<string, number>();
+    for (const nd of graph.nodes) {
+      startFade.set(nd.id, fadeRef.current.get(nd.id) ?? 0);
+    }
+    const allShown = new Map<string, number>(graph.nodes.map((n) => [n.id, 1]));
+    const reduce =
+      typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const settled =
+      Math.abs(fromView.x - target.x) < 0.5 &&
+      Math.abs(fromView.y - target.y) < 0.5 &&
+      Math.abs(fromView.w - target.w) < 0.5 &&
+      [...startFade.values()].every((v) => v >= 1);
+    if (reduce || settled) {
+      setView(target);
+      setFade(allShown);
+      return;
+    }
+    const t0 = typeof performance !== 'undefined' ? performance.now() : 0;
+    let raf = 0;
+    const tick = (now: number) => {
+      const e = easeOutCubic(Math.min(1, (now - t0) / ANIM_MS));
+      setView({
+        x: fromView.x + (target.x - fromView.x) * e,
+        y: fromView.y + (target.y - fromView.y) * e,
+        w: fromView.w + (target.w - fromView.w) * e,
+        h: fromView.h + (target.h - fromView.h) * e,
+      });
+      const f = new Map<string, number>();
+      for (const [id, s] of startFade) {
+        f.set(id, s + (1 - s) * e);
+      }
+      setFade(f);
+      if (e < 1) {
+        raf = requestAnimationFrame(tick);
+      }
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [graph]);
+
+  const centerId = graph.centerId;
   const nodeById = useMemo(() => new Map(graph.nodes.map((n) => [n.id, n])), [graph]);
+  const center = nodeById.get(centerId) ?? null;
 
   // 每对节点只画一条线（无向去重）：A↔B 的双向引用合并为一条
   const drawEdges = useMemo(() => {
     const seen = new Set<string>();
     const out: { source: string; target: string }[] = [];
-    for (const e of layout.edges) {
+    for (const e of graph.edges) {
       const key = e.source < e.target ? `${e.source}|${e.target}` : `${e.target}|${e.source}`;
       if (!seen.has(key)) {
         seen.add(key);
@@ -220,10 +370,8 @@ export function KnowledgeGraph({ initialGraph }: { initialGraph: LayeredGraph })
       }
     }
     return out;
-  }, [layout.edges]);
+  }, [graph.edges]);
 
-  const centerId = graph.centerId;
-  const center = nodeById.get(centerId) ?? null;
   const incoming = useMemo(
     () =>
       graph.edges
@@ -256,49 +404,6 @@ export function KnowledgeGraph({ initialGraph }: { initialGraph: LayeredGraph })
     return s;
   }, [graph.edges, focus]);
 
-  // 节点坐标补间（rAF）：换中心时旧节点平滑移位、新节点自中心渐入
-  const [pos, setPos] = useState<Map<string, { x: number; y: number; op: number }>>(
-    () => new Map(layout.nodes.map((n) => [n.id, { x: n.x, y: n.y, op: 1 }])),
-  );
-  const posRef = useRef(pos);
-  useEffect(() => {
-    posRef.current = pos;
-  });
-  useEffect(() => {
-    const targets = new Map(layout.nodes.map((n) => [n.id, { x: n.x, y: n.y }]));
-    const from = posRef.current;
-    const startPos = new Map<string, { x: number; y: number; op: number }>();
-    for (const id of targets.keys()) {
-      startPos.set(id, from.get(id) ?? { x: 0, y: 0, op: 0 });
-    }
-    const reduce =
-      typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches;
-    if (reduce) {
-      setPos(new Map([...targets].map(([id, t]) => [id, { x: t.x, y: t.y, op: 1 }])));
-      return;
-    }
-    const t0 = typeof performance !== 'undefined' ? performance.now() : 0;
-    let raf = 0;
-    const tick = (now: number) => {
-      const e = easeOutCubic(Math.min(1, (now - t0) / ANIM_MS));
-      const m = new Map<string, { x: number; y: number; op: number }>();
-      for (const [id, tg] of targets) {
-        const f = startPos.get(id) ?? { x: 0, y: 0, op: 0 };
-        m.set(id, {
-          x: f.x + (tg.x - f.x) * e,
-          y: f.y + (tg.y - f.y) * e,
-          op: f.op + (1 - f.op) * e,
-        });
-      }
-      setPos(m);
-      if (e < 1) {
-        raf = requestAnimationFrame(tick);
-      }
-    };
-    raf = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(raf);
-  }, [layout]);
-
   async function recenter(id: string) {
     if (id === centerId || loading) {
       return;
@@ -307,6 +412,7 @@ export function KnowledgeGraph({ initialGraph }: { initialGraph: LayeredGraph })
     try {
       const g = await fetchDocGraph(id);
       if (g !== null) {
+        placeGraph(worldRef.current, g); // 先补齐新节点世界坐标，再切图
         setHoverId(null);
         setTab('in');
         setGraph(g);
@@ -317,12 +423,15 @@ export function KnowledgeGraph({ initialGraph }: { initialGraph: LayeredGraph })
   }
 
   const list = tab === 'in' ? incoming : outgoing;
+  const world = worldRef.current;
+  // 视窗缩放系数：反向缩放字号/线宽，使其屏幕视觉大小基本恒定
+  const k = Math.min(2, Math.max(0.62, view.w / BASE_VIEW));
 
   return (
     <div className="flex h-full">
       <div className="relative min-w-0 flex-1">
         <svg
-          viewBox={FIXED_VIEWBOX}
+          viewBox={`${view.x} ${view.y} ${view.w} ${view.h}`}
           preserveAspectRatio="xMidYMid meet"
           className="h-full w-full select-none"
           aria-label="知识图谱"
@@ -335,8 +444,12 @@ export function KnowledgeGraph({ initialGraph }: { initialGraph: LayeredGraph })
           </defs>
 
           {drawEdges.map((e) => {
-            const a = pos.get(e.source) ?? { x: 0, y: 0, op: 0 };
-            const b = pos.get(e.target) ?? { x: 0, y: 0, op: 0 };
+            const a = world.get(e.source);
+            const b = world.get(e.target);
+            if (a === undefined || b === undefined) {
+              return null;
+            }
+            const op = Math.min(fade.get(e.source) ?? 1, fade.get(e.target) ?? 1);
             const active = focus === e.source || focus === e.target;
             const ddx = b.x - a.x;
             const ddy = b.y - a.y;
@@ -350,44 +463,50 @@ export function KnowledgeGraph({ initialGraph }: { initialGraph: LayeredGraph })
                 d={`M ${a.x} ${a.y} Q ${cxp} ${cyp} ${b.x} ${b.y}`}
                 fill="none"
                 stroke={active ? 'var(--color-brand-400)' : 'var(--color-ink-300)'}
-                strokeWidth={active ? 2 : 1.2}
-                strokeOpacity={(active ? 0.9 : 0.4) * Math.min(a.op, b.op)}
+                strokeWidth={(active ? 2 : 1.2) * k}
+                strokeOpacity={(active ? 0.9 : 0.4) * op}
               />
             );
           })}
 
-          {layout.nodes.map((nd) => {
-            const p = pos.get(nd.id) ?? { x: 0, y: 0, op: 0 };
+          {graph.nodes.map((nd) => {
+            const p = world.get(nd.id);
+            if (p === undefined) {
+              return null;
+            }
+            const op = fade.get(nd.id) ?? 1;
             const isCenter = nd.id === centerId;
             const dim = focus !== nd.id && !neighborIds.has(nd.id);
+            const r = radiusFor(nd.depth);
+            const s = 0.72 + 0.28 * op; // 新节点轻微放大入场
             return (
               // biome-ignore lint/a11y/noStaticElementInteractions: 图节点为指针增强，键盘可达路径由右栏列表按钮承担
               <g
                 key={nd.id}
-                transform={`translate(${p.x} ${p.y})`}
+                transform={`translate(${p.x} ${p.y}) scale(${s})`}
                 className="cursor-pointer"
-                style={{ opacity: p.op * (dim ? 0.34 : 1) }}
+                style={{ opacity: op * (dim ? 0.34 : 1) }}
                 onClick={() => recenter(nd.id)}
                 onDoubleClick={() => router.push(`/a/${nd.slug}`)}
                 onMouseEnter={() => setHoverId(nd.id)}
                 onMouseLeave={() => setHoverId(null)}
               >
                 {isCenter ? (
-                  <circle r={nd.r + 9} fill="var(--color-brand-400)" opacity={0.18} />
+                  <circle r={r + 9} fill="var(--color-brand-400)" opacity={0.18} />
                 ) : null}
                 <circle
-                  r={nd.r}
+                  r={r}
                   fill="url(#kg-node)"
                   opacity={nd.depth >= 3 ? 0.78 : nd.depth === 2 ? 0.9 : 1}
                   stroke="white"
                   strokeWidth={1.5}
                 />
-                <DocGlyph r={nd.r} />
+                <DocGlyph r={r} />
                 <text
-                  y={nd.r + 17}
+                  y={r + 5 + 13 * k}
                   textAnchor="middle"
                   className={isCenter ? 'fill-ink-900 font-medium' : 'fill-ink-600'}
-                  fontSize={13}
+                  fontSize={13 * k}
                 >
                   {clip(nd.title, 12)}
                 </text>
