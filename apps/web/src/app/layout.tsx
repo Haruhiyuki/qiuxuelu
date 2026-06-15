@@ -43,6 +43,13 @@ export default function RootLayout({ children }: { children: ReactNode }) {
             __html: `try{var t=localStorage.getItem('theme');if(t==='dark'||(!t&&matchMedia('(prefers-color-scheme: dark)').matches))document.documentElement.classList.add('dark')}catch(e){}`,
           }}
         />
+        {/* 跳到主内容：键盘用户首个可聚焦项，越过导航直达正文（WCAG 2.4.1） */}
+        <a
+          href="#main-content"
+          className="sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus:z-[100] focus:rounded-md focus:border focus:border-ink-200 focus:bg-paper-50 focus:px-4 focus:py-2 focus:text-ink-900 focus:shadow-float"
+        >
+          跳到主内容
+        </a>
         <ToastProvider>
           {/* 聚焦写作器（/write/...）隐藏全局页头，避免与编辑器自带顶栏双层吸顶相互遮挡；
               ⌘K 速搜面板随页头一起挂载（写作器内不挂，专注编辑） */}
@@ -50,7 +57,10 @@ export default function RootLayout({ children }: { children: ReactNode }) {
             <SiteHeader />
             <SearchCommand />
           </ChromeGate>
-          <main className="flex-1">{children}</main>
+          {/* tabIndex=-1：点击跳转链接后可把焦点落到正文（非进入 Tab 序） */}
+          <main id="main-content" tabIndex={-1} className="flex-1 outline-none">
+            {children}
+          </main>
           <SiteFooter />
         </ToastProvider>
       </body>
