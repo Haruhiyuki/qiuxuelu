@@ -114,6 +114,8 @@ export function AccountForm({
 
   const [verifyNotice, setVerifyNotice] = useState<Notice>(null);
   const [verifyBusy, setVerifyBusy] = useState(false);
+  const [newEmail, setNewEmail] = useState('');
+  const [emailBusy, setEmailBusy] = useState(false);
 
   const [emailPref, setEmailPref] = useState(emailNotifications);
   const [prefBusy, setPrefBusy] = useState(false);
@@ -220,6 +222,32 @@ export function AccountForm({
         : { kind: 'info', text: '验证邮件已发送，请查收（含垃圾箱）' },
     );
     setVerifyBusy(false);
+  }
+
+  async function changeEmail(e: FormEvent) {
+    e.preventDefault();
+    const next = newEmail.trim();
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(next)) {
+      setVerifyNotice({ kind: 'danger', text: '请输入有效的邮箱地址' });
+      return;
+    }
+    if (next.toLowerCase() === email.toLowerCase()) {
+      setVerifyNotice({ kind: 'info', text: '这就是你当前的邮箱' });
+      return;
+    }
+    setEmailBusy(true);
+    setVerifyNotice(null);
+    const { error } = await authClient.changeEmail({ newEmail: next, callbackURL: '/account' });
+    if (error) {
+      setVerifyNotice({ kind: 'danger', text: translateAuthError(error.code) });
+    } else {
+      setNewEmail('');
+      setVerifyNotice({
+        kind: 'info',
+        text: '验证邮件已发送到新邮箱，点击其中链接即可完成更换（含垃圾箱）',
+      });
+    }
+    setEmailBusy(false);
   }
 
   return (
@@ -390,7 +418,7 @@ export function AccountForm({
             </Alert>
           ) : null}
           {emailVerified ? (
-            <p className="text-moss-700 text-sm">✓ 邮箱已验证（暂不支持自助修改邮箱）</p>
+            <p className="text-moss-700 text-sm">✓ 邮箱已验证</p>
           ) : (
             <div className="flex flex-wrap items-center gap-3">
               <p className="text-ink-500 text-sm">邮箱尚未验证，验证后可解锁更多协作能力。</p>
@@ -399,6 +427,30 @@ export function AccountForm({
               </Button>
             </div>
           )}
+          {/* 自助换绑邮箱：确认链接发往当前邮箱授权，确认后新邮箱再验证一次 */}
+          <form
+            onSubmit={changeEmail}
+            className="mt-4 flex flex-col gap-2 border-ink-200/70 border-t pt-4"
+          >
+            <Label htmlFor="acc-newemail">更换邮箱</Label>
+            <div className="flex flex-wrap items-center gap-3">
+              <Input
+                id="acc-newemail"
+                type="email"
+                value={newEmail}
+                onChange={(e) => setNewEmail(e.target.value)}
+                placeholder="新邮箱地址"
+                autoComplete="email"
+                className="w-64"
+              />
+              <Button type="submit" variant="secondary" disabled={emailBusy}>
+                {emailBusy ? '发送中…' : '发送确认邮件'}
+              </Button>
+            </div>
+            <p className="text-ink-400 text-xs leading-relaxed">
+              为验证新邮箱归属，确认链接会发到你填写的新邮箱；点击链接后邮箱才正式更换，在此之前仍用原邮箱登录。
+            </p>
+          </form>
         </SettingsCard>
 
         <SettingsCard title="修改密码">

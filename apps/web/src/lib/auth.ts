@@ -67,6 +67,12 @@ function buildAuth() {
         licenseConsentVersion: { type: 'string', required: false, input: true },
         covenantConsentVersion: { type: 'string', required: false, input: true },
       },
+      // 自助换绑邮箱（成熟实践）：验证「新邮箱」所有权——better-auth 1.6 复用下方
+      // emailVerification.sendVerificationEmail，并以新邮箱为收件人发送验证链接；
+      // 邮箱在用户点击新邮箱里的链接后才真正更换（未点击前仍是旧邮箱）。
+      changeEmail: {
+        enabled: true,
+      },
     },
     databaseHooks: {
       user: {
