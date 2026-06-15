@@ -19,6 +19,21 @@ export const metadata: Metadata = {
   description: SITE_DESCRIPTION,
   // RSS 订阅源自动发现
   alternates: { types: { 'application/rss+xml': `${SITE_URL}/feed.xml` } },
+  // 社交分享默认卡片：未自定义 OG 的页面（公约/透明度/近闻/主页/系列等）也有像样预览；
+  // 文章页会以 type=article 覆盖自己的标题/摘要/时间。
+  openGraph: {
+    type: 'website',
+    siteName: SITE_NAME,
+    locale: 'zh_CN',
+    url: SITE_URL,
+    title: `${SITE_NAME}——可协作的求学经验之书`,
+    description: SITE_DESCRIPTION,
+  },
+  twitter: {
+    card: 'summary',
+    title: `${SITE_NAME}——可协作的求学经验之书`,
+    description: SITE_DESCRIPTION,
+  },
 };
 
 // 移动端视口：viewport-fit=cover 开启安全区（刘海屏让位），themeColor 让地址栏随明暗着色（呼应 paper-100）
