@@ -9,7 +9,7 @@ import type { DocJson } from '@harublog/kernel';
 import { Alert, Badge, Button, Label, Textarea, useConfirm } from '@harublog/ui';
 import type { Editor } from '@tiptap/react';
 import { EditorContent, useEditor } from '@tiptap/react';
-import { Check, ChevronLeft, Loader2, Settings2, X } from 'lucide-react';
+import { Check, ChevronLeft, Loader2, X } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { docStatusLabel } from '@/lib/doc-labels';
@@ -76,8 +76,6 @@ export function ArticleComposer(props: ArticleComposerProps) {
   const [hasRevisions, setHasRevisions] = useState(props.hasRevisions);
   const [headSeq, setHeadSeq] = useState(props.headSeq);
   const [saveState, setSaveState] = useState<SaveState>('idle');
-  const [panelOpen, setPanelOpen] = useState(false);
-  const [commitOpen, setCommitOpen] = useState(false);
   const [commitMessage, setCommitMessage] = useState('');
   const [actionPending, setActionPending] = useState(false);
   const [notice, setNotice] = useState<{ kind: 'info' | 'danger'; text: string } | null>(null);
@@ -316,7 +314,6 @@ export function ArticleComposer(props: ArticleComposerProps) {
 
   // 提交成功收尾。merged=三方合并过 → 草稿内容已含他人改动，整页重载让编辑器显示合并结果；否则软刷新。
   function finishCommit(seq: number, merged: boolean) {
-    setCommitOpen(false);
     setCommitMessage('');
     setConflict(null);
     setHasRevisions(true);
@@ -360,7 +357,7 @@ export function ArticleComposer(props: ArticleComposerProps) {
   async function handleRequestPublish() {
     if (title.trim().length === 0) {
       setNotice({ kind: 'danger', text: '发布前请先填写标题' });
-      setPanelOpen(true);
+      titleAreaRef.current?.focus();
       return;
     }
     const ok = await confirm({
@@ -428,7 +425,7 @@ export function ArticleComposer(props: ArticleComposerProps) {
   const canRequestPublish = isDraft && title.trim().length > 0 && !actionPending && editor !== null;
 
   return (
-    <div className="min-h-svh">
+    <div className="min-h-svh pb-24">
       {confirmDialog}
       {conflict !== null ? (
         <CommitConflictDialog
@@ -442,16 +439,17 @@ export function ArticleComposer(props: ArticleComposerProps) {
           }}
         />
       ) : null}
-      {/* 顶部操作条：返回 / 状态 / 保存指示 / 发布设置 / 提交 / 发布 */}
+
+      {/* 顶部条：仅返回 / 状态 / 自动保存指示——不放发布动作，避免提前点发布 */}
       <div className="sticky top-0 z-30 border-ink-200 border-b bg-paper-100/90 backdrop-blur-md">
-        <div className="mx-auto flex w-full max-w-5xl items-center gap-2 px-4 py-2.5 sm:gap-3 sm:px-6">
+        <div className="mx-auto flex w-full max-w-[44rem] items-center gap-3 px-6 py-2.5">
           <button
             type="button"
             onClick={() => router.push('/write')}
             className="flex items-center gap-1 text-ink-500 text-sm transition-colors hover:text-brand-700"
           >
             <ChevronLeft className="h-4 w-4" aria-hidden />
-            草稿箱
+            创作中心
           </button>
           <Badge variant={STATUS_BADGE_VARIANT[docStatus] ?? 'default'}>
             {docStatusLabel(docStatus)}
@@ -459,51 +457,11 @@ export function ArticleComposer(props: ArticleComposerProps) {
           {headSeq !== null ? (
             <span className="hidden text-ink-400 text-xs sm:inline">第 {headSeq} 号修订</span>
           ) : null}
-          <SaveIndicator state={saveState} />
-          <div className="ml-auto flex items-center gap-2">
-            <Button
-              type="button"
-              variant="secondary"
-              size="sm"
-              onClick={() => setPanelOpen(true)}
-              aria-label="发布设置"
-            >
-              <Settings2 className="h-4 w-4" aria-hidden />
-              {/* 窄屏只留齿轮图标，给状态徽标让出空间 */}
-              <span className="hidden sm:inline">发布设置</span>
-            </Button>
-            {/* 「提交修订」= 向版本历史追加一次改动，仅对已发布文章的再编辑有意义；新草稿不显示 */}
-            {!isDraft ? (
-              <Button
-                type="button"
-                variant="secondary"
-                size="sm"
-                onClick={() => setCommitOpen((o) => !o)}
-                disabled={actionPending || !editor}
-              >
-                提交修订
-              </Button>
-            ) : null}
-            {isDraft ? (
-              <Button
-                type="button"
-                size="sm"
-                onClick={handleRequestPublish}
-                disabled={!canRequestPublish}
-                title={title.trim().length === 0 ? '请先填写标题' : ''}
-              >
-                {props.canSelfPublish ? '发布' : '申请发布'}
-              </Button>
-            ) : null}
+          <div className="ml-auto">
+            <SaveIndicator state={saveState} />
           </div>
         </div>
       </div>
-
-      {notice !== null ? (
-        <div className="mx-auto w-full max-w-[44rem] px-6 pt-4">
-          <Alert variant={notice.kind === 'info' ? 'info' : 'danger'}>{notice.text}</Alert>
-        </div>
-      ) : null}
 
       {/* 写作区：标题 / 工具栏 / 正文 同处一栏，三者左缘严格对齐，读起来像成稿 */}
       <div className="mx-auto w-full max-w-[44rem] px-6">
@@ -514,24 +472,8 @@ export function ArticleComposer(props: ArticleComposerProps) {
           rows={1}
           placeholder="标题"
           aria-label="文章标题"
-          className="mt-8 w-full resize-none overflow-hidden border-none bg-transparent font-semibold font-serif text-3xl text-ink-900 leading-snug tracking-wide outline-none placeholder:text-ink-300 sm:text-4xl"
+          className="mt-8 mb-5 w-full resize-none overflow-hidden border-none bg-transparent font-semibold font-serif text-3xl text-ink-900 leading-snug tracking-wide outline-none placeholder:text-ink-300 sm:text-4xl"
         />
-        <div className="mt-3 mb-5 flex flex-wrap items-center gap-2 text-ink-400 text-sm">
-          <span>{props.sections.find((s) => s.id === sectionId)?.name ?? '未选板块'}</span>
-          {tags.length > 0 ? <span aria-hidden>·</span> : null}
-          {tags.map((t) => (
-            <span key={t} className="text-ink-400">
-              #{t}
-            </span>
-          ))}
-          <button
-            type="button"
-            onClick={() => setPanelOpen(true)}
-            className="text-brand-700 transition-colors hover:text-brand-900"
-          >
-            编辑
-          </button>
-        </div>
 
         {/* 工具栏作为本栏直接子节点：吸顶生效、且自然取本栏宽度——不再满屏白条溢出 */}
         {editor ? (
@@ -546,60 +488,19 @@ export function ArticleComposer(props: ArticleComposerProps) {
         )}
       </div>
 
-      {/* 提交修订面板 */}
-      {commitOpen ? (
-        <div className="mx-auto w-full max-w-[44rem] px-6 pb-10">
-          <section className="flex flex-col gap-3 rounded-md border border-ink-200 bg-paper-50 p-4 shadow-paper">
-            <Label htmlFor="commit-message">修订说明（可选，便于历史回溯）</Label>
-            <Textarea
-              id="commit-message"
-              rows={2}
-              maxLength={500}
-              value={commitMessage}
-              onChange={(e) => setCommitMessage(e.target.value)}
-              placeholder="例如：补充了选科建议一节"
-            />
-            <div className="flex items-center gap-3">
-              <Button onClick={handleCommit} disabled={actionPending}>
-                {actionPending ? '提交中…' : '确认提交'}
-              </Button>
-              <Button variant="ghost" onClick={() => setCommitOpen(false)} disabled={actionPending}>
-                取消
-              </Button>
-            </div>
-          </section>
-        </div>
-      ) : null}
-
-      {/* 发布设置抽屉：板块 / 摘要 / 标签 */}
-      {panelOpen ? (
-        <div className="fixed inset-0 z-40">
-          <button
-            type="button"
-            aria-label="关闭发布设置"
-            onClick={() => setPanelOpen(false)}
-            className="overlay-in absolute inset-0 bg-ink-900/20 backdrop-blur-[1px]"
-          />
-          <div className="drawer-in absolute inset-y-0 right-0 flex w-full max-w-sm flex-col gap-6 overflow-y-auto bg-paper-50 p-6 shadow-float">
-            <div className="flex items-center justify-between">
-              <h2 className="font-medium font-serif text-ink-800 text-lg">发布设置</h2>
-              <button
-                type="button"
-                onClick={() => setPanelOpen(false)}
-                aria-label="关闭"
-                className="text-ink-400 transition-colors hover:text-ink-700"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-
+      {/* 自上而下依次：发布设置 →（已发布）提交修订 → 发布动作（B 站专栏式，发布排在最后） */}
+      <div className="mx-auto w-full max-w-[44rem] px-6">
+        <section className="mt-12 border-ink-200 border-t pt-8">
+          <h2 className="font-medium font-serif text-ink-800 text-lg">发布设置</h2>
+          <p className="mt-1 text-ink-400 text-sm">这些设置会在发布时生效，随时可改、自动保存。</p>
+          <div className="mt-5 flex flex-col gap-5">
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="compose-section">板块</Label>
               <select
                 id="compose-section"
                 value={sectionId}
                 onChange={(e) => onSectionChange(e.target.value)}
-                className="h-9 rounded-sm border border-ink-200 bg-paper-100 px-3 text-ink-800 text-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600"
+                className="h-9 max-w-xs rounded-sm border border-ink-200 bg-paper-100 px-3 text-ink-800 text-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600"
               >
                 {props.sections.map((s) => (
                   <option key={s.id} value={s.id}>
@@ -666,13 +567,68 @@ export function ArticleComposer(props: ArticleComposerProps) {
                 ) : null}
               </div>
             </div>
-
-            <Button type="button" variant="secondary" onClick={() => setPanelOpen(false)}>
-              完成
-            </Button>
           </div>
-        </div>
-      ) : null}
+        </section>
+
+        {/* 提交修订：仅已发布文章的再编辑需要（向版本史追加一次改动）；新草稿发布时自动固化 */}
+        {!isDraft ? (
+          <section className="mt-8 border-ink-200 border-t pt-8">
+            <h2 className="font-medium font-serif text-ink-800 text-lg">提交修订</h2>
+            <p className="mt-1 text-ink-400 text-sm">把这次改动作为一条修订追加到版本历史。</p>
+            <div className="mt-4 flex flex-col gap-3">
+              <Label htmlFor="commit-message">修订说明（可选，便于历史回溯）</Label>
+              <Textarea
+                id="commit-message"
+                rows={2}
+                maxLength={500}
+                value={commitMessage}
+                onChange={(e) => setCommitMessage(e.target.value)}
+                placeholder="例如：补充了选科建议一节"
+              />
+              <div>
+                <Button onClick={handleCommit} disabled={actionPending || !editor}>
+                  {actionPending ? '提交中…' : '确认提交'}
+                </Button>
+              </div>
+            </div>
+          </section>
+        ) : null}
+
+        {notice !== null ? (
+          <div className="mt-8">
+            <Alert variant={notice.kind === 'info' ? 'info' : 'danger'}>{notice.text}</Alert>
+          </div>
+        ) : null}
+
+        {/* 发布动作：放在最后，确认无误后再点 */}
+        {isDraft ? (
+          <section className="mt-10 border-ink-200 border-t pt-8">
+            <div className="flex flex-wrap items-center justify-between gap-4">
+              <div className="min-w-0">
+                <p className="font-medium font-serif text-ink-800">
+                  {props.canSelfPublish ? '准备好就发布' : '准备好就申请发布'}
+                </p>
+                <p className="mt-1 text-ink-400 text-sm">
+                  {props.canSelfPublish
+                    ? '内容随写随存为草稿；发布后立即公开，并进入巡查队列复核。'
+                    : '内容随写随存为草稿；提交后进入审校队列，通过后公开。'}
+                </p>
+              </div>
+              <Button
+                type="button"
+                onClick={handleRequestPublish}
+                disabled={!canRequestPublish}
+                className="shrink-0"
+              >
+                {props.canSelfPublish ? '发布文章' : '申请发布'}
+              </Button>
+            </div>
+            {title.trim().length === 0 ? (
+              <p className="mt-3 text-ink-400 text-xs">填写标题后即可发布。</p>
+            ) : null}
+          </section>
+        ) : null}
+      </div>
     </div>
   );
 }

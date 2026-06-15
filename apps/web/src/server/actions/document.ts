@@ -19,6 +19,7 @@ import {
   revisions,
   searchOutbox,
   sections,
+  slugHistory,
   toDbBlockId,
   workingCopies,
 } from '@harublog/db';
@@ -681,6 +682,90 @@ export async function commitRevision(
       return fail('提交冲突：草稿在你提交期间已被其他会话更新，请刷新页面后重试');
     }
     return toFailure(err, '提交修订失败，请稍后重试');
+  }
+}
+
+/**
+ * 删除草稿（草稿箱）：仅作者本人、且文档处于 draft/pending（未发布）状态。
+ * 已发布文章不在此删除（属更重的治理动作）。事务内按外键顺序清理子表后删文档：
+ * revisionChanges/revisionBlocks → documentRefs/workingCopies → 发布请求/审批项 →
+ * blocks → revisions → slugHistory → documents；documentTags/seriesItems/
+ * documentReferences/docReactions 经 onDelete cascade 随文档删除。blobs 内容寻址共享，保留。
+ */
+export async function deleteDocument(rawDocId: string): Promise<ActionResult> {
+  const actor = await requireActor();
+  if (!actor) {
+    return fail('请先登录');
+  }
+  if (!uuidSchema.safeParse(rawDocId).success) {
+    return fail('文档参数非法');
+  }
+  const docRow = await findDoc(rawDocId);
+  if (!docRow) {
+    return fail('文章不存在');
+  }
+  if (docRow.ownerId !== actor.id) {
+    return fail('只有作者本人可以删除这篇文章');
+  }
+  if (docRow.status !== 'draft' && docRow.status !== 'pending') {
+    return fail('只能删除草稿；已发布的文章请先下线');
+  }
+  // 经 can() 让停用/制裁一票否决（与编辑同闸）
+  const decision = can(actor, 'doc.edit_direct', {
+    sectionId: docRow.sectionId,
+    doc: toDocCtx(docRow),
+  });
+  if (!decision.allow) {
+    return fail(explainDeny(decision.reason));
+  }
+
+  const db = getDb();
+  try {
+    await db.transaction(async (tx) => {
+      const revRows = await tx
+        .select({ id: revisions.id })
+        .from(revisions)
+        .where(eq(revisions.documentId, rawDocId));
+      const revIds = revRows.map((r) => r.id);
+      if (revIds.length > 0) {
+        await tx.delete(revisionChanges).where(inArray(revisionChanges.revisionId, revIds));
+        await tx.delete(revisionBlocks).where(inArray(revisionBlocks.revisionId, revIds));
+      }
+      await tx.delete(documentRefs).where(eq(documentRefs.documentId, rawDocId));
+      await tx.delete(workingCopies).where(eq(workingCopies.documentId, rawDocId));
+      // pending：清理发布请求与审批队列项（reviewItems.subjectId 非外键，按类型+id 清）
+      const prRows = await tx
+        .select({ id: publishRequests.id })
+        .from(publishRequests)
+        .where(eq(publishRequests.documentId, rawDocId));
+      const prIds = prRows.map((r) => r.id);
+      if (prIds.length > 0) {
+        await tx
+          .delete(reviewItems)
+          .where(
+            and(
+              eq(reviewItems.subjectType, 'publish_request'),
+              inArray(reviewItems.subjectId, prIds),
+            ),
+          );
+        await tx.delete(publishRequests).where(eq(publishRequests.documentId, rawDocId));
+      }
+      await tx.delete(blocks).where(eq(blocks.documentId, rawDocId));
+      await tx.delete(revisions).where(eq(revisions.documentId, rawDocId));
+      await tx.delete(slugHistory).where(eq(slugHistory.documentId, rawDocId));
+      await tx.insert(auditLog).values({
+        actorId: actor.id,
+        action: 'doc.delete',
+        subjectType: 'document',
+        subjectId: rawDocId,
+        sectionId: docRow.sectionId,
+        detail: { title: docRow.title, status: docRow.status },
+      });
+      await tx.delete(documents).where(eq(documents.id, rawDocId));
+    });
+    return { ok: true, data: null };
+  } catch (err) {
+    return toFailure(err, '删除失败，请稍后重试');
   }
 }
 

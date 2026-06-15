@@ -2,7 +2,18 @@
 
 // 移动端导航抽屉：窄屏把板块/写文章/管理 + 账户操作 + 搜索收进汉堡菜单，避免顶栏挤压。
 // 自右滑入的 sheet，遮罩点击/Esc/路由切换均关闭，开启时锁背景滚动。桌面端（md+）整体不渲染。
-import { Bell, Bookmark, LogIn, Menu, PenLine, Search, Settings, UserRound, X } from 'lucide-react';
+import {
+  Bell,
+  Bookmark,
+  LayoutDashboard,
+  LogIn,
+  Menu,
+  PenLine,
+  Search,
+  Settings,
+  UserRound,
+  X,
+} from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { type ReactNode, useEffect, useId, useRef, useState } from 'react';
@@ -154,6 +165,14 @@ export function MobileNav(props: MobileNavProps) {
                           {props.userName ?? '我的主页'}
                         </DrawerLink>
                       ) : null}
+                      <DrawerLink
+                        href="/write"
+                        match="/write"
+                        pathname={pathname}
+                        icon={<LayoutDashboard className="h-[18px] w-[18px]" aria-hidden />}
+                      >
+                        创作中心
+                      </DrawerLink>
                       <DrawerLink
                         href="/notifications"
                         pathname={pathname}

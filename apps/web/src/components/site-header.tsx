@@ -75,9 +75,9 @@ export async function SiteHeader() {
         <SearchTrigger />
         {/* 桌面账户簇（md+）：窄屏整组收进汉堡菜单 */}
         <div className="hidden items-center gap-3 text-sm md:flex md:gap-4">
-          {/* 写文章：独立的填色按钮 + 写作图标（未登录跳登录，拒绝变引导） */}
+          {/* 写文章：直达写作页（未登录跳登录，拒绝变引导） */}
           <Link
-            href={session ? '/write' : '/login'}
+            href={session ? '/write/new' : '/login'}
             className="inline-flex items-center gap-1.5 rounded-sm bg-fill px-3 py-1.5 font-medium text-on-fill shadow-paper transition-colors hover:bg-fill-hover"
           >
             <PenLine className="h-4 w-4" aria-hidden />
@@ -103,6 +103,9 @@ export async function SiteHeader() {
                 className="max-w-[10rem] truncate font-medium text-ink-800 transition-colors hover:text-brand-700"
               >
                 {session.user.name}
+              </Link>
+              <Link href="/write" className="text-ink-600 transition-colors hover:text-brand-700">
+                创作中心
               </Link>
               <Link
                 href="/bookmarks"
@@ -137,7 +140,7 @@ export async function SiteHeader() {
             userId={session?.user.id ?? null}
             unread={unread}
             showAdmin={showAdmin}
-            writeHref={session ? '/write' : '/login'}
+            writeHref={session ? '/write/new' : '/login'}
           />
         </div>
       </div>

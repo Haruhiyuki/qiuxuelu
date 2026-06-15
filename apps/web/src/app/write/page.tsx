@@ -7,12 +7,13 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { Breadcrumb } from '@/components/breadcrumb';
 import { ButtonLink } from '@/components/button-link';
+import { DeleteDraftButton } from '@/components/delete-draft-button';
 import { formatDateTime } from '@/lib/format';
 import { getSession } from '@/lib/session';
 
 export const dynamic = 'force-dynamic';
 
-export const metadata: Metadata = { title: '我的写作' };
+export const metadata: Metadata = { title: '创作中心' };
 
 interface DocRow {
   id: string;
@@ -84,6 +85,10 @@ function DocList({ docs, kind }: { docs: DocRow[]; kind: 'draft' | 'pending' | '
               >
                 查看文章
               </Link>
+            ) : null}
+            {/* 仅未发布稿可删（deleteDocument 同样校验） */}
+            {doc.status === 'draft' || doc.status === 'pending' ? (
+              <DeleteDraftButton docId={doc.id} title={doc.title} />
             ) : null}
           </div>
         </li>
@@ -183,13 +188,13 @@ export default async function WritePage() {
   };
 
   return (
-    <div className="mx-auto w-full max-w-5xl px-6 py-10">
-      <Breadcrumb items={[{ label: '首页', href: '/' }, { label: '我的写作' }]} />
+    <div className="mx-auto w-full max-w-3xl px-6 py-10">
+      <Breadcrumb items={[{ label: '首页', href: '/' }, { label: '创作中心' }]} />
       <header className="flex flex-wrap items-end justify-between gap-4 border-ink-200 border-b pb-8">
         <div>
-          <h1 className="font-semibold font-serif text-2xl text-ink-900">我的写作</h1>
+          <h1 className="font-semibold font-serif text-2xl text-ink-900">创作中心</h1>
           <p className="mt-2 text-ink-500 text-sm">
-            草稿自动保存，显式提交修订形成历史；申请发布后由志愿者审校上线。
+            管理草稿、已发布文章与文章系列。写作内容自动保存，申请发布后由志愿者审校上线。
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -199,104 +204,90 @@ export default async function WritePage() {
           </ButtonLink>
           <ButtonLink href="/write/new" className="h-10 px-5">
             <PenLine className="h-4 w-4" aria-hidden />
-            开始写作
+            写文章
           </ButtonLink>
         </div>
       </header>
 
-      <div className="grid grid-cols-1 gap-10 py-10 lg:grid-cols-[minmax(0,1fr)_320px]">
-        <div className="flex flex-col gap-10">
-          {/* 草稿箱：未发布的稿子 + 已发布但有未提交修改的 */}
-          <section>
-            <GroupHeading
-              title="草稿箱"
-              count={drafts.length + publishedUncommitted.length}
-              sub="未编辑完成的文章"
+      <div className="flex flex-col gap-10 py-10">
+        {/* 草稿箱：未发布的稿子 + 已发布但有未提交修改的 */}
+        <section>
+          <GroupHeading
+            title="草稿箱"
+            count={drafts.length + publishedUncommitted.length}
+            sub="未编辑完成的文章"
+          />
+          {drafts.length > 0 || publishedUncommitted.length > 0 ? (
+            <div className="mt-2">
+              {drafts.length > 0 ? <DocList docs={drafts} kind="draft" /> : null}
+              {publishedUncommitted.length > 0 ? (
+                <>
+                  <p className="mt-4 border-ink-100 border-t pt-4 text-ink-400 text-xs">
+                    已发布、但有改到一半未提交的修改：
+                  </p>
+                  <DocList docs={publishedUncommitted} kind="published" />
+                </>
+              ) : null}
+            </div>
+          ) : (
+            <EmptyState
+              icon={<PenLine />}
+              title="草稿箱是空的"
+              description="点右上角「写文章」开始——内容会自动保存，随时回来继续。"
             />
-            {drafts.length > 0 || publishedUncommitted.length > 0 ? (
-              <div className="mt-2">
-                {drafts.length > 0 ? <DocList docs={drafts} kind="draft" /> : null}
-                {publishedUncommitted.length > 0 ? (
-                  <>
-                    <p className="mt-4 border-ink-100 border-t pt-4 text-ink-400 text-xs">
-                      已发布、但有改到一半未提交的修改：
-                    </p>
-                    <DocList docs={publishedUncommitted} kind="published" />
-                  </>
-                ) : null}
-              </div>
-            ) : (
-              <EmptyState
-                icon={<PenLine />}
-                title="草稿箱是空的"
-                description="从右侧新建一篇开始写——内容会自动保存，随时回来继续。"
-              />
-            )}
-            {drafts.some((d) => d.status === 'pending') ? (
-              <p className="mt-3 text-ink-400 text-xs">
-                标着「审校中」的稿子已申请发布，仍可继续编辑（上线前的修改会一并审校）。
-              </p>
-            ) : null}
-          </section>
-
-          {/* 已发布 */}
-          <section>
-            <GroupHeading title="已发布" count={published.length} />
-            {published.length > 0 ? (
-              <div className="mt-2">
-                <DocList docs={published} kind="published" />
-              </div>
-            ) : (
-              <p className="mt-4 text-ink-400 text-sm">还没有发布的文章。</p>
-            )}
-          </section>
-
-          {/* 已归档：折叠收纳 */}
-          {archived.length > 0 ? (
-            <details className="reveal rounded-md border border-ink-200 border-dashed p-4">
-              <summary className="cursor-pointer text-ink-500 text-sm transition-colors hover:text-ink-700">
-                已归档（{archived.length}）
-              </summary>
-              <div className="mt-2">
-                <DocList docs={archived} kind="draft" />
-              </div>
-            </details>
-          ) : null}
-        </div>
-
-        <aside className="flex flex-col gap-6">
-          <section className="rounded-md border border-ink-200 border-dashed bg-paper-50 p-5 text-center">
-            <PenLine className="mx-auto h-6 w-6 text-ink-300" aria-hidden />
-            <p className="mt-2 text-ink-600 text-sm">有新的经验想分享？</p>
-            <p className="mt-1 text-ink-400 text-xs leading-relaxed">
-              直接进入写作台，标题与正文一处写完，内容自动保存。
+          )}
+          {drafts.some((d) => d.status === 'pending') ? (
+            <p className="mt-3 text-ink-400 text-xs">
+              标着「审校中」的稿子已申请发布，仍可继续编辑（上线前的修改会一并审校）。
             </p>
-            <ButtonLink href="/write/new" variant="secondary" className="mt-4 w-full">
-              开始写作
-            </ButtonLink>
-          </section>
-
-          {mySuggestions.length > 0 ? (
-            <section className="rounded-md border border-ink-200 bg-paper-50 p-5 shadow-paper">
-              <h2 className="font-semibold font-serif text-ink-900 text-lg">我的修订申请</h2>
-              <ul className="mt-3 flex flex-col gap-3">
-                {mySuggestions.map((s) => (
-                  <li key={s.id} className="text-sm">
-                    <Link
-                      href={`/suggestions/${s.id}`}
-                      className="text-ink-800 transition-colors hover:text-brand-700"
-                    >
-                      {s.docTitle}
-                    </Link>
-                    <span className="ml-2 text-ink-400 text-xs">
-                      {sgStatusLabel[s.status] ?? s.status}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            </section>
           ) : null}
-        </aside>
+        </section>
+
+        {/* 已发布 */}
+        <section>
+          <GroupHeading title="已发布" count={published.length} />
+          {published.length > 0 ? (
+            <div className="mt-2">
+              <DocList docs={published} kind="published" />
+            </div>
+          ) : (
+            <p className="mt-4 text-ink-400 text-sm">还没有发布的文章。</p>
+          )}
+        </section>
+
+        {/* 我的修订申请：仍在流转中的 */}
+        {mySuggestions.length > 0 ? (
+          <section>
+            <GroupHeading title="我的修订申请" count={mySuggestions.length} sub="流转中" />
+            <ul className="mt-2 divide-y divide-ink-100">
+              {mySuggestions.map((s) => (
+                <li key={s.id} className="flex items-center justify-between gap-3 py-3 text-sm">
+                  <Link
+                    href={`/suggestions/${s.id}`}
+                    className="min-w-0 truncate font-medium text-ink-800 transition-colors hover:text-brand-700"
+                  >
+                    {s.docTitle}
+                  </Link>
+                  <span className="shrink-0 text-ink-400 text-xs">
+                    {sgStatusLabel[s.status] ?? s.status}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </section>
+        ) : null}
+
+        {/* 已归档：折叠收纳 */}
+        {archived.length > 0 ? (
+          <details className="reveal rounded-md border border-ink-200 border-dashed p-4">
+            <summary className="cursor-pointer text-ink-500 text-sm transition-colors hover:text-ink-700">
+              已归档（{archived.length}）
+            </summary>
+            <div className="mt-2">
+              <DocList docs={archived} kind="draft" />
+            </div>
+          </details>
+        ) : null}
       </div>
     </div>
   );
