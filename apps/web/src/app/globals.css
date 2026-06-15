@@ -181,6 +181,8 @@ details.reveal[open] > summary ~ * {
   .fade-in,
   .fade-up-in,
   .toast-in,
+  .flash-target,
+  mark.comment-mark.is-draft,
   details.reveal[open] > summary ~ * {
     animation: none;
   }
