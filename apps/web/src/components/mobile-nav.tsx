@@ -2,7 +2,7 @@
 
 // 移动端导航抽屉：窄屏把板块/写文章/管理 + 账户操作 + 搜索收进汉堡菜单，避免顶栏挤压。
 // 自右滑入的 sheet，遮罩点击/Esc/路由切换均关闭，开启时锁背景滚动。桌面端（md+）整体不渲染。
-import { Bell, Bookmark, LogIn, Menu, Settings, UserRound, X } from 'lucide-react';
+import { Bell, Bookmark, LogIn, Menu, PenLine, Settings, UserRound, X } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { type ReactNode, useEffect, useId, useRef, useState } from 'react';
@@ -115,19 +115,21 @@ export function MobileNav(props: MobileNavProps) {
                     />
                   </form>
 
+                  {/* 写文章：独立填色按钮 + 写作图标，置于导航顶部 */}
+                  <Link
+                    href={props.writeHref}
+                    className="mb-2 inline-flex items-center justify-center gap-1.5 rounded-sm bg-fill px-3 py-2.5 font-medium text-on-fill transition-colors hover:bg-fill-hover"
+                  >
+                    <PenLine className="h-4 w-4" aria-hidden />
+                    写文章
+                  </Link>
                   {/* 主导航 */}
                   <nav className="flex flex-col">
-                    <DrawerLink href="/sections" match={['/sections', '/s']} pathname={pathname}>
-                      板块
-                    </DrawerLink>
                     <DrawerLink href="/news" match="/news" pathname={pathname}>
                       近闻
                     </DrawerLink>
                     <DrawerLink href="/covenant" match="/covenant" pathname={pathname}>
                       公约
-                    </DrawerLink>
-                    <DrawerLink href={props.writeHref} match="/write" pathname={pathname}>
-                      写文章
                     </DrawerLink>
                     {props.showAdmin ? (
                       <DrawerLink href="/admin" match="/admin" pathname={pathname}>

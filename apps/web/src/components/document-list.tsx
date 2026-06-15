@@ -51,7 +51,7 @@ export function DocumentList({ items }: { items: DocumentListItem[] }) {
               {item.featured ? <Badge variant="accent">精选</Badge> : null}
               {item.sectionName !== undefined && item.sectionSlug !== undefined ? (
                 <Link
-                  href={`/s/${item.sectionSlug}`}
+                  href={`/?section=${item.sectionSlug}`}
                   className="relative z-10 hover:text-brand-700"
                 >
                   <Badge variant="brand">{item.sectionName}</Badge>

@@ -358,7 +358,7 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
               '@type': 'ListItem',
               position: 2,
               name: article.sectionName,
-              item: `${SITE_URL}/s/${article.sectionSlug}`,
+              item: `${SITE_URL}/?section=${article.sectionSlug}`,
             },
             { '@type': 'ListItem', position: 3, name: article.title, item: articleUrl },
           ],
@@ -388,7 +388,7 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
               /
             </span>
             <Link
-              href={`/s/${article.sectionSlug}`}
+              href={`/?section=${article.sectionSlug}`}
               className="text-brand-700 transition-colors hover:text-brand-900"
             >
               {article.sectionName}
@@ -548,8 +548,8 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
             {docTags.map((t) => (
               <Link
                 key={t.name}
-                // 指向同板块的标签筛选（标签在板块内做分类）；跨板块全局视图见 /t/<name>
-                href={`/s/${article.sectionSlug}?tag=${encodeURIComponent(t.name)}`}
+                // 指向首页该板块×标签的筛选态（跨板块全局视图见 /t/<name>）
+                href={`/?section=${article.sectionSlug}&tag=${encodeURIComponent(t.name)}`}
                 className="rounded-full border border-ink-200 bg-paper-50 px-3 py-0.5 text-ink-600 text-sm transition-colors hover:border-brand-300 hover:text-brand-700"
               >
                 #{t.name}

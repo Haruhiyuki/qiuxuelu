@@ -24,8 +24,8 @@ export function SiteFooter() {
           <p className="font-medium text-ink-800">站内</p>
           <ul className="mt-3 flex flex-col gap-2 text-ink-500">
             <li>
-              <Link href="/sections" className="transition-colors hover:text-brand-700">
-                浏览板块
+              <Link href="/" className="transition-colors hover:text-brand-700">
+                浏览文章
               </Link>
             </li>
             <li>
