@@ -1,38 +1,27 @@
 'use client';
 
-// 知识图谱：以当前帖子为中心，按「站内提及」关系铺开最多三层的邻域子图。
-// 自包含 SVG（无第三方依赖）：放射式 tidy-tree 布局（按子树叶子数分配扇区，减少交叉）+
-// requestAnimationFrame 补间动画。点击外层节点即把它设为新中心、拉取并切换图谱；点击中心
-// 节点打开其文章。支持 1/2/3 层切换、悬停高亮邻域、层级导引环。
-import { ArrowUpRight, Loader2, RotateCcw } from 'lucide-react';
+// 知识图谱（语雀式）：以当前帖为中心，按「站内提及」铺开最多三层邻域。
+// 左侧力导向图（自包含 SVG，无第三方依赖）：渐变圆节点 + 文档字形 + 标题，柔和曲线边，
+// 选中带光环、非邻居淡出；右侧信息面板（作者 / 更新时间 + 被引用 / 引用了）。
+// 单击节点：选中并在右栏看详情；双击节点：打开其文章。布局确定性（无随机、不抖动）。
+import { FileText } from 'lucide-react';
 import Link from 'next/link';
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { fetchDocGraph } from '@/server/actions/graph';
+import { useRouter } from 'next/navigation';
+import { type ReactNode, useMemo, useState } from 'react';
+import { formatDateTime } from '@/lib/format';
 import type { LayeredGraph, LayeredNode } from '@/server/references';
 
-const NODE_R = [30, 20, 15, 12]; // 各 depth 的节点半径
-// 固定取景框 + 包围盒等比拟合（居中）：节点尺寸恒定、viewBox 恒定 → 换中心/切层级时整体比例
-// 稳定（不忽大忽小）；按内容包围盒充满取景框，路径状图谱也不至于缩在角落。
-const VB_HALF = 450; // 取景框半宽
-const FIT_MARGIN = 92; // 四周留白（给节点半径 + 标签）
-const MAX_SCALE = 2.4; // 缩放上限：节点很少时不至于把间距撑得离谱
+const NODE_R = [27, 22, 19, 17]; // 各 depth 的节点半径（中心略大）
+const VB_HALF = 450;
+const FIT_MARGIN = 96;
+const MAX_SCALE = 2.2;
 const FIXED_VIEWBOX = `${-VB_HALF} ${-VB_HALF} ${VB_HALF * 2} ${VB_HALF * 2}`;
-// 力导向布局参数（Fruchterman–Reingold + 按 depth 的径向偏置；确定性、无随机）
-const FR_K = 116; // 理想边长 / 斥力尺度
+// 力导向（Fruchterman–Reingold + 按 depth 径向偏置；确定性）
+const FR_K = 116;
 const FR_ITERS = 440;
-const FR_RING = 104; // 每层径向偏置目标半径
-const FR_RADIAL = 0.05; // 径向偏置强度（把节点温柔拉向其层环）
-const GOLDEN = Math.PI * (3 - Math.sqrt(5)); // 黄金角：种子均匀展开，避免初始对称塌成直线
-const ANIM_MS = 460;
-
-// 中心朱砂为焦点，外层黛青随距离渐淡——单一色相的「由近及远」读法
-const DEPTH_FILL = [
-  'var(--color-accent-600)',
-  'var(--color-brand-600)',
-  'var(--color-brand-400)',
-  'var(--color-brand-300)',
-];
-const DEPTH_LEGEND = ['本帖', '第一层', '第二层', '第三层'];
+const FR_RING = 116;
+const FR_RADIAL = 0.05;
+const GOLDEN = Math.PI * (3 - Math.sqrt(5));
 
 interface PlacedNode extends LayeredNode {
   x: number;
@@ -44,20 +33,13 @@ interface Layout {
   nodes: PlacedNode[];
   edges: { source: string; target: string }[];
   posMap: Map<string, PlacedNode>;
-  /** 包围盒拟合缩放系数：导引环半径需同步乘它 */
-  scale: number;
-  viewBox: string;
 }
 
 function clip(s: string, n: number): string {
   return [...s].length > n ? `${[...s].slice(0, n).join('')}…` : s;
 }
 
-/**
- * 力导向布局（Fruchterman–Reingold）：黄金角种子初始化 + 斥力/边弹簧 + 按 depth 的径向偏置，
- * 中心钉在原点。径向偏置让层次可读（越深越外），斥力把链状图谱铺开而非塌成直线。
- * 全程无随机，迭代固定步数 → 同图同布局（不抖动）。
- */
+/** 力导向布局：黄金角种子 + 斥力/边弹簧 + 按 depth 径向偏置，中心钉原点；包围盒等比拟合居中。 */
 function computeLayout(graph: LayeredGraph, maxDepth: number): Layout {
   const nodes = graph.nodes.filter((n) => n.depth <= maxDepth);
   const idSet = new Set(nodes.map((n) => n.id));
@@ -66,7 +48,6 @@ function computeLayout(graph: LayeredGraph, maxDepth: number): Layout {
   const idx = new Map(nodes.map((nd, i) => [nd.id, i]));
   const centerIdx = nodes.findIndex((nd) => nd.depth === 0);
 
-  // 种子：中心在原点，其余按全局序号沿黄金角螺旋撒在各自层环附近
   const px = new Float64Array(n);
   const py = new Float64Array(n);
   for (let i = 0; i < n; i++) {
@@ -95,7 +76,6 @@ function computeLayout(graph: LayeredGraph, maxDepth: number): Layout {
     const temp = FR_K * 0.92 * (1 - it / FR_ITERS) + 1.5;
     dx.fill(0);
     dy.fill(0);
-    // 斥力（全对）：f = k²/dist
     for (let i = 0; i < n; i++) {
       const xi = px[i] ?? 0;
       const yi = py[i] ?? 0;
@@ -104,7 +84,6 @@ function computeLayout(graph: LayeredGraph, maxDepth: number): Layout {
         let ddy = yi - (py[j] ?? 0);
         let dist = Math.hypot(ddx, ddy);
         if (dist < 0.01) {
-          // 重合时给个确定性的小扰动，避免除零与卡死
           ddx = (i - j) * 0.01 + 0.02;
           ddy = 0.01;
           dist = Math.hypot(ddx, ddy);
@@ -118,7 +97,6 @@ function computeLayout(graph: LayeredGraph, maxDepth: number): Layout {
         dy[j] = (dy[j] ?? 0) - uy;
       }
     }
-    // 边弹簧（吸引）：f = dist²/k
     for (const [a, b] of E) {
       const ddx = (px[a] ?? 0) - (px[b] ?? 0);
       const ddy = (py[a] ?? 0) - (py[b] ?? 0);
@@ -131,7 +109,6 @@ function computeLayout(graph: LayeredGraph, maxDepth: number): Layout {
       dx[b] = (dx[b] ?? 0) + ux;
       dy[b] = (dy[b] ?? 0) + uy;
     }
-    // 径向偏置：把每个节点温柔拉向其层环 depth·FR_RING
     for (let i = 0; i < n; i++) {
       const d = nodes[i]?.depth ?? 0;
       if (d === 0) {
@@ -144,7 +121,6 @@ function computeLayout(graph: LayeredGraph, maxDepth: number): Layout {
       dx[i] = (dx[i] ?? 0) + (xi / r) * pull;
       dy[i] = (dy[i] ?? 0) + (yi / r) * pull;
     }
-    // 积分（限步 + 冷却），中心钉死
     for (let i = 0; i < n; i++) {
       if (i === centerIdx) {
         px[i] = 0;
@@ -162,8 +138,6 @@ function computeLayout(graph: LayeredGraph, maxDepth: number): Layout {
     }
   }
 
-  // 包围盒等比拟合到固定取景框并居中：节点半径恒定 + viewBox 恒定 → 屏上节点尺寸恒定、
-  // 整体比例稳定；按包围盒充满画面，路径状图谱也铺得开。
   let minX = Number.POSITIVE_INFINITY;
   let minY = Number.POSITIVE_INFINITY;
   let maxX = Number.NEGATIVE_INFINITY;
@@ -199,374 +173,240 @@ function computeLayout(graph: LayeredGraph, maxDepth: number): Layout {
     r: NODE_R[Math.min(nd.depth, NODE_R.length - 1)] ?? 12,
   }));
 
-  return {
-    nodes: placed,
-    edges,
-    posMap: new Map(placed.map((p) => [p.id, p])),
-    scale,
-    viewBox: FIXED_VIEWBOX,
-  };
+  return { nodes: placed, edges, posMap: new Map(placed.map((p) => [p.id, p])) };
+}
+
+/** 节点内的「文档」字形：三条白色横线（与语雀同款），随半径缩放。 */
+function DocGlyph({ r }: { r: number }) {
+  const w = r * 0.64;
+  const x = -w / 2;
+  const gap = r * 0.3;
+  const sw = Math.max(2, r * 0.13);
+  return (
+    <g stroke="white" strokeWidth={sw} strokeLinecap="round">
+      <line x1={x} y1={-gap} x2={x + w * 0.82} y2={-gap} />
+      <line x1={x} y1={0} x2={x + w} y2={0} />
+      <line x1={x} y1={gap} x2={x + w * 0.68} y2={gap} />
+    </g>
+  );
 }
 
 export function KnowledgeGraph({ initialGraph }: { initialGraph: LayeredGraph }) {
-  const [graph, setGraph] = useState<LayeredGraph>(initialGraph);
-  const [loading, setLoading] = useState(false);
-  const [hover, setHover] = useState<string | null>(null);
-  const [depth, setDepth] = useState(3);
+  const router = useRouter();
+  const graph = initialGraph;
+  const availDepth = useMemo(() => graph.nodes.reduce((m, n) => Math.max(m, n.depth), 0), [graph]);
+  const layout = useMemo(() => computeLayout(graph, Math.max(1, availDepth)), [graph, availDepth]);
+  const nodeById = useMemo(() => new Map(graph.nodes.map((n) => [n.id, n])), [graph]);
 
-  const availDepth = useMemo(
-    () => graph.nodes.reduce((m, n) => Math.max(m, n.depth), 0),
-    [graph.nodes],
+  const [selectedId, setSelectedId] = useState(graph.centerId);
+  const [hoverId, setHoverId] = useState<string | null>(null);
+  const [tab, setTab] = useState<'in' | 'out'>('in');
+
+  const selected = nodeById.get(selectedId) ?? null;
+  const incoming = useMemo(
+    () =>
+      graph.edges
+        .filter((e) => e.target === selectedId)
+        .map((e) => nodeById.get(e.source))
+        .filter((x): x is LayeredNode => x !== undefined),
+    [graph.edges, selectedId, nodeById],
   );
-  const shownDepth = Math.min(depth, Math.max(1, availDepth));
-
-  const target = useMemo(() => computeLayout(graph, shownDepth), [graph, shownDepth]);
-
-  // 节点坐标补间（rAF）：新中心/层级切换时平滑过渡；新节点从原点展开
-  const [pos, setPos] = useState<Map<string, { x: number; y: number }>>(
-    () => new Map(target.nodes.map((n) => [n.id, { x: n.x, y: n.y }])),
+  const outgoing = useMemo(
+    () =>
+      graph.edges
+        .filter((e) => e.source === selectedId)
+        .map((e) => nodeById.get(e.target))
+        .filter((x): x is LayeredNode => x !== undefined),
+    [graph.edges, selectedId, nodeById],
   );
-  const posRef = useRef(pos);
-  useEffect(() => {
-    posRef.current = pos;
-  });
 
-  useEffect(() => {
-    const targetMap = new Map(target.nodes.map((n) => [n.id, { x: n.x, y: n.y }]));
-    const reduce =
-      typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches;
-    if (reduce) {
-      setPos(targetMap);
-      return;
-    }
-    const start = new Map<string, { x: number; y: number }>();
-    for (const n of target.nodes) {
-      start.set(n.id, posRef.current.get(n.id) ?? { x: 0, y: 0 });
-    }
-    const t0 = performance.now();
-    let raf = 0;
-    const tick = (now: number) => {
-      const k = Math.min(1, (now - t0) / ANIM_MS);
-      const e = 1 - (1 - k) ** 3; // easeOutCubic
-      const m = new Map<string, { x: number; y: number }>();
-      for (const n of target.nodes) {
-        const s = start.get(n.id) ?? { x: 0, y: 0 };
-        const tg = targetMap.get(n.id) ?? { x: 0, y: 0 };
-        m.set(n.id, { x: s.x + (tg.x - s.x) * e, y: s.y + (tg.y - s.y) * e });
+  // 焦点（hover 优先于 selected）+ 其直接邻居：用于高亮/淡出
+  const focus = hoverId ?? selectedId;
+  const neighborIds = useMemo(() => {
+    const s = new Set<string>([focus]);
+    for (const e of graph.edges) {
+      if (e.source === focus) {
+        s.add(e.target);
       }
-      setPos(m);
-      if (k < 1) {
-        raf = requestAnimationFrame(tick);
-      }
-    };
-    raf = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(raf);
-  }, [target]);
-
-  const center = graph.nodes.find((n) => n.depth === 0);
-  const isOriginal = graph.centerId === initialGraph.centerId;
-
-  // 悬停某节点：其邻域高亮，余者淡出
-  const connected = useMemo(() => {
-    if (hover === null) {
-      return null;
-    }
-    const set = new Set<string>([hover]);
-    for (const e of target.edges) {
-      if (e.source === hover) {
-        set.add(e.target);
-      } else if (e.target === hover) {
-        set.add(e.source);
+      if (e.target === focus) {
+        s.add(e.source);
       }
     }
-    return set;
-  }, [hover, target.edges]);
+    return s;
+  }, [graph.edges, focus]);
 
-  function recenter(id: string) {
-    if (id === graph.centerId || loading) {
-      return;
-    }
-    setLoading(true);
-    setHover(null);
-    fetchDocGraph(id)
-      .then((g) => {
-        if (g !== null && g.nodes.length > 0) {
-          setGraph(g);
-        }
-      })
-      .finally(() => setLoading(false));
-  }
-
-  const at = (id: string) => pos.get(id) ?? target.posMap.get(id) ?? { x: 0, y: 0 };
-  const ringCenter = at(graph.centerId); // 导引环绕中心节点（包围盒居中后中心不在原点）
-  const nodeDim = (id: string) => connected !== null && !connected.has(id);
-  const showLabel = (n: PlacedNode) =>
-    n.depth <= 1 || target.nodes.length <= 22 || (connected?.has(n.id) ?? false);
+  const list = tab === 'in' ? incoming : outgoing;
 
   return (
-    <div className="flex h-full flex-col">
-      {/* 工具条：当前中心 + 打开文章 / 层级切换 / 返回本帖 */}
-      <div className="flex flex-wrap items-center justify-between gap-3 border-ink-200/70 border-b px-4 py-2.5">
-        <div className="flex min-w-0 items-center gap-2">
-          <span className="shrink-0 text-ink-400 text-xs">中心</span>
-          {center !== undefined ? (
-            <Link
-              href={`/a/${center.slug}`}
-              className="group inline-flex min-w-0 items-center gap-1 font-medium text-ink-800 text-sm transition-colors hover:text-brand-700"
-            >
-              <span className="truncate">{center.title}</span>
-              <ArrowUpRight
-                className="h-3.5 w-3.5 shrink-0 text-ink-400 transition-colors group-hover:text-brand-600"
-                aria-hidden
-              />
-            </Link>
-          ) : null}
-        </div>
-        <div className="flex shrink-0 items-center gap-3">
-          {availDepth >= 2 ? (
-            <fieldset
-              className="m-0 flex min-w-0 items-center gap-0.5 rounded-full border border-ink-200 bg-paper-100 p-0.5"
-              aria-label="展开层级"
-            >
-              {Array.from({ length: Math.min(3, availDepth) }, (_, i) => i + 1).map((d) => (
-                <button
-                  key={d}
-                  type="button"
-                  onClick={() => setDepth(d)}
-                  aria-pressed={shownDepth === d}
-                  className={`h-6 w-7 rounded-full text-xs transition-colors ${
-                    shownDepth === d
-                      ? 'bg-brand-600 font-medium text-on-fill'
-                      : 'text-ink-500 hover:text-ink-800'
-                  }`}
-                >
-                  {d}
-                </button>
-              ))}
-              <span className="pr-1.5 pl-0.5 text-ink-400 text-xs">层</span>
-            </fieldset>
-          ) : null}
-          {!isOriginal ? (
-            <button
-              type="button"
-              onClick={() => {
-                setGraph(initialGraph);
-                setHover(null);
-              }}
-              className="inline-flex items-center gap-1 text-ink-500 text-xs transition-colors hover:text-brand-700"
-            >
-              <RotateCcw className="h-3.5 w-3.5" aria-hidden />
-              返回本帖
-            </button>
-          ) : null}
-        </div>
-      </div>
-
-      <div className="relative min-h-0 flex-1">
+    <div className="flex h-full">
+      <div className="relative min-w-0 flex-1">
         <svg
-          viewBox={target.viewBox}
+          viewBox={FIXED_VIEWBOX}
           preserveAspectRatio="xMidYMid meet"
-          className="block h-full w-full select-none"
-          role="img"
-          aria-label={`以「${center?.title ?? ''}」为中心、最多 ${shownDepth} 层的站内提及关系图`}
+          className="h-full w-full select-none"
+          aria-label="知识图谱"
         >
           <defs>
-            <marker
-              id="kg-arrow"
-              viewBox="0 0 10 10"
-              refX="9"
-              refY="5"
-              markerWidth="6.5"
-              markerHeight="6.5"
-              orient="auto-start-reverse"
-            >
-              <path d="M0,0 L10,5 L0,10 z" fill="var(--color-ink-400)" />
-            </marker>
-            <filter id="kg-shadow" x="-40%" y="-40%" width="180%" height="180%">
-              <feDropShadow
-                dx="0"
-                dy="1.5"
-                stdDeviation="2.5"
-                floodColor="var(--color-ink-900)"
-                floodOpacity="0.16"
-              />
-            </filter>
+            <linearGradient id="kg-node" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0%" stopColor="#6ea0f0" />
+              <stop offset="100%" stopColor="#3b6fe0" />
+            </linearGradient>
           </defs>
 
-          {/* 层级导引环（淡虚线，对齐径向偏置半径×拟合系数）：暗示「由内向外分层」 */}
-          {Array.from({ length: shownDepth }, (_, i) => i + 1).map((d) => (
-            <circle
-              key={`ring-${d}`}
-              cx={ringCenter.x}
-              cy={ringCenter.y}
-              r={d * FR_RING * target.scale}
-              fill="none"
-              stroke="var(--color-ink-200)"
-              strokeWidth={1}
-              strokeDasharray="2 7"
-              opacity={0.45}
-            />
-          ))}
-
-          {/* 边（有向曲线）：双向边朝相反方向起拱以错开 */}
-          {target.edges.map((e) => {
-            const a = at(e.source);
-            const b = at(e.target);
-            const ra = target.posMap.get(e.source)?.r ?? 6;
-            const rb = target.posMap.get(e.target)?.r ?? 6;
-            const dx = b.x - a.x;
-            const dy = b.y - a.y;
-            const len = Math.hypot(dx, dy) || 1;
-            const ux = dx / len;
-            const uy = dy / len;
-            const x1 = a.x + ux * ra;
-            const y1 = a.y + uy * ra;
-            const x2 = b.x - ux * (rb + 5);
-            const y2 = b.y - uy * (rb + 5);
-            // 垂直于连线的小拱；方向由端点排序决定，避免互指边重叠
-            const bow = (e.source < e.target ? 1 : -1) * len * 0.12;
-            const cx = (x1 + x2) / 2 - uy * bow;
-            const cy = (y1 + y2) / 2 + ux * bow;
-            // 高亮：悬停节点的相连边（端点之一即为 hover）
-            const active = hover !== null && (e.source === hover || e.target === hover);
-            const dim = hover !== null && !active;
+          {layout.edges.map((e) => {
+            const a = layout.posMap.get(e.source);
+            const b = layout.posMap.get(e.target);
+            if (a === undefined || b === undefined) {
+              return null;
+            }
+            const active = focus === e.source || focus === e.target;
+            const ddx = b.x - a.x;
+            const ddy = b.y - a.y;
+            const len = Math.hypot(ddx, ddy) || 1;
+            const off = Math.min(46, len * 0.13);
+            const cxp = (a.x + b.x) / 2 + (-ddy / len) * off;
+            const cyp = (a.y + b.y) / 2 + (ddx / len) * off;
             return (
               <path
-                key={`${e.source}->${e.target}`}
-                d={`M${x1},${y1} Q${cx},${cy} ${x2},${y2}`}
+                key={`${e.source}-${e.target}`}
+                d={`M ${a.x} ${a.y} Q ${cxp} ${cyp} ${b.x} ${b.y}`}
                 fill="none"
-                stroke={active ? 'var(--color-brand-500)' : 'var(--color-ink-300)'}
-                strokeWidth={active ? 2 : 1.4}
-                markerEnd="url(#kg-arrow)"
-                opacity={dim ? 0.12 : 0.7}
-                className="transition-opacity duration-150"
+                stroke={active ? 'var(--color-brand-400)' : 'var(--color-ink-300)'}
+                strokeWidth={active ? 2 : 1.2}
+                strokeOpacity={active ? 0.9 : 0.45}
               />
             );
           })}
 
-          {/* 节点 */}
-          {target.nodes.map((n) => {
-            const p = at(n.id);
-            const fill = DEPTH_FILL[Math.min(n.depth, DEPTH_FILL.length - 1)];
-            const dim = nodeDim(n.id);
-            const isCenter = n.depth === 0;
-            const label = (
-              <text
-                x={0}
-                y={n.r + 14}
-                textAnchor="middle"
-                className="fill-[var(--color-ink-700)]"
-                style={{
-                  paintOrder: 'stroke',
-                  stroke: 'var(--color-paper-50)',
-                  strokeWidth: 3,
-                  strokeLinejoin: 'round',
-                }}
-                fontSize={isCenter ? 12.5 : n.depth === 1 ? 11.5 : 10.5}
-                fontWeight={isCenter ? 600 : 400}
-              >
-                {clip(n.title, isCenter ? 16 : n.depth === 1 ? 12 : 9)}
-              </text>
-            );
-            const circle = (
-              <circle
-                r={n.r}
-                fill={fill}
-                stroke="var(--color-paper-50)"
-                strokeWidth={2.5}
-                filter="url(#kg-shadow)"
-              />
-            );
-            const inner =
-              isCenter || hover === n.id ? (
-                <circle
-                  r={n.r}
-                  fill="none"
-                  stroke="var(--color-paper-50)"
-                  strokeOpacity={0.55}
-                  strokeWidth={1}
-                  transform="scale(0.7)"
-                />
-              ) : null;
-
-            // 中心节点 → 打开文章；外层节点 → 设为新中心
-            const common = {
-              transform: `translate(${p.x},${p.y})`,
-              opacity: dim ? 0.22 : 1,
-              className: 'transition-opacity duration-150',
-              onMouseEnter: () => setHover(n.id),
-              onMouseLeave: () => setHover(null),
-            };
-            if (isCenter) {
-              return (
-                <Link key={n.id} href={`/a/${n.slug}`} aria-label={`打开本文：${n.title}`}>
-                  <g {...common} style={{ cursor: 'pointer' }}>
-                    {circle}
-                    {inner}
-                    <text
-                      x={0}
-                      y={0}
-                      textAnchor="middle"
-                      dominantBaseline="central"
-                      className="fill-[var(--color-on-fill)] font-serif"
-                      fontSize={12}
-                    >
-                      本帖
-                    </text>
-                    {label}
-                  </g>
-                </Link>
-              );
-            }
+          {layout.nodes.map((nd) => {
+            const isSel = nd.id === selectedId;
+            const dim = focus !== nd.id && !neighborIds.has(nd.id);
             return (
-              // biome-ignore lint/a11y/useSemanticElements: SVG 内无法用原生 <button>，作图节点以 role=button + 键盘处理承载交互
+              // biome-ignore lint/a11y/noStaticElementInteractions: 图节点为指针增强，键盘可达路径由右栏列表按钮承担
               <g
-                key={n.id}
-                {...common}
-                role="button"
-                tabIndex={0}
-                aria-label={`以「${n.title}」为中心查看图谱`}
-                style={{ cursor: 'pointer' }}
-                onClick={() => recenter(n.id)}
-                onKeyDown={(ev) => {
-                  if (ev.key === 'Enter' || ev.key === ' ') {
-                    ev.preventDefault();
-                    recenter(n.id);
-                  }
-                }}
+                key={nd.id}
+                transform={`translate(${nd.x} ${nd.y})`}
+                className="cursor-pointer"
+                style={{ opacity: dim ? 0.32 : 1, transition: 'opacity .15s ease' }}
+                onClick={() => setSelectedId(nd.id)}
+                onDoubleClick={() => router.push(`/a/${nd.slug}`)}
+                onMouseEnter={() => setHoverId(nd.id)}
+                onMouseLeave={() => setHoverId(null)}
               >
-                {circle}
-                {inner}
-                {showLabel(n) ? label : null}
+                {isSel ? (
+                  <circle r={nd.r + 9} fill="var(--color-brand-400)" opacity={0.18} />
+                ) : null}
+                <circle
+                  r={nd.r}
+                  fill="url(#kg-node)"
+                  opacity={nd.depth >= 3 ? 0.78 : nd.depth === 2 ? 0.9 : 1}
+                  stroke="white"
+                  strokeWidth={1.5}
+                />
+                <DocGlyph r={nd.r} />
+                <text
+                  y={nd.r + 17}
+                  textAnchor="middle"
+                  className={isSel ? 'fill-ink-900 font-medium' : 'fill-ink-600'}
+                  fontSize={13}
+                >
+                  {clip(nd.title, 12)}
+                </text>
               </g>
             );
           })}
         </svg>
-
-        {/* 切换中心时的加载遮罩 */}
-        {loading ? (
-          <div className="absolute inset-0 flex items-center justify-center bg-paper-50/55 backdrop-blur-[1px]">
-            <Loader2 className="h-6 w-6 animate-spin text-brand-600" aria-hidden />
-          </div>
+        <p className="absolute bottom-3 left-3 text-ink-400 text-xs">单击查看详情 · 双击打开文章</p>
+        {graph.truncated ? (
+          <p className="absolute right-3 bottom-3 text-ink-400 text-xs">关系较多，仅展示部分</p>
         ) : null}
       </div>
 
-      {/* 图例 + 操作提示 */}
-      <div className="flex flex-wrap items-center justify-between gap-x-5 gap-y-2 border-ink-200/70 border-t px-4 py-2.5">
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-ink-400 text-xs">
-          {DEPTH_LEGEND.slice(0, shownDepth + 1).map((lbl, i) => (
-            <span key={lbl} className="flex items-center gap-1.5">
-              <span
-                aria-hidden
-                className="h-2.5 w-2.5 rounded-full"
-                style={{ backgroundColor: DEPTH_FILL[i] }}
-              />
-              {lbl}
-            </span>
-          ))}
-        </div>
-        <p className="text-ink-400 text-xs">点击节点切换中心 · 点击本帖打开文章</p>
-      </div>
+      {/* 右侧信息面板 */}
+      <aside className="flex w-64 shrink-0 flex-col gap-3 overflow-y-auto border-ink-200/70 border-l p-4">
+        {selected !== null ? (
+          <>
+            <div className="rounded-lg border border-ink-200 bg-paper-50 p-3 shadow-paper">
+              <div className="flex items-start gap-2">
+                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-gradient-to-br from-brand-400 to-brand-600 text-on-fill">
+                  <FileText className="h-4 w-4" aria-hidden />
+                </span>
+                <Link
+                  href={`/a/${selected.slug}`}
+                  className="min-w-0 font-medium font-serif text-ink-900 leading-snug transition-colors hover:text-brand-700"
+                >
+                  {selected.title}
+                </Link>
+              </div>
+              <dl className="mt-3 flex flex-col gap-1.5 text-xs">
+                <div className="flex gap-2">
+                  <dt className="shrink-0 text-ink-400">作者</dt>
+                  <dd className="truncate text-ink-600">{selected.authorName ?? '佚名'}</dd>
+                </div>
+                <div className="flex gap-2">
+                  <dt className="shrink-0 text-ink-400">更新</dt>
+                  <dd className="text-ink-600">{formatDateTime(new Date(selected.updatedAt))}</dd>
+                </div>
+              </dl>
+            </div>
+
+            <div className="flex min-h-0 flex-1 flex-col rounded-lg border border-ink-200 bg-paper-50">
+              <div className="flex border-ink-200/70 border-b text-sm">
+                <TabBtn active={tab === 'in'} onClick={() => setTab('in')}>
+                  被引用 {incoming.length}
+                </TabBtn>
+                <TabBtn active={tab === 'out'} onClick={() => setTab('out')}>
+                  引用了 {outgoing.length}
+                </TabBtn>
+              </div>
+              <ul className="min-h-0 flex-1 overflow-y-auto p-2">
+                {list.map((node) => (
+                  <li key={node.id}>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedId(node.id)}
+                      className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-ink-700 text-sm transition-colors hover:bg-paper-200"
+                      title={node.title}
+                    >
+                      <FileText className="h-3.5 w-3.5 shrink-0 text-brand-500" aria-hidden />
+                      <span className="truncate">{node.title}</span>
+                    </button>
+                  </li>
+                ))}
+                {list.length === 0 ? (
+                  <li className="px-2 py-3 text-ink-400 text-xs">
+                    {tab === 'in' ? '还没有文章引用它' : '它还没有引用其它文章'}
+                  </li>
+                ) : null}
+              </ul>
+            </div>
+          </>
+        ) : null}
+      </aside>
     </div>
+  );
+}
+
+function TabBtn({
+  active,
+  onClick,
+  children,
+}: {
+  active: boolean;
+  onClick: () => void;
+  children: ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`flex-1 px-3 py-2 font-medium transition-colors ${
+        active
+          ? '-mb-px border-brand-600 border-b-2 text-ink-900'
+          : 'text-ink-400 hover:text-ink-700'
+      }`}
+    >
+      {children}
+    </button>
   );
 }

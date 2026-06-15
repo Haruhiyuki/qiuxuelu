@@ -5,6 +5,7 @@ import {
   documents,
   getDb,
   publishedSnapshots,
+  user as userTable,
 } from '@harublog/db';
 import { collectLinkHrefs, type DocJson, validateDoc } from '@harublog/kernel';
 import { and, eq, inArray, ne } from 'drizzle-orm';
@@ -76,6 +77,8 @@ export interface LayeredNode {
   id: string;
   slug: string;
   title: string;
+  authorName: string | null;
+  updatedAt: Date;
   /** 距中心的最短跳数：0=中心，1/2/3=第一/二/三层 */
   depth: number;
 }
@@ -103,9 +106,17 @@ export async function getDocGraphLayered(
   centerId: string,
   maxDepth = 3,
 ): Promise<LayeredGraph> {
+  const nodeCols = {
+    id: documents.id,
+    slug: documents.slug,
+    title: documents.title,
+    authorName: userTable.name,
+    updatedAt: documents.updatedAt,
+  };
   const centerRow = await db
-    .select({ id: documents.id, slug: documents.slug, title: documents.title })
+    .select(nodeCols)
     .from(documents)
+    .leftJoin(userTable, eq(userTable.id, documents.ownerId))
     .where(eq(documents.id, centerId))
     .limit(1);
   const center = centerRow[0];
@@ -121,16 +132,18 @@ export async function getDocGraphLayered(
   for (let d = 1; d <= maxDepth && frontier.length > 0 && !truncated; d++) {
     const [outRows, inRows] = await Promise.all([
       db
-        .select({ id: documents.id, slug: documents.slug, title: documents.title })
+        .select(nodeCols)
         .from(documentReferences)
         .innerJoin(documents, eq(documents.id, documentReferences.targetDocId))
         .innerJoin(publishedSnapshots, eq(publishedSnapshots.documentId, documents.id))
+        .leftJoin(userTable, eq(userTable.id, documents.ownerId))
         .where(inArray(documentReferences.sourceDocId, frontier)),
       db
-        .select({ id: documents.id, slug: documents.slug, title: documents.title })
+        .select(nodeCols)
         .from(documentReferences)
         .innerJoin(documents, eq(documents.id, documentReferences.sourceDocId))
         .innerJoin(publishedSnapshots, eq(publishedSnapshots.documentId, documents.id))
+        .leftJoin(userTable, eq(userTable.id, documents.ownerId))
         .where(inArray(documentReferences.targetDocId, frontier)),
     ]);
     const next: string[] = [];
