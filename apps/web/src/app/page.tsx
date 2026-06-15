@@ -307,7 +307,8 @@ export default async function HomePage({
       ) : null}
 
       {/* 精简标语：保留「共笔·互校·开放」的气质，去掉旧版的板块/写作按钮，改导向社区公约 */}
-      <section className="rise-in mb-6 border-ink-200 border-b pb-6">
+      {/* 不加底部分割线：下方列表头部已有一条，避免两条线并排 */}
+      <section className="rise-in mb-6">
         <p className="flex items-center gap-3 text-ink-500 text-sm tracking-[0.3em]">
           <span aria-hidden className="h-px w-8 bg-accent-600" />
           共笔 · 互校 · 开放
