@@ -12,6 +12,8 @@ export interface DocumentListItem {
   /** 板块信息可选：板块页内的列表无需重复展示所属板块 */
   sectionName?: string;
   sectionSlug?: string;
+  /** 精选：列表内标注「精选」徽标（首页混排时用） */
+  featured?: boolean;
 }
 
 /**
@@ -46,6 +48,7 @@ export function DocumentList({ items }: { items: DocumentListItem[] }) {
               </p>
             ) : null}
             <div className="mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-ink-500 text-xs">
+              {item.featured ? <Badge variant="accent">精选</Badge> : null}
               {item.sectionName !== undefined && item.sectionSlug !== undefined ? (
                 <Link
                   href={`/s/${item.sectionSlug}`}

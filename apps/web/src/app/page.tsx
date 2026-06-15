@@ -1,104 +1,241 @@
-import { SITE_DESCRIPTION, SITE_NAME } from '@harublog/config';
-import { documents, getDb, publishedSnapshots, sections, user as userTable } from '@harublog/db';
-import { Badge, EmptyState } from '@harublog/ui';
-import { and, asc, desc, eq, isNull } from 'drizzle-orm';
-import { ArrowRight, PenLine } from 'lucide-react';
+// 首页：双列信息流。左列 = 板块（上）+ 标签（下，内滚动），可板块×标签交叉筛选；
+// 右列 = 文章列表，多种排序（默认最新），精选文章分散插入第一页并标注，分页在右列。
+import {
+  docReactions,
+  documents,
+  documentTags,
+  getDb,
+  publishedSnapshots,
+  sections,
+  tags,
+  user as userTable,
+} from '@harublog/db';
+import { EmptyState } from '@harublog/ui';
+import { and, asc, desc, eq, isNull, sql } from 'drizzle-orm';
+import { PenLine } from 'lucide-react';
 import Link from 'next/link';
-import type { ReactNode } from 'react';
 import { AnnouncementBar } from '@/components/announcement-bar';
 import { ButtonLink } from '@/components/button-link';
-import { DocumentList } from '@/components/document-list';
-import { formatDate } from '@/lib/format';
+import { DocumentList, type DocumentListItem } from '@/components/document-list';
+import { Pagination } from '@/components/pagination';
 import { getSession } from '@/lib/session';
-import { stageLabel } from '@/lib/stage';
 import { getHomepageBanner } from '@/server/announcements';
 
-// M0 一律请求期动态渲染（ISR 是 M1 的事）；构建期不触碰数据库
 export const dynamic = 'force-dynamic';
 
-async function fetchLatestPublished() {
-  const db = getDb();
-  return db
-    .select({
-      id: documents.id,
-      title: documents.title,
-      slug: documents.slug,
-      summary: documents.summary,
-      publishedAt: publishedSnapshots.publishedAt,
-      authorName: userTable.name,
-      sectionName: sections.name,
-      sectionSlug: sections.slug,
-    })
+const PAGE_SIZE = 10;
+const FEATURED_ON_FIRST = 4;
+const TAG_LIMIT = 50;
+
+type SortKey = 'time' | 'popular' | 'old';
+const SORTS: { key: SortKey; label: string }[] = [
+  { key: 'time', label: '最新' },
+  { key: 'popular', label: '最热' },
+  { key: 'old', label: '最早' },
+];
+
+interface ArticleRow {
+  id: string;
+  title: string;
+  slug: string;
+  summary: string | null;
+  publishedAt: Date;
+  authorName: string | null;
+  sectionName: string;
+  sectionSlug: string;
+}
+
+const ARTICLE_FIELDS = {
+  id: documents.id,
+  title: documents.title,
+  slug: documents.slug,
+  summary: documents.summary,
+  publishedAt: publishedSnapshots.publishedAt,
+  authorName: userTable.name,
+  sectionName: sections.name,
+  sectionSlug: sections.slug,
+};
+
+/** 交叉筛选 where 片段：已发布 + 可选板块 + 可选标签 + 是否精选 */
+function articleConds(sectionId: string | null, tag: string | null, featured: boolean) {
+  const conds = [eq(documents.status, 'published'), eq(documents.featured, featured)];
+  if (sectionId !== null) {
+    conds.push(eq(documents.sectionId, sectionId));
+  }
+  if (tag !== null) {
+    conds.push(
+      sql`exists (select 1 from ${documentTags} dt join ${tags} t on t.id = dt.tag_id where dt.document_id = ${documents.id} and t.name = ${tag})`,
+    );
+  }
+  return and(...conds);
+}
+
+function baseQuery() {
+  return getDb()
+    .select(ARTICLE_FIELDS)
     .from(documents)
     .innerJoin(publishedSnapshots, eq(publishedSnapshots.documentId, documents.id))
     .innerJoin(sections, eq(sections.id, documents.sectionId))
-    .leftJoin(userTable, eq(userTable.id, documents.ownerId))
-    .where(eq(documents.status, 'published'))
+    .leftJoin(userTable, eq(userTable.id, documents.ownerId));
+}
+
+/** 非精选文章：交叉筛选 + 排序 + 分页（多取一条判 hasNext） */
+async function fetchArticles(
+  sectionId: string | null,
+  tag: string | null,
+  sort: SortKey,
+  page: number,
+): Promise<{ rows: ArticleRow[]; hasNext: boolean }> {
+  const likeCount = sql<number>`(select count(*) from ${docReactions} where ${docReactions.documentId} = ${documents.id} and ${docReactions.kind} = 'like')`;
+  const order =
+    sort === 'popular'
+      ? [desc(likeCount), desc(publishedSnapshots.publishedAt)]
+      : sort === 'old'
+        ? [asc(publishedSnapshots.publishedAt)]
+        : [desc(publishedSnapshots.publishedAt)];
+  const rows = await baseQuery()
+    .where(articleConds(sectionId, tag, false))
+    .orderBy(...order)
+    .limit(PAGE_SIZE + 1)
+    .offset((page - 1) * PAGE_SIZE);
+  return { rows: rows.slice(0, PAGE_SIZE), hasNext: rows.length > PAGE_SIZE };
+}
+
+/** 精选文章（同样受交叉筛选约束）：仅第一页混排用 */
+async function fetchFeatured(sectionId: string | null, tag: string | null): Promise<ArticleRow[]> {
+  return baseQuery()
+    .where(articleConds(sectionId, tag, true))
     .orderBy(desc(publishedSnapshots.publishedAt))
-    .limit(10);
+    .limit(FEATURED_ON_FIRST);
 }
 
-async function fetchFeatured() {
+async function fetchSections() {
   const db = getDb();
-  return db
-    .select({
-      id: documents.id,
-      title: documents.title,
-      slug: documents.slug,
-      summary: documents.summary,
-      publishedAt: publishedSnapshots.publishedAt,
-      authorName: userTable.name,
-      sectionName: sections.name,
-      sectionSlug: sections.slug,
-    })
-    .from(documents)
-    .innerJoin(publishedSnapshots, eq(publishedSnapshots.documentId, documents.id))
-    .innerJoin(sections, eq(sections.id, documents.sectionId))
-    .leftJoin(userTable, eq(userTable.id, documents.ownerId))
-    .where(and(eq(documents.status, 'published'), eq(documents.featured, true)))
-    .orderBy(desc(publishedSnapshots.publishedAt))
-    .limit(6);
-}
-
-async function fetchTopSections() {
-  const db = getDb();
-  return db
-    .select()
-    .from(sections)
-    .where(isNull(sections.parentId))
-    .orderBy(asc(sections.position));
-}
-
-/** 章节标题：朱砂短竖标 + 衬线题字 + 可选注语，全页统一章法 */
-function SectionHeading({ title, sub }: { title: string; sub?: ReactNode }) {
-  return (
-    <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-      <span aria-hidden className="h-4.5 w-1 self-center rounded-xs bg-accent-600" />
-      <h2 className="font-semibold font-serif text-2xl text-ink-900">{title}</h2>
-      {sub !== undefined ? <p className="text-ink-400 text-sm">{sub}</p> : null}
-    </div>
-  );
-}
-
-/** 中文序号：精选卡片的底纹大字 */
-const CJK_ORDINALS = ['壹', '贰', '叁', '肆', '伍', '陆'] as const;
-
-export default async function HomePage() {
-  const [latest, featured, topSections, session, banner] = await Promise.all([
-    fetchLatestPublished(),
-    fetchFeatured(),
-    fetchTopSections(),
-    getSession(),
-    getHomepageBanner(getDb()),
+  const [list, counts] = await Promise.all([
+    db.select().from(sections).where(isNull(sections.parentId)).orderBy(asc(sections.position)),
+    db
+      .select({ sectionId: documents.sectionId, n: sql<number>`count(*)::int` })
+      .from(documents)
+      .innerJoin(publishedSnapshots, eq(publishedSnapshots.documentId, documents.id))
+      .where(eq(documents.status, 'published'))
+      .groupBy(documents.sectionId),
   ]);
-  // 已登录直接进写作台（标题正文一体），未登录走注册（拒绝变引导）
+  const countBy = new Map(counts.map((c) => [c.sectionId, Number(c.n)]));
+  const total = counts.reduce((s, c) => s + Number(c.n), 0);
+  return { list, countBy, total };
+}
+
+/** 全站标签 + 各自已发布篇数（按篇数降序），左列标签列表用 */
+async function fetchTags() {
+  return getDb()
+    .select({ name: tags.name, n: sql<number>`count(*)::int` })
+    .from(documentTags)
+    .innerJoin(tags, eq(tags.id, documentTags.tagId))
+    .innerJoin(documents, eq(documents.id, documentTags.documentId))
+    .innerJoin(publishedSnapshots, eq(publishedSnapshots.documentId, documents.id))
+    .where(eq(documents.status, 'published'))
+    .groupBy(tags.name)
+    .orderBy(desc(sql`count(*)`), tags.name)
+    .limit(TAG_LIMIT);
+}
+
+/** 把精选条目均匀散布进常规列表（第一页） */
+function interleave(regular: DocumentListItem[], featured: DocumentListItem[]): DocumentListItem[] {
+  if (featured.length === 0) {
+    return regular;
+  }
+  const out = [...regular];
+  const step = Math.max(1, Math.ceil(out.length / (featured.length + 1)));
+  featured.forEach((f, k) => {
+    const pos = Math.min(out.length, (k + 1) * step + k);
+    out.splice(pos, 0, f);
+  });
+  return out;
+}
+
+/** 构造筛选/排序链接（改筛选即回到第一页） */
+function hrefOf(section: string | null, tag: string | null, sort: SortKey): string {
+  const sp = new URLSearchParams();
+  if (section !== null) {
+    sp.set('section', section);
+  }
+  if (tag !== null) {
+    sp.set('tag', tag);
+  }
+  if (sort !== 'time') {
+    sp.set('sort', sort);
+  }
+  const q = sp.toString();
+  return q.length > 0 ? `/?${q}` : '/';
+}
+
+function toItem(r: ArticleRow, featured: boolean): DocumentListItem {
+  return {
+    id: r.id,
+    title: r.title,
+    slug: r.slug,
+    summary: r.summary,
+    publishedAt: r.publishedAt,
+    authorName: r.authorName ?? null,
+    sectionName: r.sectionName,
+    sectionSlug: r.sectionSlug,
+    featured,
+  };
+}
+
+export default async function HomePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ section?: string; tag?: string; sort?: string; page?: string }>;
+}) {
+  const sp = await searchParams;
+  const sectionSlug = typeof sp.section === 'string' && sp.section.length > 0 ? sp.section : null;
+  const activeTag = typeof sp.tag === 'string' && sp.tag.length > 0 ? sp.tag : null;
+  const sort: SortKey = sp.sort === 'popular' || sp.sort === 'old' ? sp.sort : 'time';
+  const page = Math.max(1, Number(sp.page) || 1);
+
+  const [{ list: sectionList, countBy, total }, tagList, banner, session] = await Promise.all([
+    fetchSections(),
+    fetchTags(),
+    getHomepageBanner(getDb()),
+    getSession(),
+  ]);
+
+  const activeSection =
+    sectionSlug !== null ? (sectionList.find((s) => s.slug === sectionSlug) ?? null) : null;
+  const sectionId = activeSection?.id ?? null;
+
+  const [{ rows, hasNext }, featuredRows] = await Promise.all([
+    fetchArticles(sectionId, activeTag, sort, page),
+    page === 1 ? fetchFeatured(sectionId, activeTag) : Promise.resolve([]),
+  ]);
+
+  const items =
+    page === 1
+      ? interleave(
+          rows.map((r) => toItem(r, false)),
+          featuredRows.map((r) => toItem(r, true)),
+        )
+      : rows.map((r) => toItem(r, false));
+
   const writeHref = session ? '/write/new' : '/register';
+  const pageParams: Record<string, string> = {};
+  if (sectionSlug !== null) {
+    pageParams.section = sectionSlug;
+  }
+  if (activeTag !== null) {
+    pageParams.tag = activeTag;
+  }
+  if (sort !== 'time') {
+    pageParams.sort = sort;
+  }
+
+  const scopeLabel = `${activeSection?.name ?? '全部文章'}${activeTag !== null ? ` · #${activeTag}` : ''}`;
 
   return (
-    <div className="mx-auto w-full max-w-6xl px-6">
-      {/* 首页公告栏（管理员置顶的公告，可关闭） */}
+    <div className="mx-auto w-full max-w-6xl px-6 py-6">
       {banner !== null ? (
-        <div className="pt-4">
+        <div className="mb-6">
           <AnnouncementBar
             id={banner.id}
             title={banner.title}
@@ -109,133 +246,157 @@ export default async function HomePage() {
         </div>
       ) : null}
 
-      {/* Hero：左题右注的非对称版式。右侧为稿纸界栏 + 竖排注语（纯装饰，窄屏隐藏） */}
-      <section className="relative grid items-center gap-8 border-ink-200 border-b py-16 sm:py-24 md:grid-cols-[minmax(0,1fr)_200px]">
-        <div className="rise-in">
-          <p className="flex items-center gap-3 text-ink-500 text-sm tracking-[0.35em]">
-            <span aria-hidden className="h-px w-10 bg-accent-600" />
-            共笔 · 互校 · 开放
-          </p>
-          <h1 className="mt-6 max-w-2xl font-semibold font-serif text-4xl text-ink-900 leading-snug tracking-wide sm:text-5xl sm:leading-snug">
-            把走过的路，
-            <br />
-            写成后来者的地图
-          </h1>
-          <p className="mt-6 max-w-xl text-base text-ink-600 leading-relaxed">{SITE_DESCRIPTION}</p>
-          <div className="mt-10 flex flex-wrap items-center gap-4">
-            <ButtonLink href={writeHref} className="h-10 px-6">
-              开始写作
-            </ButtonLink>
-            <ButtonLink href="/sections" variant="secondary" className="h-10 px-6">
-              浏览板块
-            </ButtonLink>
-          </div>
-        </div>
-        {/* 稿纸界栏：竖排注语 + 朱印，致敬线装书的行格 */}
-        <div aria-hidden className="rise-in-late hidden h-72 select-none justify-self-end md:flex">
-          <div className="flex gap-5 border-ink-200 border-r border-l px-5">
-            <p className="font-serif text-ink-300 text-sm tracking-[0.5em] [writing-mode:vertical-rl]">
-              凡走过的路皆可成书
-            </p>
-            <div className="flex flex-col items-center gap-4">
-              <p className="font-serif text-ink-700 text-lg tracking-[0.35em] [writing-mode:vertical-rl]">
-                {SITE_NAME} · 集体编纂
-              </p>
-              <span className="flex h-8 w-8 items-center justify-center rounded-xs bg-danger-fill font-serif text-base text-on-fill">
-                {SITE_NAME.charAt(0)}
-              </span>
+      <div className="grid items-start gap-8 lg:grid-cols-[15rem_minmax(0,1fr)]">
+        {/* 左列：板块 + 标签（交叉筛选） */}
+        <aside className="lg:sticky lg:top-20 lg:self-start">
+          <div className="rounded-lg border border-ink-200 bg-paper-50 p-4 shadow-paper">
+            <h2 className="px-1 font-medium font-serif text-ink-500 text-xs tracking-wide">板块</h2>
+            <ul className="mt-2 flex flex-col gap-0.5">
+              <FilterRow
+                href={hrefOf(null, activeTag, sort)}
+                active={sectionId === null}
+                label="全部"
+                count={total}
+              />
+              {sectionList.map((s) => (
+                <FilterRow
+                  key={s.id}
+                  href={hrefOf(s.slug, activeTag, sort)}
+                  active={activeSection?.id === s.id}
+                  label={s.name}
+                  count={countBy.get(s.id) ?? 0}
+                />
+              ))}
+            </ul>
+
+            <div className="my-3 border-ink-200/70 border-t" />
+
+            <h2 className="px-1 font-medium font-serif text-ink-500 text-xs tracking-wide">标签</h2>
+            <div className="mt-2 max-h-72 overflow-y-auto pr-1">
+              <div className="flex flex-wrap gap-1.5">
+                <TagChip
+                  href={hrefOf(sectionSlug, null, sort)}
+                  active={activeTag === null}
+                  label="全部"
+                />
+                {tagList.map((t) => (
+                  <TagChip
+                    key={t.name}
+                    href={hrefOf(sectionSlug, t.name, sort)}
+                    active={activeTag === t.name}
+                    label={`#${t.name}`}
+                  />
+                ))}
+              </div>
+              {tagList.length === 0 ? (
+                <p className="px-1 py-2 text-ink-400 text-xs">还没有标签。</p>
+              ) : null}
             </div>
           </div>
-        </div>
-      </section>
+        </aside>
 
-      {/* 精选：编辑部择优，带中文序号底纹的卡片 */}
-      {featured.length > 0 ? (
-        <section className="border-ink-200 border-b py-14">
-          <SectionHeading title="精选" sub="经社区审校的代表作" />
-          <div className="mt-8 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
-            {featured.map((item, i) => (
-              <Link key={item.id} href={`/a/${item.slug}`} className="group block">
-                <article className="relative flex h-full flex-col overflow-hidden rounded-md border border-ink-200 bg-paper-50 p-5 shadow-paper transition-all duration-200 group-hover:-translate-y-0.5 group-hover:border-brand-300 group-hover:shadow-lift">
-                  <span
-                    aria-hidden
-                    className="-top-3 pointer-events-none absolute right-2 select-none font-serif text-7xl text-ink-900 opacity-[0.06]"
+        {/* 右列：文章列表 + 排序 + 分页 */}
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-ink-200 border-b pb-3">
+            <p className="font-medium font-serif text-ink-800">{scopeLabel}</p>
+            <nav aria-label="排序" className="flex items-center gap-1 text-sm">
+              {SORTS.map((s) => {
+                const on = sort === s.key;
+                return (
+                  <Link
+                    key={s.key}
+                    href={hrefOf(sectionSlug, activeTag, s.key)}
+                    aria-current={on ? 'true' : undefined}
+                    className={
+                      on
+                        ? 'rounded-full bg-brand-100 px-3 py-1 font-medium text-brand-800'
+                        : 'rounded-full px-3 py-1 text-ink-500 transition-colors hover:bg-paper-200 hover:text-ink-800'
+                    }
                   >
-                    {CJK_ORDINALS[i] ?? ''}
-                  </span>
-                  <p className="text-ink-400 text-xs">
-                    {item.sectionName} · {formatDate(item.publishedAt)}
-                  </p>
-                  <h3 className="mt-2 line-clamp-2 font-semibold font-serif text-ink-900 text-lg leading-snug transition-colors group-hover:text-brand-700">
-                    {item.title}
-                  </h3>
-                  {item.summary !== null && item.summary !== '' ? (
-                    <p className="mt-2 line-clamp-3 text-ink-500 text-sm leading-relaxed">
-                      {item.summary}
-                    </p>
-                  ) : null}
-                  {/* mt-auto 把作者钉到卡片底部——等高卡片下作者名横向对齐，上方中间区高度随之一致 */}
-                  <p className="mt-auto pt-4 text-ink-400 text-xs">{item.authorName ?? '佚名'}</p>
-                </article>
-              </Link>
-            ))}
+                    {s.label}
+                  </Link>
+                );
+              })}
+            </nav>
           </div>
-        </section>
-      ) : null}
 
-      {/* 最新发布 */}
-      <section className="py-14">
-        <SectionHeading title="最新发布" />
-        {latest.length > 0 ? (
-          <div className="mt-4">
-            <DocumentList
-              items={latest.map((row) => ({
-                ...row,
-                authorName: row.authorName ?? null,
-              }))}
-            />
-          </div>
-        ) : (
-          <EmptyState
-            icon={<PenLine />}
-            title="还没有发布的文章"
-            description="第一篇求学经验，由你来写——注册后即可起草，发布前会有志愿者协助审校。"
-            action={<ButtonLink href={writeHref}>开始写作</ButtonLink>}
-          />
-        )}
-      </section>
+          {items.length > 0 ? (
+            <div className="mt-2">
+              <DocumentList items={items} />
+            </div>
+          ) : (
+            <div className="mt-4">
+              <EmptyState
+                icon={<PenLine />}
+                title={
+                  sectionId !== null || activeTag !== null
+                    ? '该筛选下还没有文章'
+                    : '还没有发布的文章'
+                }
+                description={
+                  sectionId !== null || activeTag !== null
+                    ? '换个板块或标签看看，或清除筛选浏览全部。'
+                    : '第一篇求学经验，由你来写——注册后即可起草。'
+                }
+                action={
+                  sectionId !== null || activeTag !== null ? (
+                    <ButtonLink href="/">查看全部</ButtonLink>
+                  ) : (
+                    <ButtonLink href={writeHref}>开始写作</ButtonLink>
+                  )
+                }
+              />
+            </div>
+          )}
 
-      {/* 板块入口 */}
-      <section id="sections" className="scroll-mt-20 border-ink-200 border-t py-14">
-        <SectionHeading title="板块" sub="按求学阶段分区编纂" />
-        <div className="mt-8 grid grid-cols-1 gap-4 pb-4 sm:grid-cols-2 lg:grid-cols-4">
-          {topSections.map((section) => (
-            <Link key={section.id} href={`/s/${section.slug}`} className="group block">
-              <article className="flex h-full flex-col rounded-md border border-ink-200 bg-paper-50 p-5 shadow-paper transition-all duration-200 group-hover:-translate-y-0.5 group-hover:border-brand-300 group-hover:shadow-lift">
-                <div className="flex items-center justify-between gap-2">
-                  <h3 className="font-semibold font-serif text-ink-900 text-lg leading-snug">
-                    {section.name}
-                  </h3>
-                  <Badge variant="outline">{stageLabel(section.stage)}</Badge>
-                </div>
-                <p className="mt-2 flex-1 text-ink-500 text-sm leading-relaxed">
-                  {section.description}
-                </p>
-                <p className="mt-4 flex items-center gap-1 text-brand-700 text-sm opacity-0 transition-opacity group-hover:opacity-100">
-                  进入板块
-                  <ArrowRight aria-hidden className="h-3.5 w-3.5" />
-                </p>
-              </article>
-            </Link>
-          ))}
+          <Pagination page={page} hasNext={hasNext} basePath="/" params={pageParams} />
         </div>
-        {topSections.length === 0 ? (
-          <EmptyState
-            title="板块尚未初始化"
-            description="请管理员执行数据库种子脚本（pnpm db:seed）创建初始板块。"
-          />
-        ) : null}
-      </section>
+      </div>
     </div>
+  );
+}
+
+function FilterRow({
+  href,
+  active,
+  label,
+  count,
+}: {
+  href: string;
+  active: boolean;
+  label: string;
+  count: number;
+}) {
+  return (
+    <li>
+      <Link
+        href={href}
+        aria-current={active ? 'true' : undefined}
+        className={`flex items-center justify-between gap-2 rounded-sm px-2.5 py-1.5 text-sm transition-colors ${
+          active
+            ? 'bg-brand-100 font-medium text-brand-800'
+            : 'text-ink-600 hover:bg-paper-200 hover:text-ink-900'
+        }`}
+      >
+        <span className="truncate">{label}</span>
+        <span className="shrink-0 text-xs tabular-nums opacity-70">{count}</span>
+      </Link>
+    </li>
+  );
+}
+
+function TagChip({ href, active, label }: { href: string; active: boolean; label: string }) {
+  return (
+    <Link
+      href={href}
+      aria-current={active ? 'true' : undefined}
+      className={`rounded-full border px-2.5 py-0.5 text-xs transition-colors ${
+        active
+          ? 'border-brand-400 bg-brand-50 font-medium text-brand-800'
+          : 'border-ink-200 text-ink-600 hover:border-brand-300 hover:text-brand-700'
+      }`}
+    >
+      {label}
+    </Link>
   );
 }
