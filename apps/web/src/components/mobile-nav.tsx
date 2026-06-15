@@ -8,7 +8,6 @@ import {
   LayoutDashboard,
   LogIn,
   Menu,
-  PenLine,
   Search,
   Settings,
   UserRound,
@@ -27,8 +26,6 @@ export interface MobileNavProps {
   userId: string | null;
   unread: number;
   showAdmin: boolean;
-  /** 「写文章」目标：已登录 /write，未登录 /login（拒绝变引导） */
-  writeHref: string;
 }
 
 export function MobileNav(props: MobileNavProps) {
@@ -128,15 +125,7 @@ export function MobileNav(props: MobileNavProps) {
                     搜索文章…
                   </button>
 
-                  {/* 写文章：独立填色按钮 + 写作图标，置于导航顶部 */}
-                  <Link
-                    href={props.writeHref}
-                    className="mb-2 inline-flex items-center justify-center gap-1.5 rounded-sm bg-fill px-3 py-2.5 font-medium text-on-fill transition-colors hover:bg-fill-hover"
-                  >
-                    <PenLine className="h-4 w-4" aria-hidden />
-                    写文章
-                  </Link>
-                  {/* 主导航 */}
+                  {/* 主导航（「写文章」已直出在页头栏上，不再重复收进抽屉） */}
                   <nav className="flex flex-col">
                     <DrawerLink href="/news" match="/news" pathname={pathname}>
                       近闻

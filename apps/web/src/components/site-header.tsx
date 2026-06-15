@@ -108,15 +108,22 @@ export async function SiteHeader() {
             </>
           )}
         </div>
-        {/* 移动端：汉堡菜单（板块/写文章/管理 + 账户 + 搜索 + 主题全收进抽屉） */}
-        <div className="flex items-center md:hidden">
+        {/* 移动端：低调的「写文章」直出在栏上 + 汉堡菜单（其余收进抽屉） */}
+        <div className="flex items-center gap-1 md:hidden">
+          <Link
+            href={session ? '/write/new' : '/login'}
+            aria-label="写文章"
+            className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-ink-600 text-sm transition-colors hover:bg-paper-200 hover:text-brand-700"
+          >
+            <PenLine className="h-4 w-4" aria-hidden />
+            写文章
+          </Link>
           <MobileNav
             loggedIn={session !== null}
             userName={session?.user.name ?? null}
             userId={session?.user.id ?? null}
             unread={unread}
             showAdmin={showAdmin}
-            writeHref={session ? '/write/new' : '/login'}
           />
         </div>
       </div>
