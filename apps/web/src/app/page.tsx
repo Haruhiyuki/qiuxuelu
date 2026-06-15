@@ -20,6 +20,7 @@ import { DocumentList, type DocumentListItem } from '@/components/document-list'
 import { Pagination } from '@/components/pagination';
 import { getSession } from '@/lib/session';
 import { getHomepageBanner } from '@/server/announcements';
+import { getSectionTags } from '@/server/section-tags';
 
 export const dynamic = 'force-dynamic';
 
@@ -125,10 +126,11 @@ async function fetchSections() {
   return { list, countBy, total };
 }
 
-/** 全站标签 + 各自已发布篇数（按篇数降序），左列标签列表用 */
-async function fetchTags() {
-  return getDb()
-    .select({ name: tags.name, n: sql<number>`count(*)::int` })
+/** 全站标签 + 各自已发布篇数（按篇数降序），左列标签列表用（未选板块时）。
+ *  返回形状与 getSectionTags 一致：{ name, count } */
+async function fetchTags(): Promise<{ name: string; count: number }[]> {
+  const rows = await getDb()
+    .select({ name: tags.name, count: sql<number>`count(*)::int` })
     .from(documentTags)
     .innerJoin(tags, eq(tags.id, documentTags.tagId))
     .innerJoin(documents, eq(documents.id, documentTags.documentId))
@@ -137,6 +139,7 @@ async function fetchTags() {
     .groupBy(tags.name)
     .orderBy(desc(sql`count(*)`), tags.name)
     .limit(TAG_LIMIT);
+  return rows.map((r) => ({ name: r.name, count: Number(r.count) }));
 }
 
 /** 把精选条目均匀散布进常规列表（第一页） */
@@ -194,20 +197,20 @@ export default async function HomePage({
   const sort: SortKey = sp.sort === 'popular' || sp.sort === 'old' ? sp.sort : 'time';
   const page = Math.max(1, Number(sp.page) || 1);
 
-  const [{ list: sectionList, countBy, total }, tagList, banner, session] = await Promise.all([
-    fetchSections(),
-    fetchTags(),
-    getHomepageBanner(getDb()),
-    getSession(),
-  ]);
-
+  const db = getDb();
+  // 先解析板块（决定标签列表是全站还是该板块内）
+  const { list: sectionList, countBy, total } = await fetchSections();
   const activeSection =
     sectionSlug !== null ? (sectionList.find((s) => s.slug === sectionSlug) ?? null) : null;
   const sectionId = activeSection?.id ?? null;
 
-  const [{ rows, hasNext }, featuredRows] = await Promise.all([
+  const [tagList, { rows, hasNext }, featuredRows, banner, session] = await Promise.all([
+    // 选中板块时只列该板块包含的标签，否则列全站标签
+    sectionId !== null ? getSectionTags(db, sectionId) : fetchTags(),
     fetchArticles(sectionId, activeTag, sort, page),
-    page === 1 ? fetchFeatured(sectionId, activeTag) : Promise.resolve([]),
+    page === 1 ? fetchFeatured(sectionId, activeTag) : Promise.resolve([] as ArticleRow[]),
+    getHomepageBanner(db),
+    getSession(),
   ]);
 
   const items =
@@ -248,8 +251,8 @@ export default async function HomePage({
 
       <div className="grid items-start gap-x-10 gap-y-6 lg:grid-cols-[13rem_minmax(0,1fr)]">
         {/* 左列：板块 + 标签（交叉筛选）——无框无底，仿板块页分类列表 */}
-        <aside className="lg:sticky lg:top-24 lg:self-start">
-          <nav aria-label="板块">
+        <aside className="lg:sticky lg:top-24 lg:flex lg:h-[calc(100vh-7rem)] lg:flex-col lg:self-start">
+          <nav aria-label="板块" className="lg:flex lg:min-h-0 lg:flex-1 lg:flex-col">
             <FilterHeading label="板块" />
             <ul className="mt-3 flex flex-wrap gap-1.5 lg:flex-col lg:gap-0.5">
               <li>
@@ -275,7 +278,7 @@ export default async function HomePage({
             <div className="my-4 border-ink-200/70 border-t" />
 
             <FilterHeading label="标签" />
-            <div className="mt-3 max-h-72 overflow-y-auto pr-1">
+            <div className="mt-3 max-h-72 overflow-y-auto pr-1 lg:max-h-none lg:min-h-0 lg:flex-1">
               <ul className="flex flex-wrap gap-1.5 lg:flex-col lg:gap-0.5">
                 <li>
                   <CategoryItem
@@ -289,7 +292,7 @@ export default async function HomePage({
                     <CategoryItem
                       href={hrefOf(sectionSlug, t.name, sort)}
                       label={`#${t.name}`}
-                      count={Number(t.n)}
+                      count={t.count}
                       active={activeTag === t.name}
                     />
                   </li>
