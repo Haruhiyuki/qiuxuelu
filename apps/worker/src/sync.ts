@@ -4,9 +4,12 @@ import {
   blobs,
   documentRefs,
   documents,
+  documentTags,
   publishedSnapshots,
   revisionBlocks,
   sections,
+  tags as tagsTable,
+  user as userTable,
 } from '@harublog/db';
 import { type BlockSearchDoc, indexDocumentBlocks, removeDocument } from '@harublog/search';
 import { and, asc, eq } from 'drizzle-orm';
@@ -27,9 +30,11 @@ export async function syncDocument(db: ReadDb, docId: string): Promise<void> {
       status: documents.status,
       sectionSlug: sections.slug,
       sectionName: sections.name,
+      authorName: userTable.name,
     })
     .from(documents)
     .innerJoin(sections, eq(sections.id, documents.sectionId))
+    .leftJoin(userTable, eq(userTable.id, documents.ownerId))
     .where(eq(documents.id, docId))
     .limit(1);
   const doc = docRows[0];
@@ -37,6 +42,14 @@ export async function syncDocument(db: ReadDb, docId: string): Promise<void> {
     await removeDocument(docId);
     return;
   }
+
+  // 文档标签（可搜 + 可过滤）：同一文档全部块写相同数组
+  const tagRows = await db
+    .select({ name: tagsTable.name })
+    .from(documentTags)
+    .innerJoin(tagsTable, eq(tagsTable.id, documentTags.tagId))
+    .where(eq(documentTags.documentId, docId));
+  const tagNames = tagRows.map((t) => t.name);
 
   const refRows = await db
     .select({ revisionId: documentRefs.revisionId })
@@ -80,6 +93,8 @@ export async function syncDocument(db: ReadDb, docId: string): Promise<void> {
       blockId: b.blockId,
       position: b.position,
       text: b.text,
+      authorName: doc.authorName ?? '',
+      tags: tagNames,
       publishedAt,
     }));
 

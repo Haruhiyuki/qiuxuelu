@@ -1,6 +1,6 @@
 import { SITE_NAME } from '@harublog/config';
 import { getDb } from '@harublog/db';
-import { Bell, PenLine, Search } from 'lucide-react';
+import { Bell, PenLine } from 'lucide-react';
 import Link from 'next/link';
 import { getSession } from '@/lib/session';
 import { hasPublishGrant, loadActor } from '@/server/actors';
@@ -8,6 +8,7 @@ import { hasConsented } from '@/server/consent';
 import { countUnread } from '@/server/notifications';
 import { MobileNav } from './mobile-nav';
 import { NavLink } from './nav-link';
+import { SearchTrigger } from './search/search-trigger';
 import { SignOutButton } from './sign-out-button';
 import { ThemeToggle } from './theme-toggle';
 
@@ -71,19 +72,7 @@ export async function SiteHeader() {
             ) : null}
           </nav>
         </div>
-        <form method="get" action="/search" className="relative hidden md:block">
-          <Search
-            aria-hidden
-            className="-translate-y-1/2 pointer-events-none absolute top-1/2 left-2.5 h-3.5 w-3.5 text-ink-400"
-          />
-          <input
-            type="search"
-            name="q"
-            placeholder="搜索文章…"
-            aria-label="搜索"
-            className="h-8 w-44 rounded-full border border-ink-200 bg-paper-50 pr-3 pl-8 text-ink-800 text-sm transition-[width,border-color] duration-200 placeholder:text-ink-400 focus-visible:w-56 focus-visible:border-brand-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-200"
-          />
-        </form>
+        <SearchTrigger />
         {/* 桌面账户簇（md+）：窄屏整组收进汉堡菜单 */}
         <div className="hidden items-center gap-3 text-sm md:flex md:gap-4">
           {/* 写文章：独立的填色按钮 + 写作图标（未登录跳登录，拒绝变引导） */}

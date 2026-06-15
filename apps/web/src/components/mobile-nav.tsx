@@ -2,7 +2,7 @@
 
 // 移动端导航抽屉：窄屏把板块/写文章/管理 + 账户操作 + 搜索收进汉堡菜单，避免顶栏挤压。
 // 自右滑入的 sheet，遮罩点击/Esc/路由切换均关闭，开启时锁背景滚动。桌面端（md+）整体不渲染。
-import { Bell, Bookmark, LogIn, Menu, PenLine, Settings, UserRound, X } from 'lucide-react';
+import { Bell, Bookmark, LogIn, Menu, PenLine, Search, Settings, UserRound, X } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { type ReactNode, useEffect, useId, useRef, useState } from 'react';
@@ -104,16 +104,18 @@ export function MobileNav(props: MobileNavProps) {
                 </div>
 
                 <div className="pb-safe flex-1 overflow-y-auto px-4 py-4">
-                  {/* 搜索 */}
-                  <form method="get" action="/search" className="mb-5">
-                    <input
-                      type="search"
-                      name="q"
-                      placeholder="搜索文章…"
-                      aria-label="搜索"
-                      className="h-10 w-full rounded-full border border-ink-200 bg-paper-50 px-4 text-ink-800 text-sm placeholder:text-ink-400 focus-visible:border-brand-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-200"
-                    />
-                  </form>
+                  {/* 搜索：关菜单并打开 ⌘K 速搜面板（与桌面同一入口） */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setOpen(false);
+                      window.dispatchEvent(new CustomEvent('harublog:open-search'));
+                    }}
+                    className="mb-5 flex h-10 w-full items-center gap-2.5 rounded-full border border-ink-200 bg-paper-50 px-4 text-ink-400 text-sm transition-colors hover:border-brand-300"
+                  >
+                    <Search className="h-4 w-4" aria-hidden />
+                    搜索文章…
+                  </button>
 
                   {/* 写文章：独立填色按钮 + 写作图标，置于导航顶部 */}
                   <Link

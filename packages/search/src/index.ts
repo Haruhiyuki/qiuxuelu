@@ -14,6 +14,10 @@ export interface BlockSearchDoc {
   blockId: string;
   position: number;
   text: string;
+  /** 作者名（可搜）：同一文档全部块写相同值。 */
+  authorName: string;
+  /** 标签（可搜 + 可过滤/分面）：同一文档全部块写相同数组。 */
+  tags: string[];
   /** 发布时间（epoch 毫秒）：可排序。 */
   publishedAt: number;
 }
@@ -47,10 +51,12 @@ export async function ensureBlocksIndex(): Promise<void> {
   });
   const index = blocksIndex();
   await index.updateSettings({
-    searchableAttributes: ['title', 'text'],
-    filterableAttributes: ['docId', 'sectionSlug'],
+    // 可搜字段按权重降序：标题 > 作者 > 标签 > 正文（attribute 排序规则据此给前者更高权重）
+    searchableAttributes: ['title', 'authorName', 'tags', 'text'],
+    filterableAttributes: ['docId', 'sectionSlug', 'tags'],
     sortableAttributes: ['publishedAt', 'position'],
-    // 标题权重高于正文：搜词命中标题的块排前
+    // 一篇文章只出一个最佳命中块：避免长文同词多段刷屏，结果与翻页都按「文章」为单位
+    distinctAttribute: 'docId',
     rankingRules: ['words', 'typo', 'proximity', 'attribute', 'sort', 'exactness'],
   });
   // 远期语义检索（架构 §8 M5）：配置了 embedder 才开启向量化，Meilisearch 索引期自动算 embedding；
@@ -109,8 +115,11 @@ export interface SearchHit {
   slug: string;
   title: string;
   sectionName: string;
+  sectionSlug: string;
   blockId: string;
   text: string;
+  authorName: string;
+  tags: string[];
   /** 高亮片段（命中词包裹 <mark>），用于结果摘要展示。 */
   snippet: string;
 }
@@ -119,6 +128,8 @@ export interface SearchResult {
   hits: SearchHit[];
   estimatedTotal: number;
   query: string;
+  /** 分面计数：{ 属性名: { 取值: 命中数 } }，仅当请求 facets 时返回。 */
+  facetDistribution?: Record<string, Record<string, number>>;
 }
 
 export interface SearchOptions {
@@ -127,6 +138,14 @@ export interface SearchOptions {
   offset?: number;
   /** 语义占比 0–1（仅在配置了 embedder 时生效）；0=纯关键词、1=纯语义，默认 0.5 混合。 */
   semanticRatio?: number;
+  /** 限定板块（按 sectionSlug 过滤；filterableAttributes 已含）。 */
+  sectionSlug?: string;
+  /** 限定标签（按 tags 过滤；filterableAttributes 已含）。 */
+  tag?: string;
+  /** 排序：relevance=按相关度（默认）；newest=按发布时间倒序。 */
+  sort?: 'relevance' | 'newest';
+  /** 需要的分面统计属性（如 ['sectionSlug']）；返回 facetDistribution。 */
+  facets?: string[];
 }
 
 /** 块级搜索：返回命中块（含高亮片段），调用方按 docId 分组展示并深链到段落。
@@ -149,6 +168,23 @@ export async function searchBlocks(
     attributesToCrop: ['text'],
     cropLength: 40,
   };
+  // 过滤子句（多条 AND）：板块、标签。值剔除引号以杜绝 filter 注入
+  const filters: string[] = [];
+  if (options.sectionSlug !== undefined && options.sectionSlug.length > 0) {
+    filters.push(`sectionSlug = "${options.sectionSlug.replaceAll('"', '')}"`);
+  }
+  if (options.tag !== undefined && options.tag.length > 0) {
+    filters.push(`tags = "${options.tag.replaceAll('"', '')}"`);
+  }
+  if (filters.length > 0) {
+    params.filter = filters;
+  }
+  if (options.sort === 'newest') {
+    params.sort = ['publishedAt:desc'];
+  }
+  if (options.facets !== undefined && options.facets.length > 0) {
+    params.facets = options.facets;
+  }
   if (semanticSearchEnabled()) {
     params.hybrid = { embedder: 'semantic', semanticRatio: options.semanticRatio ?? 0.5 };
   }
@@ -159,9 +195,18 @@ export async function searchBlocks(
     slug: h.slug,
     title: h.title,
     sectionName: h.sectionName,
+    sectionSlug: h.sectionSlug,
     blockId: h.blockId,
     text: h.text,
+    authorName: h.authorName ?? '',
+    tags: Array.isArray(h.tags) ? h.tags : [],
     snippet: (h as { _formatted?: { text?: string } })._formatted?.text ?? h.text.slice(0, 80),
   }));
-  return { hits, estimatedTotal: res.estimatedTotalHits ?? hits.length, query: trimmed };
+  return {
+    hits,
+    estimatedTotal: res.estimatedTotalHits ?? hits.length,
+    query: trimmed,
+    facetDistribution: (res as { facetDistribution?: Record<string, Record<string, number>> })
+      .facetDistribution,
+  };
 }

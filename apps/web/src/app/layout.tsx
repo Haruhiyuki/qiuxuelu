@@ -3,6 +3,7 @@ import { ToastProvider } from '@harublog/ui';
 import type { Metadata, Viewport } from 'next';
 import type { ReactNode } from 'react';
 import { ChromeGate } from '@/components/chrome-gate';
+import { SearchCommand } from '@/components/search/search-command';
 import { SiteFooter } from '@/components/site-footer';
 import { SiteHeader } from '@/components/site-header';
 import { SITE_URL } from '@/lib/site-url';
@@ -43,9 +44,11 @@ export default function RootLayout({ children }: { children: ReactNode }) {
           }}
         />
         <ToastProvider>
-          {/* 聚焦写作器（/write/...）隐藏全局页头，避免与编辑器自带顶栏双层吸顶相互遮挡 */}
+          {/* 聚焦写作器（/write/...）隐藏全局页头，避免与编辑器自带顶栏双层吸顶相互遮挡；
+              ⌘K 速搜面板随页头一起挂载（写作器内不挂，专注编辑） */}
           <ChromeGate>
             <SiteHeader />
+            <SearchCommand />
           </ChromeGate>
           <main className="flex-1">{children}</main>
           <SiteFooter />

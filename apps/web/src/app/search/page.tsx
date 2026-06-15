@@ -1,105 +1,193 @@
-import { searchBlocks } from '@harublog/search';
 import { EmptyState } from '@harublog/ui';
 import { SearchX } from 'lucide-react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import type { ReactNode } from 'react';
 import { Breadcrumb } from '@/components/breadcrumb';
 import { Pagination } from '@/components/pagination';
+import { SearchSnippet } from '@/components/search/search-snippet';
+import { runSearch, type SearchGroup, type SearchSort } from '@/server/search';
 
 export const dynamic = 'force-dynamic';
 
 export const metadata: Metadata = { title: '搜索', robots: { index: false } };
 
 interface SearchPageProps {
-  searchParams: Promise<{ q?: string; page?: string }>;
+  searchParams: Promise<{
+    q?: string;
+    page?: string;
+    section?: string;
+    tag?: string;
+    sort?: string;
+  }>;
 }
 
 const PAGE_SIZE = 20;
 
-interface DocGroup {
-  docId: string;
-  slug: string;
-  title: string;
-  sectionName: string;
-  hits: { blockId: string; snippet: string }[];
-}
-
 export default async function SearchPage({ searchParams }: SearchPageProps) {
-  const { q, page: pageParam } = await searchParams;
-  const query = (q ?? '').trim();
-  const page = Math.max(1, Number(pageParam) || 1);
+  const sp = await searchParams;
+  const query = (sp.q ?? '').trim();
+  const page = Math.max(1, Number(sp.page) || 1);
+  const section = typeof sp.section === 'string' && sp.section.length > 0 ? sp.section : null;
+  const tag = typeof sp.tag === 'string' && sp.tag.length > 0 ? sp.tag : null;
+  const sort: SearchSort = sp.sort === 'newest' ? 'newest' : 'relevance';
 
-  let groups: DocGroup[] = [];
-  let total = 0;
-  let failed = false;
-  if (query.length > 0) {
-    try {
-      const result = await searchBlocks(query, {
-        limit: PAGE_SIZE,
-        offset: (page - 1) * PAGE_SIZE,
-      });
-      total = result.estimatedTotal;
-      const byDoc = new Map<string, DocGroup>();
-      for (const hit of result.hits) {
-        const g = byDoc.get(hit.docId) ?? {
-          docId: hit.docId,
-          slug: hit.slug,
-          title: hit.title,
-          sectionName: hit.sectionName,
-          hits: [],
-        };
-        g.hits.push({ blockId: hit.blockId, snippet: hit.snippet });
-        byDoc.set(hit.docId, g);
-      }
-      groups = [...byDoc.values()];
-    } catch {
-      // 搜索服务不可用：降级提示，不崩页面（Meilisearch 非真相源）
-      failed = true;
+  const result =
+    query.length > 0
+      ? await runSearch({
+          query,
+          page,
+          pageSize: PAGE_SIZE,
+          sectionSlug: section,
+          tag,
+          sort,
+          withFacets: true,
+        })
+      : null;
+  const groups = result?.groups ?? [];
+  const total = result?.total ?? 0;
+  const sectionFacets = result?.sectionFacets ?? [];
+  const tagFacets = result?.tagFacets ?? [];
+  const failed = result?.failed ?? false;
+
+  // 保留查询态的链接构造（切板块/标签/排序回到第 1 页）
+  const hrefWith = (next: {
+    section?: string | null;
+    tag?: string | null;
+    sort?: SearchSort;
+    page?: number;
+  }) => {
+    const params = new URLSearchParams({ q: query });
+    const sec = next.section !== undefined ? next.section : section;
+    const tg = next.tag !== undefined ? next.tag : tag;
+    const srt = next.sort ?? sort;
+    if (sec !== null && sec !== undefined) {
+      params.set('section', sec);
     }
-  }
+    if (tg !== null && tg !== undefined) {
+      params.set('tag', tg);
+    }
+    if (srt === 'newest') {
+      params.set('sort', 'newest');
+    }
+    if (next.page !== undefined && next.page > 1) {
+      params.set('page', String(next.page));
+    }
+    return `/search?${params.toString()}`;
+  };
+
+  const activeSectionName =
+    section !== null ? sectionFacets.find((f) => f.slug === section)?.name : null;
 
   return (
     <div className="mx-auto w-full max-w-3xl px-6 py-10">
       <Breadcrumb items={[{ label: '首页', href: '/' }, { label: '搜索' }]} />
-      <h1 className="font-serif text-2xl font-semibold text-ink-900">搜索</h1>
+      <h1 className="font-semibold font-serif text-2xl text-ink-900">搜索</h1>
+
       <form method="get" action="/search" className="mt-4 flex gap-2">
         <input
           type="search"
           name="q"
           defaultValue={query}
-          placeholder="搜索文章标题或正文段落…"
-          className="h-10 flex-1 rounded-sm border border-ink-300 bg-paper-50 px-3 text-ink-900 placeholder:text-ink-400 focus-visible:border-brand-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-200"
+          placeholder="搜索文章、作者或标签…"
+          aria-label="搜索关键词"
+          className="h-11 flex-1 rounded-lg border border-ink-300 bg-paper-50 px-3.5 text-ink-900 placeholder:text-ink-400 focus-visible:border-brand-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-200"
         />
         <button
           type="submit"
-          className="rounded-sm bg-fill px-4 font-medium text-on-fill hover:bg-fill-hover"
+          className="rounded-lg bg-fill px-5 font-medium text-on-fill transition-colors hover:bg-fill-hover"
         >
           搜索
         </button>
       </form>
 
       {query.length === 0 ? (
-        <p className="mt-8 text-sm text-ink-500">输入关键词，搜索结果会直达命中的段落。</p>
+        <p className="mt-8 text-ink-500 text-sm">
+          按标题、正文、作者或标签检索。提示：任意页面按{' '}
+          <kbd className="rounded border border-ink-200 px-1.5 py-0.5 font-sans text-xs">⌘K</kbd>{' '}
+          可随时唤起速搜。
+        </p>
       ) : failed ? (
-        <p className="mt-8 text-sm text-accent-700">搜索服务暂时不可用，请稍后再试。</p>
-      ) : groups.length === 0 ? (
+        <p className="mt-8 text-accent-700 text-sm">搜索服务暂时不可用，请稍后再试。</p>
+      ) : total === 0 ? (
         <div className="mt-8">
           <EmptyState
             icon={<SearchX />}
             title={`没有找到与「${query}」相关的内容`}
-            description="换个关键词，或更宽泛的说法再试试。"
+            description="换个关键词，或试试作者名、标签。"
           />
         </div>
       ) : (
         <>
-          <p className="mt-6 text-sm text-ink-500">约 {total} 个相关段落</p>
-          <SearchResults groups={groups} />
+          {/* 板块分面 + 排序 */}
+          <div className="mt-6 flex flex-wrap items-center gap-2">
+            <Chip href={hrefWith({ section: null, page: 1 })} active={section === null}>
+              全部板块
+            </Chip>
+            {sectionFacets.map((f) => (
+              <Chip
+                key={f.slug}
+                href={hrefWith({ section: f.slug, page: 1 })}
+                active={section === f.slug}
+              >
+                {f.name}
+                <span className="ml-1 text-xs opacity-70">{f.count}</span>
+              </Chip>
+            ))}
+            <div className="ml-auto flex items-center gap-1 rounded-full border border-ink-200 p-0.5 text-sm">
+              <SortBtn
+                href={hrefWith({ sort: 'relevance', page: 1 })}
+                active={sort === 'relevance'}
+              >
+                相关度
+              </SortBtn>
+              <SortBtn href={hrefWith({ sort: 'newest', page: 1 })} active={sort === 'newest'}>
+                最新
+              </SortBtn>
+            </div>
+          </div>
+
+          {/* 标签分面（按当前查询的命中标签） */}
+          {tagFacets.length > 0 ? (
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              <span className="text-ink-400 text-xs">标签</span>
+              {tagFacets.map((t) => {
+                const active = tag === t.name;
+                return (
+                  <Link
+                    key={t.name}
+                    href={hrefWith({ tag: active ? null : t.name, page: 1 })}
+                    className={`rounded-full px-2.5 py-0.5 text-sm transition-colors ${
+                      active
+                        ? 'bg-brand-600 text-on-fill'
+                        : 'bg-paper-200 text-ink-600 hover:bg-paper-300 hover:text-brand-700'
+                    }`}
+                  >
+                    #{t.name}
+                    <span className="ml-1 text-xs opacity-70">{t.count}</span>
+                  </Link>
+                );
+              })}
+            </div>
+          ) : null}
+
+          <p className="mt-5 text-ink-500 text-sm">
+            约 {total} 篇相关文章
+            {activeSectionName != null ? ` · 板块「${activeSectionName}」` : ''}
+            {tag != null ? ` · 标签 #${tag}` : ''}
+          </p>
+
+          <SearchResults groups={groups} hrefWith={hrefWith} />
+
           <Pagination
             page={page}
             hasNext={total > page * PAGE_SIZE}
             basePath="/search"
-            params={{ q: query }}
+            params={{
+              q: query,
+              ...(section !== null ? { section } : {}),
+              ...(tag !== null ? { tag } : {}),
+              ...(sort === 'newest' ? { sort } : {}),
+            }}
           />
         </>
       )}
@@ -107,76 +195,102 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
   );
 }
 
-function SearchResults({ groups }: { groups: DocGroup[] }) {
+function Chip({
+  href,
+  active,
+  children,
+}: {
+  href: string;
+  active: boolean;
+  children: React.ReactNode;
+}) {
   return (
-    <ul className="mt-4 flex flex-col gap-6">
-      {groups.map((g) => (
-        <li key={g.docId} className="border-b border-ink-100 pb-6">
-          <p className="text-xs text-ink-400">{g.sectionName}</p>
-          <Link
-            href={`/a/${g.slug}`}
-            className="font-serif text-lg font-semibold text-ink-900 hover:text-brand-700"
-          >
-            {g.title}
-          </Link>
-          <ul className="mt-2 flex flex-col gap-2">
-            {g.hits.map((h) => (
-              <li key={h.blockId}>
-                <Link
-                  href={`/a/${g.slug}#b-${h.blockId}`}
-                  className="block rounded-sm px-3 py-2 text-sm leading-relaxed text-ink-600 hover:bg-paper-200"
-                >
-                  {/* 高亮片段来自 Meilisearch，仅含受控 <mark> 包裹（无用户可注入的 HTML） */}
-                  <SearchSnippet html={h.snippet} />
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </li>
-      ))}
-    </ul>
+    <Link
+      href={href}
+      className={`rounded-full border px-3 py-1 text-sm transition-colors ${
+        active
+          ? 'border-brand-500 bg-brand-50 text-brand-800'
+          : 'border-ink-200 text-ink-600 hover:border-brand-300 hover:text-brand-700'
+      }`}
+    >
+      {children}
+    </Link>
   );
 }
 
-/**
- * 搜索高亮片段渲染：Meilisearch 返回的 _formatted 文本只含我们配置的 <mark> 标签，
- * 其余字符已由 Meilisearch HTML 转义。为安全起见，自行按 <mark>…</mark> 切分后用
- * React 元素重建，绝不 dangerouslySetInnerHTML（UGC XSS 红线，与 renderer 同纪律）。
- */
-function SearchSnippet({ html }: { html: string }) {
-  const parts = html.split(/(<mark>|<\/mark>)/);
-  let marking = false;
-  const nodes: ReactNode[] = [];
-  let i = 0;
-  for (const part of parts) {
-    if (part === '<mark>') {
-      marking = true;
-      continue;
-    }
-    if (part === '</mark>') {
-      marking = false;
-      continue;
-    }
-    if (part.length === 0) {
-      continue;
-    }
-    // Meilisearch 已转义实体；这里再解码常见实体回可读字符（纯文本，不引入标签）
-    const text = part
-      .replaceAll('&lt;', '<')
-      .replaceAll('&gt;', '>')
-      .replaceAll('&quot;', '"')
-      .replaceAll('&#39;', "'")
-      .replaceAll('&amp;', '&');
-    nodes.push(
-      marking ? (
-        <mark key={i} className="bg-brand-100 text-ink-900">
-          {text}
-        </mark>
-      ) : (
-        <span key={i}>{text}</span>
-      ),
-    );
-    i++;
-  }
-  return <>…{nodes}…</>;
+function SortBtn({
+  href,
+  active,
+  children,
+}: {
+  href: string;
+  active: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <Link
+      href={href}
+      className={`rounded-full px-3 py-1 transition-colors ${
+        active ? 'bg-fill text-on-fill' : 'text-ink-500 hover:text-ink-800'
+      }`}
+    >
+      {children}
+    </Link>
+  );
+}
+
+function SearchResults({
+  groups,
+  hrefWith,
+}: {
+  groups: SearchGroup[];
+  hrefWith: (next: { tag?: string | null; page?: number }) => string;
+}) {
+  return (
+    <ul className="mt-4 flex flex-col gap-3">
+      {groups.map((g) => {
+        const best = g.hits[0];
+        return (
+          <li
+            key={g.docId}
+            className="rounded-xl border border-ink-100 p-4 transition-colors hover:border-ink-200"
+          >
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-ink-400 text-xs">
+              <span>{g.sectionName}</span>
+              <span aria-hidden>·</span>
+              <span>{g.authorName.length > 0 ? g.authorName : '佚名'}</span>
+            </div>
+            <Link
+              href={`/a/${g.slug}`}
+              className="mt-0.5 inline-block font-semibold font-serif text-ink-900 text-lg leading-snug transition-colors hover:text-brand-700"
+            >
+              {g.title}
+            </Link>
+            {best !== undefined ? (
+              <Link
+                href={`/a/${g.slug}#b-${best.blockId}`}
+                className="mt-1 block rounded-md px-3 py-2 text-ink-600 text-sm leading-relaxed transition-colors hover:bg-paper-200"
+              >
+                {/* 高亮片段来自 Meilisearch，仅含受控 <mark>；SearchSnippet 安全重建 */}
+                <SearchSnippet html={best.snippet} />
+              </Link>
+            ) : null}
+            {g.tags.length > 0 ? (
+              <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                {g.tags.slice(0, 4).map((t) => (
+                  <Link
+                    key={t}
+                    href={hrefWith({ tag: t, page: 1 })}
+                    className="rounded-full bg-paper-200 px-2 py-0.5 text-ink-500 text-xs transition-colors hover:bg-paper-300 hover:text-brand-700"
+                  >
+                    #{t}
+                  </Link>
+                ))}
+              </div>
+            ) : null}
+          </li>
+        );
+      })}
+    </ul>
+  );
 }
