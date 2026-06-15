@@ -13,9 +13,8 @@ import {
 } from '@harublog/db';
 import { EmptyState } from '@harublog/ui';
 import { and, asc, desc, eq, isNull, sql } from 'drizzle-orm';
-import { ArrowRight, PenLine } from 'lucide-react';
+import { ArrowRight, Megaphone, PenLine } from 'lucide-react';
 import Link from 'next/link';
-import { AnnouncementBar } from '@/components/announcement-bar';
 import { ButtonLink } from '@/components/button-link';
 import { DocumentList, type DocumentListItem } from '@/components/document-list';
 import { HomeFilterDrawer } from '@/components/home-filter-drawer';
@@ -292,23 +291,39 @@ export default async function HomePage({
     </nav>
   );
 
+  // 公告融进标语块的低调入口：内链用 Link、外链用 <a>；无显式链接指向该公告的近闻页
+  const bannerHref = banner !== null ? (banner.linkHref ?? `/news/${banner.id}`) : null;
+  const bannerExternal = bannerHref !== null && !bannerHref.startsWith('/');
+
   return (
     <div className="mx-auto w-full max-w-6xl px-6 py-6">
-      {banner !== null ? (
-        <div className="mb-6">
-          <AnnouncementBar
-            id={banner.id}
-            title={banner.title}
-            level={banner.level}
-            linkHref={banner.linkHref}
-            linkLabel={banner.linkLabel}
-          />
-        </div>
-      ) : null}
-
       {/* 精简标语：保留「共笔·互校·开放」的气质，去掉旧版的板块/写作按钮，改导向社区公约 */}
       {/* 不加底部分割线：下方列表头部已有一条，避免两条线并排 */}
       <section className="rise-in mb-6">
+        {/* 置顶公告：作为低调小药丸融入标语顶部（不再整条铺底、不可永久关闭） */}
+        {banner !== null && bannerHref !== null ? (
+          bannerExternal ? (
+            <a
+              href={bannerHref}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mb-4 inline-flex max-w-full items-center gap-1.5 rounded-full border border-ink-200 bg-paper-50 py-1 pr-2.5 pl-2 text-ink-500 text-xs transition-colors hover:border-brand-300 hover:text-brand-700"
+            >
+              <Megaphone className="h-3.5 w-3.5 shrink-0 text-brand-500" aria-hidden />
+              <span className="truncate">{banner.title}</span>
+              <ArrowRight className="h-3 w-3 shrink-0" aria-hidden />
+            </a>
+          ) : (
+            <Link
+              href={bannerHref}
+              className="mb-4 inline-flex max-w-full items-center gap-1.5 rounded-full border border-ink-200 bg-paper-50 py-1 pr-2.5 pl-2 text-ink-500 text-xs transition-colors hover:border-brand-300 hover:text-brand-700"
+            >
+              <Megaphone className="h-3.5 w-3.5 shrink-0 text-brand-500" aria-hidden />
+              <span className="truncate">{banner.title}</span>
+              <ArrowRight className="h-3 w-3 shrink-0" aria-hidden />
+            </Link>
+          )
+        ) : null}
         <p className="flex items-center gap-3 text-ink-500 text-sm tracking-[0.3em]">
           <span aria-hidden className="h-px w-8 bg-accent-600" />
           共笔 · 互校 · 开放
