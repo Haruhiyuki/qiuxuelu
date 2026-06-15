@@ -100,14 +100,28 @@ export async function runSearch(args: RunSearchArgs): Promise<RunSearchResult> {
     }
     const groups = [...byDoc.values()];
 
+    // 板块分面计数：Meilisearch 的 facetDistribution 计的是「命中块」数（distinctAttribute 不作用于分面），
+    // 与去重后的「篇」数对不上（长文同词多段会虚高）。故先用一次 facets 查询拿到「有命中的板块集合」，
+    // 再对每个板块各跑一次 limit:0 查询，用其 estimatedTotal（已按 docId 去重=命中文章数）作为分面数。
     let sectionFacets: SearchFacet[] = [];
     const secDist = facetRes?.facetDistribution?.sectionSlug;
     if (secDist !== undefined) {
-      const nameBySlug = await sectionNameMap();
-      sectionFacets = Object.entries(secDist)
-        .map(([slug, count]) => ({ slug, name: nameBySlug.get(slug) ?? slug, count }))
-        .filter((f) => f.count > 0)
-        .sort((a, b) => b.count - a.count);
+      const slugs = Object.entries(secDist)
+        .filter(([, c]) => c > 0)
+        .map(([slug]) => slug);
+      if (slugs.length > 0) {
+        const nameBySlug = await sectionNameMap();
+        const counted = await Promise.all(
+          slugs.map((slug) =>
+            searchBlocks(query, { sectionSlug: slug, limit: 0 }).then((r) => ({
+              slug,
+              name: nameBySlug.get(slug) ?? slug,
+              count: r.estimatedTotal,
+            })),
+          ),
+        );
+        sectionFacets = counted.filter((f) => f.count > 0).sort((a, b) => b.count - a.count);
+      }
     }
 
     return { groups, total: main.estimatedTotal, sectionFacets, failed: false };
