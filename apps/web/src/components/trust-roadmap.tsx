@@ -180,9 +180,23 @@ export function TrustRoadmap({
   progress,
 }: {
   currentLevel: number;
-  /** 本人查看时提供：实时统计 + 站点阈值；访客为 null（只看路线，不见数字） */
+  /** 本人查看时提供：实时统计 + 站点阈值；仅本人页展示 */
   progress: { stats: TrustStats; thresholds: TrustThresholds } | null;
 }) {
+  // 下一级晋升目标（≤TL3 有自动路径）；处于 TL3 时额外看保级
+  const promoteTo = currentLevel + 1;
+  const showPromote = progress !== null && promoteTo <= 3;
+  const showRetention = progress !== null && currentLevel === 3;
+  const reqs =
+    progress === null
+      ? []
+      : showPromote
+        ? requirementsFor(promoteTo, progress.stats, progress.thresholds)
+        : showRetention
+          ? requirementsFor(3, progress.stats, progress.thresholds)
+          : [];
+  const allMet = reqs.length > 0 && reqs.every(met);
+
   return (
     <section aria-label="权限路线图">
       <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
@@ -191,159 +205,103 @@ export function TrustRoadmap({
         <p className="text-ink-400 text-xs">晋升给能力，任命给权力——治理职务不在此列</p>
       </div>
 
-      <ol className="mt-5 flex flex-col">
-        {LEVELS.map((entry, i) => {
+      {/* 升级路径：横向卡片，逐级解锁；当前级高亮，已过级打勾 */}
+      <div className="-mx-1 mt-5 flex gap-3 overflow-x-auto px-1 pb-2">
+        {LEVELS.map((entry) => {
           const isCurrent = entry.level === currentLevel;
           const isPassed = entry.level < currentLevel;
-          const isLast = i === LEVELS.length - 1;
-          // 本人视角：当前级的下一级展示达标进度；TL3 本级额外展示保级状态（窗口考核可回落）
-          const showProgress =
-            progress !== null && entry.level === currentLevel + 1 && entry.level <= 3;
-          const showRetention = progress !== null && isCurrent && entry.level === 3;
-          const reqs =
-            progress !== null && (showProgress || showRetention)
-              ? requirementsFor(entry.level, progress.stats, progress.thresholds)
-              : [];
-          const allMet = reqs.length > 0 && reqs.every(met);
-
           return (
-            <li key={entry.level} className="relative flex gap-4 pb-1">
-              {/* 驿站节点 + 连线 */}
-              <div className="flex flex-col items-center">
+            <div
+              key={entry.level}
+              className={`flex w-56 shrink-0 flex-col rounded-lg border p-4 transition-colors ${
+                isCurrent
+                  ? 'border-accent-500 bg-accent-50/40 shadow-paper'
+                  : isPassed
+                    ? 'border-brand-200 bg-paper-50'
+                    : 'border-ink-200 border-dashed bg-paper-50'
+              }`}
+            >
+              <div className="flex items-center gap-2">
                 <span
                   aria-hidden
-                  className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xs font-serif text-sm leading-none ${
+                  className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-xs font-serif text-sm leading-none ${
                     isCurrent
-                      ? 'rotate-3 bg-accent-600 text-on-fill shadow-paper'
+                      ? 'bg-accent-600 text-on-fill'
                       : isPassed
                         ? 'bg-brand-600 text-on-fill'
-                        : entry.level === 4
-                          ? 'border border-ink-300 border-dashed bg-paper-50 text-ink-400'
-                          : 'border border-ink-300 bg-paper-50 text-ink-400'
+                        : 'border border-ink-300 bg-paper-50 text-ink-400'
                   }`}
                 >
                   {isPassed ? '✓' : entry.level}
                 </span>
-                {!isLast ? (
-                  <span
-                    aria-hidden
-                    className={`w-px flex-1 ${isPassed ? 'bg-brand-400' : 'bg-ink-200'}`}
-                  />
-                ) : null}
-              </div>
-
-              <div className={`min-w-0 flex-1 ${isLast ? '' : 'pb-6'}`}>
-                <p className="flex flex-wrap items-center gap-2 pt-1.5">
-                  <span
-                    className={`font-medium font-serif ${
-                      isCurrent ? 'text-ink-900' : isPassed ? 'text-ink-700' : 'text-ink-500'
-                    }`}
-                  >
-                    TL{entry.level} · {TRUST_LEVEL_NAMES[entry.level]}
-                  </span>
-                  {isCurrent ? (
-                    <span className="rounded-full bg-accent-50 px-2 py-0.5 font-medium text-accent-700 text-xs">
-                      当前
-                    </span>
-                  ) : null}
-                  {entry.note !== undefined ? (
-                    <span className="text-ink-400 text-xs">{entry.note}</span>
-                  ) : null}
-                </p>
-                <ul
-                  className={`mt-1.5 flex flex-col gap-0.5 text-sm leading-relaxed ${
-                    entry.level > currentLevel ? 'text-ink-400' : 'text-ink-600'
+                <span
+                  className={`font-medium font-serif text-sm ${
+                    entry.level > currentLevel ? 'text-ink-500' : 'text-ink-900'
                   }`}
                 >
-                  {entry.abilities.map((a) => (
-                    <li key={a} className="flex gap-2">
-                      <span aria-hidden className="text-ink-300">
-                        {entry.level <= currentLevel ? '＋' : '·'}
-                      </span>
-                      {a}
-                    </li>
-                  ))}
-                </ul>
-
-                {showProgress || showRetention ? (
-                  <div className="mt-3 rounded-md border border-ink-200 bg-paper-50 p-3 shadow-paper">
-                    <p className="font-medium text-ink-700 text-xs">
-                      {showRetention ? '保级状态（滚动窗口考核）' : '晋升进度'}
-                      {showProgress && allMet ? (
-                        <span className="ml-2 text-moss-700">已达标，下次活动结算时自动晋升</span>
-                      ) : null}
-                      {showRetention && !allMet ? (
-                        <span className="ml-2 text-ochre-700">有指标跌破阈值，结算时可能回落</span>
-                      ) : null}
-                    </p>
-                    <ul className="mt-2 flex flex-col gap-2">
-                      {reqs.map((r) => (
-                        <RequirementRow key={r.label} r={r} />
-                      ))}
-                    </ul>
-                  </div>
-                ) : null}
-                {progress !== null && isCurrent && entry.level === 3 ? (
-                  <p className="mt-2 text-ink-400 text-xs leading-relaxed">
-                    TL4 由社区提名并人工授予——持续的高质量贡献会被看见。
-                  </p>
-                ) : null}
+                  TL{entry.level} · {TRUST_LEVEL_NAMES[entry.level]}
+                </span>
               </div>
-            </li>
+              {isCurrent ? (
+                <span className="mt-2 inline-flex w-fit rounded-full bg-accent-50 px-2 py-0.5 font-medium text-accent-700 text-xs">
+                  当前
+                </span>
+              ) : entry.note !== undefined ? (
+                <span className="mt-2 text-ink-400 text-xs">{entry.note}</span>
+              ) : null}
+              <ul
+                className={`mt-2.5 flex flex-col gap-1 text-xs leading-relaxed ${
+                  entry.level > currentLevel ? 'text-ink-400' : 'text-ink-600'
+                }`}
+              >
+                {entry.abilities.map((a) => (
+                  <li key={a} className="flex gap-1.5">
+                    <span aria-hidden className="text-ink-300">
+                      {entry.level <= currentLevel ? '＋' : '·'}
+                    </span>
+                    {a}
+                  </li>
+                ))}
+              </ul>
+            </div>
           );
         })}
-      </ol>
-
-      {/* 作者特例 + 公共/私有两条线（ADR-0007 / ADR-0008） */}
-      <div className="mt-8 border-ink-200/70 border-t pt-6">
-        <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-          <span aria-hidden className="h-4 w-1 self-center rounded-xs bg-accent-600" />
-          <h3 className="font-medium font-serif text-ink-800 text-base">
-            协作权：公共页 / 私有页两条线
-          </h3>
-        </div>
-        <p className="mt-2 text-ink-500 text-sm leading-relaxed">
-          <span className="font-medium text-ink-700">对自己的文章</span>
-          ，从注册起（TL0）就拥有完整协作权。 对
-          <span className="font-medium text-ink-700">他人的文章</span>
-          ，三种协作方式的门槛取决于页面是公共还是私有（能力阶梯：编辑建议 ＜ 修订申请 ＜ 修订）：
-        </p>
-        <div className="mt-4 overflow-x-auto">
-          <table className="w-full min-w-[28rem] border-collapse text-sm">
-            <thead>
-              <tr className="border-ink-200 border-b text-ink-500 text-xs">
-                <th className="py-2 pr-3 text-left font-medium">协作方式</th>
-                <th className="px-3 py-2 text-left font-medium">🌐 公共页</th>
-                <th className="px-3 py-2 text-left font-medium">🔒 私有页</th>
-              </tr>
-            </thead>
-            <tbody className="text-ink-600">
-              {[
-                ['编辑建议', '提意见、不改内容', 'T1', 'T2'],
-                ['修订申请', '改内容，需审核才生效', 'T2', 'T3'],
-                ['修订', '改内容，立即生效（可撤回）', 'T3', '权限者'],
-              ].map((row) => (
-                <tr key={row[0]} className="border-ink-100 border-b align-top last:border-0">
-                  <td className="py-2 pr-3">
-                    <span className="font-medium text-ink-700">{row[0]}</span>
-                    <span className="block text-ink-400 text-xs">{row[1]}</span>
-                  </td>
-                  <td className="px-3 py-2">{row[2]}</td>
-                  <td className="px-3 py-2">{row[3]}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-        <p className="mt-3 text-ink-400 text-xs leading-relaxed">
-          权限者 = 作者本人 + 板块版主及以上。私有页累计 50 次实质协作（他人被采纳的修订申请 +
-          直编修订；评论、编辑建议等更轻的参与不计）会自动转为公共页，也可由管理员手动设置；
-          升级后保留原作者署名。
-        </p>
       </div>
 
+      {/* 晋升进度 / 保级（仅本人可见） */}
+      {progress !== null && (showPromote || showRetention) ? (
+        <div className="mt-4 rounded-md border border-ink-200 bg-paper-50 p-4 shadow-paper">
+          <p className="font-medium text-ink-700 text-sm">
+            {showPromote
+              ? `晋升到 TL${promoteTo} · ${TRUST_LEVEL_NAMES[promoteTo]}`
+              : '保级状态（滚动窗口考核）'}
+            {showPromote && allMet ? (
+              <span className="ml-2 text-moss-700 text-xs">已达标，下次活动结算时自动晋升</span>
+            ) : null}
+            {showRetention && !allMet ? (
+              <span className="ml-2 text-ochre-700 text-xs">有指标跌破阈值，结算时可能回落</span>
+            ) : null}
+          </p>
+          <ul className="mt-3 flex flex-col gap-2.5">
+            {reqs.map((r) => (
+              <RequirementRow key={r.label} r={r} />
+            ))}
+          </ul>
+        </div>
+      ) : null}
+      {progress !== null && currentLevel >= 3 ? (
+        <p className="mt-3 text-ink-400 text-xs leading-relaxed">
+          TL4 由社区提名并人工授予——持续的高质量贡献会被看见。
+        </p>
+      ) : null}
+
       <p className="mt-6 text-ink-400 text-xs">
-        阈值由站点治理配置并随社区规模调整；治理职务（编辑、板块版主等）由任命授予，不经此路线。
+        阈值由站点治理配置并随社区规模调整；治理职务（编辑、板块版主等）由任命授予，不经此路线。协作权（公共页
+        / 私有页两条线）见
+        <a href="/covenant" className="ml-1 text-brand-700 hover:text-brand-900">
+          社区公约
+        </a>
+        。
       </p>
     </section>
   );

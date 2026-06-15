@@ -3,6 +3,7 @@ import {
   documents,
   getDb,
   revisions,
+  roleGrants,
   sections,
   suggestions,
   user as userTable,
@@ -27,6 +28,7 @@ import type { ReactNode } from 'react';
 import { Breadcrumb } from '@/components/breadcrumb';
 import { TRUST_LEVEL_NAMES, TrustRoadmap } from '@/components/trust-roadmap';
 import { formatDate } from '@/lib/format';
+import { ROLE_LABELS, type StaffRole } from '@/lib/roles';
 import { getSession } from '@/lib/session';
 import { computeUserStats, loadThresholds } from '@/server/trust';
 
@@ -53,7 +55,19 @@ async function loadProfile(id: string) {
     .leftJoin(userTrust, eq(userTrust.userId, userTable.id))
     .where(eq(userTable.id, id))
     .limit(1);
-  return rows[0];
+  const profile = rows[0];
+  if (profile === undefined) {
+    return undefined;
+  }
+  // 在任职务（未撤销）：取最高一个，个人卡片显示职务而非贡献等级
+  const grants = await db
+    .select({ role: roleGrants.role })
+    .from(roleGrants)
+    .where(and(eq(roleGrants.userId, id), isNull(roleGrants.revokedAt)));
+  const held = new Set(grants.map((g) => g.role));
+  const RANK: StaffRole[] = ['superadmin', 'admin', 'section_mod', 'editor'];
+  const topRole = RANK.find((r) => held.has(r)) ?? null;
+  return { ...profile, topRole };
 }
 
 export async function generateMetadata({ params }: ProfilePageProps): Promise<Metadata> {
@@ -176,9 +190,16 @@ export default async function ProfilePage({ params }: ProfilePageProps) {
                   {profile.name}
                 </h1>
                 <div className="mt-1.5 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-ink-400 text-xs">
-                  <Badge variant="brand">
-                    TL{trustLevel} · {TRUST_LEVEL_NAMES[trustLevel] ?? '贡献者'}
-                  </Badge>
+                  {/* 有任命职务者显示职务（任命授权力），否则显示贡献等级（晋升授能力） */}
+                  {profile.topRole !== null ? (
+                    <Badge variant="accent" title="治理职务（任命授予）">
+                      {ROLE_LABELS[profile.topRole]}
+                    </Badge>
+                  ) : (
+                    <Badge variant="brand">
+                      TL{trustLevel} · {TRUST_LEVEL_NAMES[trustLevel] ?? '贡献者'}
+                    </Badge>
+                  )}
                   <span className="flex items-center gap-1">
                     <CalendarDays className="h-3.5 w-3.5" aria-hidden />
                     加入于 {formatDate(profile.createdAt)}
@@ -295,10 +316,12 @@ export default async function ProfilePage({ params }: ProfilePageProps) {
         )}
       </section>
 
-      {/* 权限路线图（组件自带「权限路线图」标题）：治理透明 + 本人晋升进度 */}
-      <div className="mt-12 border-ink-200 border-t pt-8">
-        <TrustRoadmap currentLevel={trustLevel} progress={roadmapProgress} />
-      </div>
+      {/* 权限路线图：仅本人主页可见（自己的升级路径与进度），不对外公示 */}
+      {isOwnProfile ? (
+        <div className="mt-12 border-ink-200 border-t pt-8">
+          <TrustRoadmap currentLevel={trustLevel} progress={roadmapProgress} />
+        </div>
+      ) : null}
     </div>
   );
 }

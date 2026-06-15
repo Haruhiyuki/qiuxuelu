@@ -116,6 +116,45 @@ export default function CovenantPage() {
             </Link>{' '}
             查看。
           </p>
+
+          <p className="pt-2">
+            <span className="font-medium text-ink-800">协作权：公共页 / 私有页两条线。</span>对
+            <span className="font-medium text-ink-700">自己的文章</span>
+            ，从注册起（TL0）就拥有完整协作权；对
+            <span className="font-medium text-ink-700">他人的文章</span>
+            ，三种协作方式的门槛取决于页面是公共还是私有（能力阶梯：编辑建议 ＜ 修订申请 ＜ 修订）：
+          </p>
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[28rem] border-collapse text-sm">
+              <thead>
+                <tr className="border-ink-200 border-b text-ink-500 text-xs">
+                  <th className="py-2 pr-3 text-left font-medium">协作方式</th>
+                  <th className="px-3 py-2 text-left font-medium">🌐 公共页</th>
+                  <th className="px-3 py-2 text-left font-medium">🔒 私有页</th>
+                </tr>
+              </thead>
+              <tbody className="text-ink-600">
+                {[
+                  ['编辑建议', '提意见、不改内容', 'T1', 'T2'],
+                  ['修订申请', '改内容，需审核才生效', 'T2', 'T3'],
+                  ['修订', '改内容，立即生效（可撤回）', 'T3', '权限者'],
+                ].map((row) => (
+                  <tr key={row[0]} className="border-ink-100 border-b align-top last:border-0">
+                    <td className="py-2 pr-3">
+                      <span className="font-medium text-ink-700">{row[0]}</span>
+                      <span className="block text-ink-400 text-xs">{row[1]}</span>
+                    </td>
+                    <td className="px-3 py-2">{row[2]}</td>
+                    <td className="px-3 py-2">{row[3]}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <p className="text-ink-400 text-xs leading-relaxed">
+            权限者 = 作者本人 + 板块版主及以上。私有页累计 50 次实质协作（他人被采纳的修订申请 +
+            直编修订；评论、编辑建议等更轻的参与不计）会自动转为公共页，也可由管理员手动设置；升级后保留原作者署名。
+          </p>
         </Article>
 
         <Article title="六、举报与申诉">
