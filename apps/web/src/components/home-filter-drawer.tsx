@@ -62,6 +62,13 @@ export function HomeFilterDrawer({ children }: { children: ReactNode }) {
                   </button>
                 </div>
                 <div className="min-h-0 flex-1 overflow-hidden">{children}</div>
+                <button
+                  type="button"
+                  onClick={() => setOpen(false)}
+                  className="mt-3 shrink-0 rounded-md bg-fill py-2 text-center font-medium text-on-fill text-sm transition-colors hover:bg-fill-hover"
+                >
+                  确认筛选
+                </button>
               </div>
             </div>,
             document.body,
