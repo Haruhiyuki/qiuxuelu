@@ -2,13 +2,16 @@
 
 // 知识图谱（语雀式）：以当前帖为中心，按「站内提及」铺开最多三层邻域。
 // 左侧力导向图（自包含 SVG，无第三方依赖）：渐变圆节点 + 文档字形 + 标题，柔和曲线边，
-// 选中带光环、非邻居淡出；右侧信息面板（作者 / 更新时间 + 被引用 / 引用了）。
-// 单击节点：选中并在右栏看详情；双击节点：打开其文章。布局确定性（无随机、不抖动）。
-import { FileText } from 'lucide-react';
+// 每对节点只画一条线（无向去重）；中心带光环、非邻居淡出。
+// 单击节点：把它移到中心（fetchDocGraph 取新邻域，旧节点平滑移位、新节点自中心渐入）；
+// 双击节点：打开其文章。右栏信息面板（中心文档卡 + 作者/更新/关系 + 被引用/引用了列表）。
+// 布局确定性（无随机、不抖动）；尊重 prefers-reduced-motion。
+import { ArrowUpRight, FileText, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { type ReactNode, useMemo, useState } from 'react';
+import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import { formatDateTime } from '@/lib/format';
+import { fetchDocGraph } from '@/server/actions/graph';
 import type { LayeredGraph, LayeredNode } from '@/server/references';
 
 const NODE_R = [27, 22, 19, 17]; // 各 depth 的节点半径（中心略大）
@@ -22,6 +25,9 @@ const FR_ITERS = 440;
 const FR_RING = 116;
 const FR_RADIAL = 0.05;
 const GOLDEN = Math.PI * (3 - Math.sqrt(5));
+const ANIM_MS = 480; // 换中心补间时长
+
+const easeOutCubic = (t: number) => 1 - (1 - t) ** 3;
 
 interface PlacedNode extends LayeredNode {
   x: number;
@@ -193,35 +199,50 @@ function DocGlyph({ r }: { r: number }) {
 
 export function KnowledgeGraph({ initialGraph }: { initialGraph: LayeredGraph }) {
   const router = useRouter();
-  const graph = initialGraph;
+  const [graph, setGraph] = useState<LayeredGraph>(initialGraph);
+  const [loading, setLoading] = useState(false);
+  const [hoverId, setHoverId] = useState<string | null>(null);
+  const [tab, setTab] = useState<'in' | 'out'>('in');
+
   const availDepth = useMemo(() => graph.nodes.reduce((m, n) => Math.max(m, n.depth), 0), [graph]);
   const layout = useMemo(() => computeLayout(graph, Math.max(1, availDepth)), [graph, availDepth]);
   const nodeById = useMemo(() => new Map(graph.nodes.map((n) => [n.id, n])), [graph]);
 
-  const [selectedId, setSelectedId] = useState(graph.centerId);
-  const [hoverId, setHoverId] = useState<string | null>(null);
-  const [tab, setTab] = useState<'in' | 'out'>('in');
+  // 每对节点只画一条线（无向去重）：A↔B 的双向引用合并为一条
+  const drawEdges = useMemo(() => {
+    const seen = new Set<string>();
+    const out: { source: string; target: string }[] = [];
+    for (const e of layout.edges) {
+      const key = e.source < e.target ? `${e.source}|${e.target}` : `${e.target}|${e.source}`;
+      if (!seen.has(key)) {
+        seen.add(key);
+        out.push(e);
+      }
+    }
+    return out;
+  }, [layout.edges]);
 
-  const selected = nodeById.get(selectedId) ?? null;
+  const centerId = graph.centerId;
+  const center = nodeById.get(centerId) ?? null;
   const incoming = useMemo(
     () =>
       graph.edges
-        .filter((e) => e.target === selectedId)
+        .filter((e) => e.target === centerId)
         .map((e) => nodeById.get(e.source))
         .filter((x): x is LayeredNode => x !== undefined),
-    [graph.edges, selectedId, nodeById],
+    [graph.edges, centerId, nodeById],
   );
   const outgoing = useMemo(
     () =>
       graph.edges
-        .filter((e) => e.source === selectedId)
+        .filter((e) => e.source === centerId)
         .map((e) => nodeById.get(e.target))
         .filter((x): x is LayeredNode => x !== undefined),
-    [graph.edges, selectedId, nodeById],
+    [graph.edges, centerId, nodeById],
   );
 
-  // 焦点（hover 优先于 selected）+ 其直接邻居：用于高亮/淡出
-  const focus = hoverId ?? selectedId;
+  // 焦点（hover 优先于中心）+ 其直接邻居：高亮/淡出
+  const focus = hoverId ?? centerId;
   const neighborIds = useMemo(() => {
     const s = new Set<string>([focus]);
     for (const e of graph.edges) {
@@ -234,6 +255,66 @@ export function KnowledgeGraph({ initialGraph }: { initialGraph: LayeredGraph })
     }
     return s;
   }, [graph.edges, focus]);
+
+  // 节点坐标补间（rAF）：换中心时旧节点平滑移位、新节点自中心渐入
+  const [pos, setPos] = useState<Map<string, { x: number; y: number; op: number }>>(
+    () => new Map(layout.nodes.map((n) => [n.id, { x: n.x, y: n.y, op: 1 }])),
+  );
+  const posRef = useRef(pos);
+  useEffect(() => {
+    posRef.current = pos;
+  });
+  useEffect(() => {
+    const targets = new Map(layout.nodes.map((n) => [n.id, { x: n.x, y: n.y }]));
+    const from = posRef.current;
+    const startPos = new Map<string, { x: number; y: number; op: number }>();
+    for (const id of targets.keys()) {
+      startPos.set(id, from.get(id) ?? { x: 0, y: 0, op: 0 });
+    }
+    const reduce =
+      typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (reduce) {
+      setPos(new Map([...targets].map(([id, t]) => [id, { x: t.x, y: t.y, op: 1 }])));
+      return;
+    }
+    const t0 = typeof performance !== 'undefined' ? performance.now() : 0;
+    let raf = 0;
+    const tick = (now: number) => {
+      const e = easeOutCubic(Math.min(1, (now - t0) / ANIM_MS));
+      const m = new Map<string, { x: number; y: number; op: number }>();
+      for (const [id, tg] of targets) {
+        const f = startPos.get(id) ?? { x: 0, y: 0, op: 0 };
+        m.set(id, {
+          x: f.x + (tg.x - f.x) * e,
+          y: f.y + (tg.y - f.y) * e,
+          op: f.op + (1 - f.op) * e,
+        });
+      }
+      setPos(m);
+      if (e < 1) {
+        raf = requestAnimationFrame(tick);
+      }
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [layout]);
+
+  async function recenter(id: string) {
+    if (id === centerId || loading) {
+      return;
+    }
+    setLoading(true);
+    try {
+      const g = await fetchDocGraph(id);
+      if (g !== null) {
+        setHoverId(null);
+        setTab('in');
+        setGraph(g);
+      }
+    } finally {
+      setLoading(false);
+    }
+  }
 
   const list = tab === 'in' ? incoming : outgoing;
 
@@ -253,12 +334,9 @@ export function KnowledgeGraph({ initialGraph }: { initialGraph: LayeredGraph })
             </linearGradient>
           </defs>
 
-          {layout.edges.map((e) => {
-            const a = layout.posMap.get(e.source);
-            const b = layout.posMap.get(e.target);
-            if (a === undefined || b === undefined) {
-              return null;
-            }
+          {drawEdges.map((e) => {
+            const a = pos.get(e.source) ?? { x: 0, y: 0, op: 0 };
+            const b = pos.get(e.target) ?? { x: 0, y: 0, op: 0 };
             const active = focus === e.source || focus === e.target;
             const ddx = b.x - a.x;
             const ddy = b.y - a.y;
@@ -273,27 +351,28 @@ export function KnowledgeGraph({ initialGraph }: { initialGraph: LayeredGraph })
                 fill="none"
                 stroke={active ? 'var(--color-brand-400)' : 'var(--color-ink-300)'}
                 strokeWidth={active ? 2 : 1.2}
-                strokeOpacity={active ? 0.9 : 0.45}
+                strokeOpacity={(active ? 0.9 : 0.4) * Math.min(a.op, b.op)}
               />
             );
           })}
 
           {layout.nodes.map((nd) => {
-            const isSel = nd.id === selectedId;
+            const p = pos.get(nd.id) ?? { x: 0, y: 0, op: 0 };
+            const isCenter = nd.id === centerId;
             const dim = focus !== nd.id && !neighborIds.has(nd.id);
             return (
               // biome-ignore lint/a11y/noStaticElementInteractions: 图节点为指针增强，键盘可达路径由右栏列表按钮承担
               <g
                 key={nd.id}
-                transform={`translate(${nd.x} ${nd.y})`}
+                transform={`translate(${p.x} ${p.y})`}
                 className="cursor-pointer"
-                style={{ opacity: dim ? 0.32 : 1, transition: 'opacity .15s ease' }}
-                onClick={() => setSelectedId(nd.id)}
+                style={{ opacity: p.op * (dim ? 0.34 : 1) }}
+                onClick={() => recenter(nd.id)}
                 onDoubleClick={() => router.push(`/a/${nd.slug}`)}
                 onMouseEnter={() => setHoverId(nd.id)}
                 onMouseLeave={() => setHoverId(null)}
               >
-                {isSel ? (
+                {isCenter ? (
                   <circle r={nd.r + 9} fill="var(--color-brand-400)" opacity={0.18} />
                 ) : null}
                 <circle
@@ -307,7 +386,7 @@ export function KnowledgeGraph({ initialGraph }: { initialGraph: LayeredGraph })
                 <text
                   y={nd.r + 17}
                   textAnchor="middle"
-                  className={isSel ? 'fill-ink-900 font-medium' : 'fill-ink-600'}
+                  className={isCenter ? 'fill-ink-900 font-medium' : 'fill-ink-600'}
                   fontSize={13}
                 >
                   {clip(nd.title, 12)}
@@ -316,38 +395,53 @@ export function KnowledgeGraph({ initialGraph }: { initialGraph: LayeredGraph })
             );
           })}
         </svg>
-        <p className="absolute bottom-3 left-3 text-ink-400 text-xs">单击查看详情 · 双击打开文章</p>
+        {loading ? (
+          <span className="absolute top-3 right-3 text-ink-400">
+            <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+          </span>
+        ) : null}
+        <p className="absolute bottom-3 left-3 text-ink-400 text-xs">单击移到中心 · 双击打开文章</p>
         {graph.truncated ? (
           <p className="absolute right-3 bottom-3 text-ink-400 text-xs">关系较多，仅展示部分</p>
         ) : null}
       </div>
 
-      {/* 右侧信息面板 */}
-      <aside className="flex w-64 shrink-0 flex-col gap-3 overflow-y-auto border-ink-200/70 border-l p-4">
-        {selected !== null ? (
+      {/* 右侧信息面板：当前中心文档 + 引用关系 */}
+      <aside className="flex w-72 shrink-0 flex-col gap-4 overflow-y-auto border-ink-200/70 border-l bg-paper-100/40 p-4">
+        {center !== null ? (
           <>
-            <div className="rounded-lg border border-ink-200 bg-paper-50 p-3 shadow-paper">
-              <div className="flex items-start gap-2">
-                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-gradient-to-br from-brand-400 to-brand-600 text-on-fill">
+            <div className="rounded-lg border border-ink-200 bg-paper-50 p-4 shadow-paper">
+              <div className="flex items-start gap-2.5">
+                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-gradient-to-br from-brand-400 to-brand-600 text-on-fill">
                   <FileText className="h-4 w-4" aria-hidden />
                 </span>
-                <Link
-                  href={`/a/${selected.slug}`}
-                  className="min-w-0 font-medium font-serif text-ink-900 leading-snug transition-colors hover:text-brand-700"
-                >
-                  {selected.title}
-                </Link>
+                <h3 className="min-w-0 pt-0.5 font-medium font-serif text-base text-ink-900 leading-snug">
+                  {center.title}
+                </h3>
               </div>
-              <dl className="mt-3 flex flex-col gap-1.5 text-xs">
-                <div className="flex gap-2">
-                  <dt className="shrink-0 text-ink-400">作者</dt>
-                  <dd className="truncate text-ink-600">{selected.authorName ?? '佚名'}</dd>
+              <dl className="mt-3.5 flex flex-col gap-2 text-sm">
+                <div className="flex items-baseline gap-2">
+                  <dt className="w-12 shrink-0 text-ink-400 text-xs">作者</dt>
+                  <dd className="min-w-0 truncate text-ink-700">{center.authorName ?? '佚名'}</dd>
                 </div>
-                <div className="flex gap-2">
-                  <dt className="shrink-0 text-ink-400">更新</dt>
-                  <dd className="text-ink-600">{formatDateTime(new Date(selected.updatedAt))}</dd>
+                <div className="flex items-baseline gap-2">
+                  <dt className="w-12 shrink-0 text-ink-400 text-xs">更新于</dt>
+                  <dd className="text-ink-700">{formatDateTime(new Date(center.updatedAt))}</dd>
+                </div>
+                <div className="flex items-baseline gap-2">
+                  <dt className="w-12 shrink-0 text-ink-400 text-xs">关系</dt>
+                  <dd className="text-ink-700">
+                    被引用 {incoming.length} · 引用了 {outgoing.length}
+                  </dd>
                 </div>
               </dl>
+              <Link
+                href={`/a/${center.slug}`}
+                className="mt-4 inline-flex w-full items-center justify-center gap-1.5 rounded-md bg-fill py-2 font-medium text-on-fill text-sm transition-colors hover:bg-fill-hover"
+              >
+                打开文章
+                <ArrowUpRight className="h-4 w-4" aria-hidden />
+              </Link>
             </div>
 
             <div className="flex min-h-0 flex-1 flex-col rounded-lg border border-ink-200 bg-paper-50">
@@ -364,17 +458,22 @@ export function KnowledgeGraph({ initialGraph }: { initialGraph: LayeredGraph })
                   <li key={node.id}>
                     <button
                       type="button"
-                      onClick={() => setSelectedId(node.id)}
-                      className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-ink-700 text-sm transition-colors hover:bg-paper-200"
-                      title={node.title}
+                      onClick={() => recenter(node.id)}
+                      className="group flex w-full items-center gap-2 rounded-md px-2 py-2 text-left text-ink-700 text-sm transition-colors hover:bg-paper-200"
+                      title={`${node.title}（${node.authorName ?? '佚名'}）`}
                     >
-                      <FileText className="h-3.5 w-3.5 shrink-0 text-brand-500" aria-hidden />
-                      <span className="truncate">{node.title}</span>
+                      <FileText className="h-4 w-4 shrink-0 text-brand-500" aria-hidden />
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate">{node.title}</span>
+                        <span className="block truncate text-ink-400 text-xs">
+                          {node.authorName ?? '佚名'}
+                        </span>
+                      </span>
                     </button>
                   </li>
                 ))}
                 {list.length === 0 ? (
-                  <li className="px-2 py-3 text-ink-400 text-xs">
+                  <li className="px-2 py-4 text-center text-ink-400 text-xs">
                     {tab === 'in' ? '还没有文章引用它' : '它还没有引用其它文章'}
                   </li>
                 ) : null}
