@@ -17,6 +17,7 @@ import Link from 'next/link';
 import { AnnouncementBar } from '@/components/announcement-bar';
 import { ButtonLink } from '@/components/button-link';
 import { DocumentList, type DocumentListItem } from '@/components/document-list';
+import { HomeFilterDrawer } from '@/components/home-filter-drawer';
 import { Pagination } from '@/components/pagination';
 import { getSession } from '@/lib/session';
 import { getHomepageBanner } from '@/server/announcements';
@@ -235,6 +236,61 @@ export default async function HomePage({
 
   const scopeLabel = `${activeSection?.name ?? '全部文章'}${activeTag !== null ? ` · #${activeTag}` : ''}`;
 
+  // 筛选内容（板块 + 标签）：桌面左栏与移动抽屉共用；外层容器给定高度，标签区 flex-1 填充滚动
+  const renderFilter = () => (
+    <nav aria-label="筛选" className="flex h-full min-h-0 flex-col">
+      <FilterHeading label="板块" />
+      <ul className="mt-3 flex flex-wrap gap-1.5 lg:flex-col lg:gap-0.5">
+        <li>
+          <CategoryItem
+            href={hrefOf(null, activeTag, sort)}
+            label="全部"
+            count={total}
+            active={sectionId === null}
+          />
+        </li>
+        {sectionList.map((s) => (
+          <li key={s.id}>
+            <CategoryItem
+              href={hrefOf(s.slug, activeTag, sort)}
+              label={s.name}
+              count={countBy.get(s.id) ?? 0}
+              active={activeSection?.id === s.id}
+            />
+          </li>
+        ))}
+      </ul>
+
+      <div className="my-4 shrink-0 border-ink-200/70 border-t" />
+
+      <FilterHeading label="标签" />
+      <div className="mt-3 min-h-0 flex-1 overflow-y-auto pr-1">
+        <ul className="flex flex-wrap gap-1.5 lg:flex-col lg:gap-0.5">
+          <li>
+            <CategoryItem
+              href={hrefOf(sectionSlug, null, sort)}
+              label="全部"
+              active={activeTag === null}
+            />
+          </li>
+          {tagList.map((t) => (
+            <li key={t.name}>
+              <CategoryItem
+                href={hrefOf(sectionSlug, t.name, sort)}
+                label={`#${t.name}`}
+                count={t.count}
+                active={activeTag === t.name}
+              />
+            </li>
+          ))}
+        </ul>
+        {tagList.length === 0 ? (
+          <p className="px-1 py-2 text-ink-400 text-xs">还没有标签。</p>
+        ) : null}
+      </div>
+    </nav>
+  );
+
   return (
     <div className="mx-auto w-full max-w-6xl px-6 py-6">
       {banner !== null ? (
@@ -250,65 +306,19 @@ export default async function HomePage({
       ) : null}
 
       <div className="grid items-start gap-x-10 gap-y-6 lg:grid-cols-[13rem_minmax(0,1fr)]">
-        {/* 左列：板块 + 标签（交叉筛选）——无框无底，仿板块页分类列表 */}
-        <aside className="lg:sticky lg:top-24 lg:flex lg:h-[calc(100vh-7rem)] lg:flex-col lg:self-start">
-          <nav aria-label="板块" className="lg:flex lg:min-h-0 lg:flex-1 lg:flex-col">
-            <FilterHeading label="板块" />
-            <ul className="mt-3 flex flex-wrap gap-1.5 lg:flex-col lg:gap-0.5">
-              <li>
-                <CategoryItem
-                  href={hrefOf(null, activeTag, sort)}
-                  label="全部"
-                  count={total}
-                  active={sectionId === null}
-                />
-              </li>
-              {sectionList.map((s) => (
-                <li key={s.id}>
-                  <CategoryItem
-                    href={hrefOf(s.slug, activeTag, sort)}
-                    label={s.name}
-                    count={countBy.get(s.id) ?? 0}
-                    active={activeSection?.id === s.id}
-                  />
-                </li>
-              ))}
-            </ul>
-
-            <div className="my-4 border-ink-200/70 border-t" />
-
-            <FilterHeading label="标签" />
-            <div className="mt-3 max-h-72 overflow-y-auto pr-1 lg:max-h-none lg:min-h-0 lg:flex-1">
-              <ul className="flex flex-wrap gap-1.5 lg:flex-col lg:gap-0.5">
-                <li>
-                  <CategoryItem
-                    href={hrefOf(sectionSlug, null, sort)}
-                    label="全部"
-                    active={activeTag === null}
-                  />
-                </li>
-                {tagList.map((t) => (
-                  <li key={t.name}>
-                    <CategoryItem
-                      href={hrefOf(sectionSlug, t.name, sort)}
-                      label={`#${t.name}`}
-                      count={t.count}
-                      active={activeTag === t.name}
-                    />
-                  </li>
-                ))}
-              </ul>
-              {tagList.length === 0 ? (
-                <p className="px-1 py-2 text-ink-400 text-xs">还没有标签。</p>
-              ) : null}
-            </div>
-          </nav>
+        {/* 左列（桌面）：板块 + 标签，撑满屏高；移动端隐藏，改用右列「筛选」抽屉 */}
+        <aside className="hidden lg:sticky lg:top-24 lg:block lg:h-[calc(100vh-7rem)] lg:self-start">
+          {renderFilter()}
         </aside>
 
         {/* 右列：文章列表 + 排序 + 分页 */}
         <div className="min-w-0">
           <div className="flex flex-wrap items-center justify-between gap-3 border-ink-200 border-b pb-3">
-            <p className="font-medium font-serif text-ink-800">{scopeLabel}</p>
+            <div className="flex items-center gap-3">
+              {/* 移动端筛选抽屉触发（桌面隐藏） */}
+              <HomeFilterDrawer>{renderFilter()}</HomeFilterDrawer>
+              <p className="font-medium font-serif text-ink-800">{scopeLabel}</p>
+            </div>
             <nav aria-label="排序" className="flex items-center gap-1 text-sm">
               {SORTS.map((s) => {
                 const on = sort === s.key;
