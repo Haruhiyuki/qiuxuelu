@@ -12,6 +12,7 @@ import { getSession } from '@/lib/session';
 import { getDocumentTags } from '@/server/actions/tags';
 import { loadActor } from '@/server/actors';
 import { loadRevisionDoc } from '@/server/revision-doc';
+import { loadSeriesPicker } from '@/server/series';
 
 export const dynamic = 'force-dynamic';
 
@@ -112,6 +113,8 @@ export default async function EditDocumentPage({ params }: EditPageProps) {
   // T2+ 免预审：直接发布（ADR-0010）
   const actor = await loadActor(session.user.id);
   const canSelfPublish = (actor?.trustLevel ?? 0) >= 2;
+  // 文章系列（ADR-0014）：作者的系列选项 + 本文当前所属系列
+  const seriesPicker = await loadSeriesPicker(session.user.id, doc.id);
 
   return (
     <ComposerClient
@@ -126,6 +129,8 @@ export default async function EditDocumentPage({ params }: EditPageProps) {
       hasRevisions={draftHead !== null}
       headSeq={headSeq}
       canSelfPublish={canSelfPublish}
+      seriesOptions={seriesPicker.options}
+      currentSeriesId={seriesPicker.currentSeriesId}
     />
   );
 }

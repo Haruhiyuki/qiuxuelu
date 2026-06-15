@@ -7,6 +7,7 @@ import type { SectionOption } from '@/components/editor/article-composer';
 import { ComposerClient } from '@/components/editor/composer-client';
 import { getSession } from '@/lib/session';
 import { loadActor } from '@/server/actors';
+import { listUserSeries } from '@/server/series';
 
 export const dynamic = 'force-dynamic';
 
@@ -28,6 +29,8 @@ export default async function NewDocumentPage() {
   // T2+ 免预审：直接发布（ADR-0010）
   const actor = await loadActor(session.user.id);
   const canSelfPublish = (actor?.trustLevel ?? 0) >= 2;
+  // 文章系列（ADR-0014）：作者的现有系列，供新文就地归类（也可在抽屉里新建）
+  const mySeries = await listUserSeries(session.user.id);
 
   return (
     <ComposerClient
@@ -42,6 +45,8 @@ export default async function NewDocumentPage() {
       hasRevisions={false}
       headSeq={null}
       canSelfPublish={canSelfPublish}
+      seriesOptions={mySeries.map((s) => ({ id: s.id, title: s.title }))}
+      currentSeriesId={null}
     />
   );
 }

@@ -33,6 +33,7 @@ import { ModerationBar } from '@/components/moderation-bar';
 import { ReactionBar } from '@/components/reaction-bar';
 import { ReadingProgress } from '@/components/reading-progress';
 import { JsonLd } from '@/components/seo/json-ld';
+import { SeriesNav } from '@/components/series/series-nav';
 import { TocNav } from '@/components/toc-nav';
 import { formatDate, formatDateTime } from '@/lib/format';
 import { highlightDoc } from '@/lib/highlight';
@@ -42,6 +43,7 @@ import { SITE_URL } from '@/lib/site-url';
 import { loadActor } from '@/server/actors';
 import { getReactionState } from '@/server/reactions';
 import { getDocGraphLayered } from '@/server/references';
+import { getDocSeriesNav } from '@/server/series';
 
 // M0 一律请求期动态渲染；ISR + revalidateTag 是 M1 的事
 export const dynamic = 'force-dynamic';
@@ -257,7 +259,7 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
   ];
   // 行内批注、标签、点赞收藏态、知识图谱彼此独立（仅依赖 docId/session），并行取——
   // 把 4 次串行 DB 往返压成 1 次（本页是最热路径）。
-  const [inlineRows, docTags, reactions, graph] = await Promise.all([
+  const [inlineRows, docTags, reactions, graph, seriesNav] = await Promise.all([
     db
       .select({
         id: comments.id,
@@ -289,6 +291,7 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
       .where(eq(documentTags.documentId, article.docId)),
     getReactionState(db, article.docId, session?.user.id ?? null),
     getDocGraphLayered(db, article.docId, 3),
+    getDocSeriesNav(article.docId),
   ]);
   const inlineComments: InlineCommentView[] = inlineRows.map((r) => ({
     id: r.id,
@@ -555,6 +558,12 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
                 #{t.name}
               </Link>
             ))}
+          </div>
+        ) : null}
+
+        {seriesNav !== null ? (
+          <div className="mb-6">
+            <SeriesNav nav={seriesNav} />
           </div>
         ) : null}
 

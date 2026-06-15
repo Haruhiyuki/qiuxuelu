@@ -22,6 +22,7 @@ import {
 } from '@/server/actions/document';
 import { setDocumentTags } from '@/server/actions/tags';
 import type { CommitConflictView, ConflictResolutions } from '@/server/merge';
+import { SeriesField } from '../series/series-field';
 import { BubbleToolbar } from './bubble-toolbar';
 import { clientExtensions } from './client-extensions';
 import { CommitConflictDialog } from './commit-conflict-dialog';
@@ -56,6 +57,9 @@ export interface ArticleComposerProps {
   headSeq: number | null;
   /** T2+ 免预审：作者可直接发布而非进审批队列（ADR-0010） */
   canSelfPublish: boolean;
+  /** 文章系列（ADR-0014）：作者的系列选项 + 本文当前所属系列 id */
+  seriesOptions: { id: string; title: string }[];
+  currentSeriesId: string | null;
 }
 
 const PLACEHOLDER_TITLE = '无标题';
@@ -604,6 +608,13 @@ export function ArticleComposer(props: ArticleComposerProps) {
                 ))}
               </select>
             </div>
+
+            <SeriesField
+              docId={docId}
+              ensureDoc={ensureDoc}
+              options={props.seriesOptions}
+              initialSeriesId={props.currentSeriesId}
+            />
 
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="compose-summary">摘要（选填，列表与分享卡展示）</Label>

@@ -6,4 +6,5 @@ export * from './governance';
 export * from './infra';
 export * from './media';
 export * from './sections';
+export * from './series';
 export * from './tags';

@@ -1,7 +1,7 @@
 import { documents, getDb, revisions, sections, suggestions, workingCopies } from '@harublog/db';
 import { Badge, EmptyState } from '@harublog/ui';
 import { and, desc, eq, inArray, isNull, max } from 'drizzle-orm';
-import { PenLine } from 'lucide-react';
+import { Layers, PenLine } from 'lucide-react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
@@ -192,10 +192,16 @@ export default async function WritePage() {
             草稿自动保存，显式提交修订形成历史；申请发布后由志愿者审校上线。
           </p>
         </div>
-        <ButtonLink href="/write/new" className="h-10 px-5">
-          <PenLine className="h-4 w-4" aria-hidden />
-          开始写作
-        </ButtonLink>
+        <div className="flex items-center gap-2">
+          <ButtonLink href="/write/series" variant="secondary" className="h-10 px-4">
+            <Layers className="h-4 w-4" aria-hidden />
+            我的系列
+          </ButtonLink>
+          <ButtonLink href="/write/new" className="h-10 px-5">
+            <PenLine className="h-4 w-4" aria-hidden />
+            开始写作
+          </ButtonLink>
+        </div>
       </header>
 
       <div className="grid grid-cols-1 gap-10 py-10 lg:grid-cols-[minmax(0,1fr)_320px]">

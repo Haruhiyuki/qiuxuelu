@@ -14,10 +14,12 @@ import { and, count, countDistinct, desc, eq, isNull } from 'drizzle-orm';
 import {
   Award,
   CalendarDays,
+  ChevronRight,
   Feather,
   FileText,
   GraduationCap,
   Landmark,
+  Layers,
   Lightbulb,
   PenLine,
 } from 'lucide-react';
@@ -30,6 +32,7 @@ import { TRUST_LEVEL_NAMES, TrustRoadmap } from '@/components/trust-roadmap';
 import { formatDate } from '@/lib/format';
 import { ROLE_LABELS, type StaffRole } from '@/lib/roles';
 import { getSession } from '@/lib/session';
+import { listUserSeries } from '@/server/series';
 import { computeUserStats, loadThresholds } from '@/server/trust';
 
 export const dynamic = 'force-dynamic';
@@ -132,6 +135,8 @@ export default async function ProfilePage({ params }: ProfilePageProps) {
   // 路线图的达标进度仅本人可见：访客只看路线与当前位置，不见统计数字
   const session = await getSession();
   const isOwnProfile = session?.user.id === profile.id;
+  // 文章系列：访客只见有已发布条目的系列，本人见全部
+  const userSeries = await listUserSeries(profile.id, { onlyWithPublished: !isOwnProfile });
   let roadmapProgress: Parameters<typeof TrustRoadmap>[0]['progress'] = null;
   if (isOwnProfile) {
     const thresholds = await loadThresholds(db);
@@ -315,6 +320,59 @@ export default async function ProfilePage({ params }: ProfilePageProps) {
           </div>
         )}
       </section>
+
+      {/* 文章系列：作者编排的有序合集 */}
+      {userSeries.length > 0 ? (
+        <section className="mt-10">
+          <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+            <span aria-hidden className="h-4 w-1 self-center rounded-xs bg-brand-500" />
+            <h2 className="font-medium font-serif text-ink-800 text-lg">文章系列</h2>
+            <span className="text-ink-400 text-xs tabular-nums">共 {userSeries.length} 个</span>
+            {isOwnProfile ? (
+              <Link
+                href="/write/series"
+                className="ml-auto text-brand-700 text-sm transition-colors hover:text-brand-900"
+              >
+                管理系列 →
+              </Link>
+            ) : null}
+          </div>
+          <ul className="mt-4 grid gap-3 sm:grid-cols-2">
+            {userSeries.map((s) => (
+              <li key={s.id}>
+                <Link
+                  href={`/series/${s.slug}`}
+                  className="group flex h-full items-start gap-3 rounded-xl border border-ink-100 p-4 transition-colors hover:border-brand-200 hover:bg-paper-50"
+                >
+                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-brand-400 to-brand-600 text-on-fill">
+                    <Layers className="h-4 w-4" aria-hidden />
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="flex items-center gap-1 font-medium font-serif text-ink-900 transition-colors group-hover:text-brand-700">
+                      <span className="truncate">{s.title}</span>
+                      <ChevronRight
+                        className="h-4 w-4 shrink-0 text-ink-300 transition-colors group-hover:text-brand-500"
+                        aria-hidden
+                      />
+                    </span>
+                    {s.description ? (
+                      <span className="mt-0.5 line-clamp-1 block text-ink-500 text-sm">
+                        {s.description}
+                      </span>
+                    ) : null}
+                    <span className="mt-1 block text-ink-400 text-xs tabular-nums">
+                      {s.published} 篇已发布
+                      {isOwnProfile && s.total > s.published
+                        ? ` · ${s.total - s.published} 篇草稿`
+                        : ''}
+                    </span>
+                  </span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
 
       {/* 权限路线图：仅本人主页可见（自己的升级路径与进度），不对外公示 */}
       {isOwnProfile ? (
