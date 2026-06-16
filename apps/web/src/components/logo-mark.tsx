@@ -10,19 +10,8 @@ export function LogoMark({ className }: { className?: string }) {
       aria-hidden
       xmlns="http://www.w3.org/2000/svg"
     >
-      {/* 朱砂方印底 */}
-      <rect x="1.5" y="1.5" width="21" height="21" rx="5.5" fill="var(--color-danger-fill)" />
-      {/* 印框：内嵌细线，呼应真实印章的边栏 */}
-      <rect
-        x="4.25"
-        y="4.25"
-        width="15.5"
-        height="15.5"
-        rx="3.5"
-        stroke="var(--color-on-fill)"
-        strokeOpacity="0.4"
-        strokeWidth="0.9"
-      />
+      {/* 朱砂方印底（铺满 viewBox，避免与外层圆角/阴影错位露出方框） */}
+      <rect x="0" y="0" width="24" height="24" rx="6" fill="var(--color-danger-fill)" />
       {/* 上行之路：起点（左下）蜿蜒至终点（右上） */}
       <path
         d="M7.2 16.6 C 10 16.4 9.2 12.4 12 11.2 C 14.8 10 14 8 16.6 7.4"

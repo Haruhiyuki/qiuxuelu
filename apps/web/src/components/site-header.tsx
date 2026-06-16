@@ -48,7 +48,7 @@ export async function SiteHeader() {
         <div className="flex items-center gap-4 sm:gap-8">
           <Link href="/" className="group flex shrink-0 items-center gap-2.5">
             {/* 站标：朱砂方印 + 上行之路（详见 LogoMark） */}
-            <LogoMark className="h-7 w-7 shrink-0 rounded-xs shadow-paper transition-transform group-hover:-rotate-3" />
+            <LogoMark className="h-7 w-7 shrink-0 drop-shadow-sm transition-transform group-hover:-rotate-3" />
             <span className="whitespace-nowrap font-semibold font-serif text-ink-900 text-xl tracking-wide">
               {SITE_NAME}
             </span>
