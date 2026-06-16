@@ -4,21 +4,13 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 import { Breadcrumb } from '@/components/breadcrumb';
+// 权限表与个人资料的「权限路线图」共用同一份等级数据，二者永不分叉
+import { TRUST_TIERS } from '@/lib/trust-tiers';
 
 export const metadata: Metadata = {
   title: '社区公约',
   description: '求学路的社区共同约定：内容授权、内容准则、协作礼仪与治理秩序。',
 };
-
-// 各信任等级在「个人博客（私有）/ 公共页面」上对他人文章的协作权限（与 domain can() 一致）。
-// 「+」= 相对上一级新增（含下级全部）。门槛差异源于页面模式（ADR-0007/0010）。
-const TIERS = [
-  { tl: 'T0', name: '新成员', priv: '评论、发布新文章', pub: '评论、发布新文章' },
-  { tl: 'T1', name: '成员', priv: '＋行内批注', pub: '＋行内批注、编辑建议' },
-  { tl: 'T2', name: '贡献者', priv: '＋编辑建议', pub: '＋修订申请' },
-  { tl: 'T3', name: '资深贡献者', priv: '＋修订申请', pub: '＋直接修订' },
-  { tl: 'T4', name: '共建者', priv: '＋审核修订申请', pub: '＋审核修订申请' },
-];
 
 function Article({ title, children }: { title: string; children: ReactNode }) {
   return (
@@ -81,10 +73,10 @@ export default function CovenantPage() {
                 </tr>
               </thead>
               <tbody className="text-ink-600">
-                {TIERS.map((t) => (
-                  <tr key={t.tl} className="border-ink-100 border-b align-top last:border-0">
+                {TRUST_TIERS.map((t) => (
+                  <tr key={t.level} className="border-ink-100 border-b align-top last:border-0">
                     <td className="whitespace-nowrap py-2 pr-3">
-                      <span className="font-medium text-ink-700">{t.tl}</span>
+                      <span className="font-medium text-ink-700">T{t.level}</span>
                       <span className="block text-ink-400 text-xs">{t.name}</span>
                     </td>
                     <td className="px-3 py-2">{t.priv}</td>

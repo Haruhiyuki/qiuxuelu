@@ -3,53 +3,11 @@
 // 能力清单与 @harublog/domain 的 TRUST_CAP_INCREMENTS / can() 语义一一对应；
 // 阈值来自 site_settings（不硬编码），等级以 user_trust 物化值为准。
 import type { TrustStats, TrustThresholds } from '@harublog/domain';
+import { TRUST_LEVEL_NAMES, TRUST_TIERS } from '@/lib/trust-tiers';
 
-/** 各级公示文案：名称沿用 domain 引导文案的称谓（成员/贡献者/资深/共建者） */
-export const TRUST_LEVEL_NAMES: Record<number, string> = {
-  0: '新成员',
-  1: '成员',
-  2: '贡献者',
-  3: '资深贡献者',
-  4: '共建者',
-};
-
-interface LevelEntry {
-  level: number;
-  /** 解锁能力（相对上一级的增量） */
-  abilities: string[];
-  note?: string;
-}
-
-const LEVELS: LevelEntry[] = [
-  {
-    level: 0,
-    abilities: [
-      '阅读全站内容',
-      '创建草稿、发文、文中发布图片（完整编辑能力）',
-      '发表评论（AI 秒审，无需排队）',
-      '举报不当内容',
-    ],
-    note: '注册即是',
-  },
-  {
-    level: 1,
-    abilities: ['行内批注正文', '对公共页文章提「编辑建议」'],
-  },
-  {
-    level: 2,
-    abilities: ['对公共页文章提「修订申请」', '对私有页文章提「编辑建议」'],
-  },
-  {
-    level: 3,
-    abilities: ['在公共页直接「修订」他人文章（即时生效 + 进巡查）', '对私有页文章提「修订申请」'],
-    note: '按滚动窗口持续考核，跌破阈值会回落',
-  },
-  {
-    level: 4,
-    abilities: ['处理公共页的「修订申请」、管理「修订」'],
-    note: '仅社区提名 + 人工授予，无自动达标路径',
-  },
-];
+// 等级称谓与权限来自共享数据（与社区公约权限表同源，二者永不分叉）；
+// 再导出 TRUST_LEVEL_NAMES 供个人主页等沿用既有导入。
+export { TRUST_LEVEL_NAMES } from '@/lib/trust-tiers';
 
 interface Requirement {
   label: string;
@@ -205,11 +163,13 @@ export function TrustRoadmap({
         <p className="text-ink-400 text-xs">晋升给能力，任命给权力——治理职务不在此列</p>
       </div>
 
-      {/* 升级路径：横向卡片，逐级解锁；当前级高亮，已过级打勾 */}
+      {/* 升级路径：横向卡片，逐级解锁；当前级高亮，已过级打勾。
+          权限按「个人博客 / 公共页面」两线展示，与社区公约的权限表对齐 */}
       <div className="-mx-1 mt-5 flex gap-3 overflow-x-auto px-1 pb-2">
-        {LEVELS.map((entry) => {
+        {TRUST_TIERS.map((entry) => {
           const isCurrent = entry.level === currentLevel;
           const isPassed = entry.level < currentLevel;
+          const dim = entry.level > currentLevel;
           return (
             <div
               key={entry.level}
@@ -235,11 +195,9 @@ export function TrustRoadmap({
                   {isPassed ? '✓' : entry.level}
                 </span>
                 <span
-                  className={`font-medium font-serif text-sm ${
-                    entry.level > currentLevel ? 'text-ink-500' : 'text-ink-900'
-                  }`}
+                  className={`font-medium font-serif text-sm ${dim ? 'text-ink-500' : 'text-ink-900'}`}
                 >
-                  TL{entry.level} · {TRUST_LEVEL_NAMES[entry.level]}
+                  TL{entry.level} · {entry.name}
                 </span>
               </div>
               {isCurrent ? (
@@ -249,20 +207,19 @@ export function TrustRoadmap({
               ) : entry.note !== undefined ? (
                 <span className="mt-2 text-ink-400 text-xs">{entry.note}</span>
               ) : null}
-              <ul
-                className={`mt-2.5 flex flex-col gap-1 text-xs leading-relaxed ${
-                  entry.level > currentLevel ? 'text-ink-400' : 'text-ink-600'
-                }`}
-              >
-                {entry.abilities.map((a) => (
-                  <li key={a} className="flex gap-1.5">
-                    <span aria-hidden className="text-ink-300">
-                      {entry.level <= currentLevel ? '＋' : '·'}
-                    </span>
-                    {a}
-                  </li>
-                ))}
-              </ul>
+              {/* 与社区公约权限表对齐：个人博客 / 公共页面 两线，「＋」为相对上一级新增 */}
+              <dl className="mt-2.5 flex flex-col gap-2 text-xs leading-relaxed">
+                <div>
+                  <dt className="text-ink-400">🔒 个人博客</dt>
+                  <dd className={`mt-0.5 ${dim ? 'text-ink-400' : 'text-ink-700'}`}>
+                    {entry.priv}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-ink-400">🌐 公共页面</dt>
+                  <dd className={`mt-0.5 ${dim ? 'text-ink-400' : 'text-ink-700'}`}>{entry.pub}</dd>
+                </div>
+              </dl>
             </div>
           );
         })}
