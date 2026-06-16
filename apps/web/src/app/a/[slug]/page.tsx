@@ -226,7 +226,10 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
       canFeature = can(actor, 'doc.feature', { sectionId: article.sectionId }).allow;
       canProtect = can(actor, 'doc.protect', docCtx).allow;
       canPublicize = can(actor, 'doc.set_visibility', { sectionId: article.sectionId }).allow;
-      canFlag = can(actor, 'flag.create', { sectionId: article.sectionId }).allow;
+      // 举报：登录且有 flag.create（管理员也有）；不在自己的文章上显示（举报自己无意义）
+      canFlag =
+        article.ownerId !== actor.id &&
+        can(actor, 'flag.create', { sectionId: article.sectionId }).allow;
     }
   }
   // 协作弹窗的三项（不可用者标灰 + 原因）；未登录一律提示先登录
@@ -565,6 +568,14 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
           </div>
         ) : null}
 
+        {/* 文末操作：举报这篇文章（flag.create；后端 subjectType=document，进版主复核队列）。
+            放在正文末、协议声明上方，登录非作者可见——比塞进协议框里更易找到 */}
+        {canFlag ? (
+          <div className="flex flex-col items-center pb-6">
+            <FlagButton subjectType="document" subjectId={article.docId} />
+          </div>
+        ) : null}
+
         {seriesNav !== null ? (
           <div className="mb-6">
             <SeriesNav nav={seriesNav} />
@@ -584,12 +595,6 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
             </a>{' '}
             协议发布：转载请署名、注明出处并限非商业使用，演绎版本须以相同协议共享。
           </p>
-          {/* 举报这篇文章（flag.create；后端 subjectType=document，进版主复核队列） */}
-          {canFlag ? (
-            <div className="mt-3 border-ink-200/70 border-t pt-3">
-              <FlagButton subjectType="document" subjectId={article.docId} />
-            </div>
-          ) : null}
         </footer>
 
         {/* 失锚批注：原文已改、无处可栖的批注收进折叠区（服务端渲染） */}
