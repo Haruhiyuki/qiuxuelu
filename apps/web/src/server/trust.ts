@@ -14,7 +14,7 @@ import {
 } from '@harublog/db';
 import type { TrustEventKind, TrustStats, TrustThresholds } from '@harublog/domain';
 import { computeLevel, DEFAULT_THRESHOLDS, TRUST_EVENT_DELTAS } from '@harublog/domain';
-import { and, eq, sql } from 'drizzle-orm';
+import { and, eq, gte, sql } from 'drizzle-orm';
 
 type Tx = Pick<Database, 'select' | 'insert' | 'update'>;
 
@@ -67,7 +67,7 @@ export async function computeUserStats(
   const docRows = await db
     .select({
       total: sql<number>`count(*)`,
-      win: sql<number>`count(*) filter (where ${documents.createdAt} >= ${windowStart})`,
+      win: sql<number>`count(*) filter (where ${gte(documents.createdAt, windowStart)})`,
     })
     .from(documents)
     .where(and(eq(documents.ownerId, userId), eq(documents.status, 'published')));
@@ -78,7 +78,7 @@ export async function computeUserStats(
   const inlineRows = await db
     .select({
       total: sql<number>`count(*)`,
-      win: sql<number>`count(*) filter (where ${comments.createdAt} >= ${windowStart})`,
+      win: sql<number>`count(*) filter (where ${gte(comments.createdAt, windowStart)})`,
     })
     .from(comments)
     .where(
@@ -95,7 +95,7 @@ export async function computeUserStats(
   const fbRows = await db
     .select({
       total: sql<number>`count(*)`,
-      win: sql<number>`count(*) filter (where ${feedback.createdAt} >= ${windowStart})`,
+      win: sql<number>`count(*) filter (where ${gte(feedback.createdAt, windowStart)})`,
     })
     .from(feedback)
     .where(eq(feedback.authorId, userId));
@@ -106,7 +106,7 @@ export async function computeUserStats(
   const sgRows = await db
     .select({
       total: sql<number>`count(*)`,
-      win: sql<number>`count(*) filter (where ${suggestions.resolvedAt} >= ${windowStart})`,
+      win: sql<number>`count(*) filter (where ${gte(suggestions.resolvedAt, windowStart)})`,
     })
     .from(suggestions)
     .where(and(eq(suggestions.authorId, userId), eq(suggestions.status, 'merged')));
