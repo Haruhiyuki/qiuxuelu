@@ -6,6 +6,7 @@ import { getSession } from '@/lib/session';
 import { hasPublishGrant, loadActor } from '@/server/actors';
 import { hasConsented } from '@/server/consent';
 import { countUnread } from '@/server/notifications';
+import { LogoMark } from './logo-mark';
 import { MobileNav } from './mobile-nav';
 import { NavLink } from './nav-link';
 import { SearchTrigger } from './search/search-trigger';
@@ -46,13 +47,8 @@ export async function SiteHeader() {
       <div className="mx-auto flex h-14 w-full max-w-6xl items-center justify-between gap-3 px-4 sm:px-6">
         <div className="flex items-center gap-4 sm:gap-8">
           <Link href="/" className="group flex shrink-0 items-center gap-2.5">
-            {/* 朱印式站标：方印底 + 站名首字，呼应「纸页与批注」的朱砂 */}
-            <span
-              aria-hidden
-              className="flex h-7 w-7 items-center justify-center rounded-xs bg-danger-fill font-serif text-base text-on-fill leading-none shadow-paper transition-transform group-hover:-rotate-3"
-            >
-              {SITE_NAME.charAt(0)}
-            </span>
+            {/* 站标：朱砂方印 + 上行之路（详见 LogoMark） */}
+            <LogoMark className="h-7 w-7 shrink-0 rounded-xs shadow-paper transition-transform group-hover:-rotate-3" />
             <span className="whitespace-nowrap font-semibold font-serif text-ink-900 text-xl tracking-wide">
               {SITE_NAME}
             </span>

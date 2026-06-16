@@ -1,5 +1,6 @@
 import { SITE_DESCRIPTION, SITE_NAME } from '@harublog/config';
 import Link from 'next/link';
+import { LogoMark } from './logo-mark';
 
 export function SiteFooter() {
   return (
@@ -7,12 +8,7 @@ export function SiteFooter() {
       <div className="mx-auto grid w-full max-w-6xl gap-10 px-6 py-12 sm:grid-cols-[2fr_1fr_1fr]">
         <div className="max-w-sm">
           <p className="flex items-center gap-2.5">
-            <span
-              aria-hidden
-              className="flex h-6 w-6 items-center justify-center rounded-xs bg-danger-fill font-serif text-on-fill text-sm leading-none"
-            >
-              {SITE_NAME.charAt(0)}
-            </span>
+            <LogoMark className="h-6 w-6 shrink-0 rounded-xs" />
             <span className="font-semibold font-serif text-ink-900 text-lg">{SITE_NAME}</span>
           </p>
           <p className="mt-3 text-ink-500 text-sm leading-relaxed">{SITE_DESCRIPTION}</p>
