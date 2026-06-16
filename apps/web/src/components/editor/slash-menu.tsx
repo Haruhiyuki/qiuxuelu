@@ -2,7 +2,7 @@
 
 // 斜杠命令菜单的展示层（定位与键盘导航由 slash-command 渲染器驱动）。
 import { cn } from '@harublog/ui';
-import type { SlashItem } from './slash-command';
+import type { SlashItem } from './slash-types';
 
 export function SlashMenu({
   items,

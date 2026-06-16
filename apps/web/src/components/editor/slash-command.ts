@@ -1,16 +1,13 @@
 // 斜杠命令扩展：输入 “/” 弹出块插入菜单（现代编辑器标志交互）。
 // 基于 @tiptap/suggestion；弹层用 React 根挂到 body 并按光标定位，键盘 ↑↓/Enter/Esc 导航。
-import { type Editor, Extension, type Range } from '@tiptap/core';
+import { Extension } from '@tiptap/core';
 import Suggestion, { type SuggestionKeyDownProps, type SuggestionProps } from '@tiptap/suggestion';
 import { createElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { SlashMenu } from './slash-menu';
+import type { SlashItem } from './slash-types';
 
-export interface SlashItem {
-  title: string;
-  hint: string;
-  run: (editor: Editor, range: Range) => void;
-}
+export type { SlashItem } from './slash-types';
 
 const ITEMS: SlashItem[] = [
   {

@@ -6,16 +6,26 @@ on:
     branches: [main]
   pull_request:
 
+# 同一分支/PR 有新推送时，取消仍在跑的旧运行（省额度、出结果更快）
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+# 最小权限（只读检出即可）
+permissions:
+  contents: read
+
 jobs:
   ci:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
-      - uses: pnpm/action-setup@v4
+      # 先装 pnpm（版本取 package.json 的 packageManager 字段），再让 setup-node 缓存
+      - uses: pnpm/action-setup@v6
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
           node-version: 24
           cache: pnpm
