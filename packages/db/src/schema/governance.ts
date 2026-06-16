@@ -101,6 +101,33 @@ export const sanctions = pgTable(
   ],
 );
 
+// 申诉：被制裁用户对某条制裁发起申诉，管理员复核——accepted 则撤销该制裁、rejected 附说明。
+export const appeals = pgTable(
+  'appeals',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: text('user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    sanctionId: uuid('sanction_id')
+      .notNull()
+      .references(() => sanctions.id, { onDelete: 'cascade' }),
+    reason: text('reason').notNull(),
+    // open | accepted | rejected
+    status: text('status').notNull().default('open'),
+    resolvedBy: text('resolved_by').references(() => user.id),
+    resolvedAt: timestamp('resolved_at', { withTimezone: true }),
+    decisionNote: text('decision_note'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    check('appeals_status_check', sql`${t.status} in ('open', 'accepted', 'rejected')`),
+    index('appeals_status_idx').on(t.status),
+    // 一条制裁至多一条「未决」申诉（避免重复申诉刷屏）
+    uniqueIndex('appeals_open_per_sanction_uq').on(t.sanctionId).where(sql`${t.status} = 'open'`),
+  ],
+);
+
 export const publishRequests = pgTable(
   'publish_requests',
   {

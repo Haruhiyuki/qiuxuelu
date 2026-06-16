@@ -196,8 +196,19 @@ export default function CovenantPage() {
         </Article>
 
         <Article title="六、举报与申诉">
-          <Item label="举报">发现违规内容或行为，可就近举报，志愿者与管理员会跟进。</Item>
-          <Item label="申诉">对针对你的裁决有异议，可发起申诉，我们会复核。</Item>
+          <Item label="举报">
+            发现违规内容或行为，可在评论或文章处就近举报，志愿者与管理员会跟进。
+          </Item>
+          <Item label="申诉">
+            对针对你的处罚有异议，可在{' '}
+            <Link
+              href="/account"
+              className="text-brand-700 underline decoration-brand-300 underline-offset-2 hover:text-brand-900"
+            >
+              账户设置
+            </Link>{' '}
+            就该处罚发起申诉，管理员会复核，受理后撤销处罚。
+          </Item>
         </Article>
       </div>
 

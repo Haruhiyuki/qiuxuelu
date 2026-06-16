@@ -33,6 +33,7 @@ export default async function AdminLayout({ children }: { children: ReactNode })
     { href: '/admin/patrol', label: '巡查', visible: has('queue.claim') },
     { href: '/admin/news', label: '近闻', visible: has('announcement.manage') },
     { href: '/admin/users', label: '用户', visible: isAdmin },
+    { href: '/admin/appeals', label: '申诉', visible: isAdmin },
     { href: '/admin/audit', label: '审计', visible: isAdmin },
   ]
     .filter((i) => i.visible)

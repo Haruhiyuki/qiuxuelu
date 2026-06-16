@@ -3,8 +3,12 @@ import { and, count, eq, gte } from 'drizzle-orm';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
+import { AppealPanel, type SanctionView } from '@/components/appeal-panel';
 import { Breadcrumb } from '@/components/breadcrumb';
+import { formatDate } from '@/lib/format';
+import { SANCTION_KIND_LABELS, type SanctionKindCode } from '@/lib/sanction-kinds';
 import { getSession } from '@/lib/session';
+import { loadMySanctions } from '@/server/appeals';
 import { AccountForm } from './account-form';
 
 export const dynamic = 'force-dynamic';
@@ -55,6 +59,15 @@ export default async function AccountPage() {
     windowDays: RENAME_WINDOW_DAYS,
   };
 
+  // 生效中的制裁（绝大多数用户为空）→ 申诉面板
+  const sanctionViews: SanctionView[] = (await loadMySanctions(session.user.id)).map((s) => ({
+    id: s.id,
+    kindLabel: SANCTION_KIND_LABELS[s.kind as SanctionKindCode] ?? s.kind,
+    reason: s.reason,
+    endsLabel: s.endsAt === null ? '长期（至人工解除）' : `至 ${formatDate(s.endsAt)}`,
+    appeal: s.appeal,
+  }));
+
   return (
     <div className="mx-auto w-full max-w-5xl px-6 py-10">
       <Breadcrumb items={[{ label: '首页', href: '/' }, { label: '账户设置' }]} />
@@ -91,18 +104,21 @@ export default async function AccountPage() {
           </ul>
         </nav>
 
-        <AccountForm
-          initialName={session.user.name}
-          email={session.user.email}
-          emailVerified={session.user.emailVerified}
-          emailNotifications={prefRow?.emailNotifications ?? true}
-          initialBio={prefRow?.bio ?? ''}
-          initialEducationStage={prefRow?.educationStage ?? ''}
-          initialEducation={prefRow?.education ?? null}
-          initialImage={prefRow?.image ?? ''}
-          renameQuota={renameQuota}
-          twoFactorEnabled={prefRow?.twoFactorEnabled ?? false}
-        />
+        <div className="flex flex-col gap-8">
+          {sanctionViews.length > 0 ? <AppealPanel sanctions={sanctionViews} /> : null}
+          <AccountForm
+            initialName={session.user.name}
+            email={session.user.email}
+            emailVerified={session.user.emailVerified}
+            emailNotifications={prefRow?.emailNotifications ?? true}
+            initialBio={prefRow?.bio ?? ''}
+            initialEducationStage={prefRow?.educationStage ?? ''}
+            initialEducation={prefRow?.education ?? null}
+            initialImage={prefRow?.image ?? ''}
+            renameQuota={renameQuota}
+            twoFactorEnabled={prefRow?.twoFactorEnabled ?? false}
+          />
+        </div>
       </div>
     </div>
   );
