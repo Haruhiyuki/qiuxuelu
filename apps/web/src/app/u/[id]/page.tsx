@@ -11,22 +11,10 @@ import {
 } from '@harublog/db';
 import { Badge, EmptyState } from '@harublog/ui';
 import { and, count, countDistinct, desc, eq, isNull } from 'drizzle-orm';
-import {
-  Award,
-  CalendarDays,
-  ChevronRight,
-  Feather,
-  FileText,
-  GraduationCap,
-  Landmark,
-  Layers,
-  Lightbulb,
-  PenLine,
-} from 'lucide-react';
+import { CalendarDays, ChevronRight, GraduationCap, Layers, PenLine } from 'lucide-react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import type { ReactNode } from 'react';
 import { Breadcrumb } from '@/components/breadcrumb';
 import { TRUST_LEVEL_NAMES, TrustRoadmap } from '@/components/trust-roadmap';
 import { formatDate } from '@/lib/format';
@@ -84,19 +72,6 @@ export async function generateMetadata({ params }: ProfilePageProps): Promise<Me
     title: `${profile.name} 的主页`,
     description: `${profile.name} 在求学路的公开贡献与文章。`,
   };
-}
-
-// 成就荣誉胶囊：暖金（ochre）色系，区别于品牌色的操作入口；与正文/文章页的胶囊语言同形不同色。
-function HonorChip({ icon, label }: { icon: ReactNode; label: string }) {
-  return (
-    <span
-      className="inline-flex items-center gap-1.5 rounded-full border border-ochre-200 bg-ochre-50 px-2.5 py-0.5 text-ochre-800 text-xs"
-      title="贡献成就"
-    >
-      {icon}
-      {label}
-    </span>
-  );
 }
 
 export default async function ProfilePage({ params }: ProfilePageProps) {
@@ -157,22 +132,6 @@ export default async function ProfilePage({ params }: ProfilePageProps) {
     { label: '被采纳建议', value: mergedCount },
   ];
 
-  // 成就荣誉：由信任等级与贡献里程碑派生（无需独立表），统一图标胶囊呈现
-  const honorIcon = 'h-3.5 w-3.5';
-  const honors: { icon: ReactNode; label: string }[] = [];
-  if (trustLevel >= 4) {
-    honors.push({ icon: <Landmark className={honorIcon} aria-hidden />, label: '核心共建者' });
-  }
-  if (docs.length >= 5) {
-    honors.push({ icon: <Feather className={honorIcon} aria-hidden />, label: '高产作者' });
-  } else if (docs.length >= 1) {
-    honors.push({ icon: <FileText className={honorIcon} aria-hidden />, label: '已发布作者' });
-  }
-  if (mergedCount >= 10) {
-    honors.push({ icon: <Award className={honorIcon} aria-hidden />, label: '金牌建议者' });
-  } else if (mergedCount >= 1) {
-    honors.push({ icon: <Lightbulb className={honorIcon} aria-hidden />, label: '建议被采纳' });
-  }
 
   return (
     <div className="mx-auto w-full max-w-3xl px-6 py-10">
@@ -253,15 +212,6 @@ export default async function ProfilePage({ params }: ProfilePageProps) {
             <GraduationCap className="h-4 w-4 shrink-0 text-ink-400" aria-hidden />
             {profile.educationStage}
           </p>
-        ) : null}
-
-        {/* 成就 */}
-        {honors.length > 0 ? (
-          <div className="mt-4 flex flex-wrap gap-1.5">
-            {honors.map((h) => (
-              <HonorChip key={h.label} icon={h.icon} label={h.label} />
-            ))}
-          </div>
         ) : null}
 
         {/* 贡献概览：与身份同卡，分隔线下三栏等宽 */}
