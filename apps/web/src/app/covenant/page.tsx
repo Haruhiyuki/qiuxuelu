@@ -16,14 +16,14 @@ export const metadata: Metadata = {
 // 维度与 TrustRoadmap 的 requirementsFor / domain TrustThresholds 对应。
 const UPGRADE_REQS = [
   { tl: 'TL0', name: '新成员', req: '注册即是' },
-  { tl: 'TL1', name: '成员', req: '账号达到一定注册时长与累计活跃天数' },
-  { tl: 'TL2', name: '贡献者', req: '保持活跃，并积累一定的评论参与' },
+  { tl: 'TL1', name: '成员', req: '发布 1 篇文章' },
+  { tl: 'TL2', name: '贡献者', req: '累计贡献满 50 分' },
   {
     tl: 'TL3',
     name: '资深贡献者',
-    req: '近期窗口内：修订申请被采纳达标、被拒比例与举报命中率达标，并保持活跃（持续考核，跌破会回落）',
+    req: '近一年内贡献满 150 分（窗口滑动，持续考核，跌破会回落）',
   },
-  { tl: 'TL4', name: '共建者', req: '无自动路径，由社区提名 + 超级管理员人工授予' },
+  { tl: 'TL4', name: '共建者', req: '在 TL3 基础上由管理员颁发认证' },
 ];
 
 function Article({ title, children }: { title: string; children: ReactNode }) {
@@ -187,6 +187,12 @@ export default function CovenantPage() {
               </tbody>
             </table>
           </div>
+          <p>
+            贡献分按动作累计：发布文章 <span className="font-medium text-ink-800">+12</span>
+            、行内批注 <span className="font-medium text-ink-800">+1</span>、编辑建议{' '}
+            <span className="font-medium text-ink-800">+2</span>、修订申请被采纳{' '}
+            <span className="font-medium text-ink-800">+3</span>。
+          </p>
           <p className="text-ink-400 text-xs leading-relaxed">
             具体阈值由站点治理配置并随社区规模调整；登录后可在个人主页的「权限路线图」查看自己的实时进度。
           </p>

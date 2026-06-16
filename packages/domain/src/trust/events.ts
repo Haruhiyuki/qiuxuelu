@@ -1,6 +1,6 @@
 /**
  * 信任事件种类——trust_events 表的 kind 枚举来源。
- * 等级由事件流重放聚合为 TrustStats 后经 computeLevel 结算（可重放重算，架构 §4）；
+ * 等级由源表派生 TrustStats 后经 computeLevel 结算（积分制，可重放重算，ADR-0016）；
  * delta 是辅助性的信任分增量，用于看板与异常晋升曲线监控，不直接决定等级。
  */
 export type TrustEventKind =
@@ -17,19 +17,19 @@ export type TrustEventKind =
   | 'manual_adjust';
 
 /**
- * 各事件的信任分 delta 常量表。
- * 量级原则：合入一次建议 ≈ 十条普通评论（「建议被采纳率」是晋升核心指标）；
+ * 各事件的信任分 delta 常量表（看板辅助分账，不直接决定等级）。
+ * 正向值与积分制（ADR-0016）权重对齐：发文 12、修订申请合入 3、行内批注/评论 1；
  * 负向事件惩罚重于对称值以抬高刷分成本（风险登记簿「信任体系刷分提权」对策）。
  */
 export const TRUST_EVENT_DELTAS: Record<TrustEventKind, number> = {
   comment_approved: 1,
   comment_removed: -3,
   suggestion_submitted: 0,
-  suggestion_merged: 10,
+  suggestion_merged: 3,
   suggestion_rejected: -2,
   flag_upheld: 2,
   flag_dismissed: -1,
-  doc_published: 5,
+  doc_published: 12,
   patrol_reverted: -5,
   sanction_issued: -20,
   // 人工调整的 delta 由事件载荷携带，常量表恒为 0

@@ -10,6 +10,7 @@ export function LogoMark({ className }: { className?: string }) {
       aria-hidden
       xmlns="http://www.w3.org/2000/svg"
     >
+      <title>求学路</title>
       {/* 朱砂方印底（铺满 viewBox，避免与外层圆角/阴影错位露出方框） */}
       <rect x="0" y="0" width="24" height="24" rx="6" fill="var(--color-danger-fill)" />
       {/* 上行之路：起点（左下）蜿蜒至终点（右上） */}

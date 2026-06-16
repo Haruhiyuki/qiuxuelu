@@ -17,21 +17,27 @@ export interface TrustTier {
 
 export const TRUST_TIERS: TrustTier[] = [
   { level: 0, name: '新成员', priv: '评论、发布新文章', pub: '评论、发布新文章', note: '注册即是' },
-  { level: 1, name: '成员', priv: '＋行内批注', pub: '＋行内批注、编辑建议' },
-  { level: 2, name: '贡献者', priv: '＋编辑建议', pub: '＋修订申请' },
+  {
+    level: 1,
+    name: '成员',
+    priv: '＋行内批注',
+    pub: '＋行内批注、编辑建议',
+    note: '发布 1 篇文章即达',
+  },
+  { level: 2, name: '贡献者', priv: '＋编辑建议', pub: '＋修订申请', note: '累计贡献满 50 分' },
   {
     level: 3,
     name: '资深贡献者',
     priv: '＋修订申请',
     pub: '＋直接修订',
-    note: '按滚动窗口持续考核，跌破阈值会回落',
+    note: '近一年贡献满 150 分；窗口滑动，跌破会回落',
   },
   {
     level: 4,
     name: '共建者',
     priv: '＋审核修订申请',
     pub: '＋审核修订申请',
-    note: '仅社区提名 + 人工授予，无自动达标路径',
+    note: '在 TL3 基础上由管理员颁发认证',
   },
 ];
 

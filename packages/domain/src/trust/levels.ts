@@ -1,71 +1,55 @@
-/** TL3 考核用滚动窗口指标（窗口长度 = TrustThresholds.windowDays，默认 100 天，架构 §4）。 */
-export interface TrustWindowStats {
-  /** 窗口内被合入的编辑建议数——晋升 TL3 的核心指标。 */
-  suggestionsMerged: number;
-  /** 窗口内 被拒建议 / 已裁决建议 的比例（0–1）；无已裁决建议时调用方应记 0。 */
-  mergeRejectRatio: number;
-  /** 窗口内举报命中率（0–1）；无举报时调用方应记 1（不因未举报而卡晋升）。 */
-  flagsAccuracy: number;
-  /** 窗口内活跃天数。 */
-  activeDays: number;
+// 贡献积分制（ADR-0016）：等级由「累计/窗口贡献分」与「是否发文」决定，纯函数可重放。
+// 阈值与计分权重均落 site_settings（治理阈值不硬编码，架构 §4 + CLAUDE.md 红线）；
+// 此处的 DEFAULT_THRESHOLDS 仅作 site_settings 缺失/损坏时的回落缺省。
+
+/** 各贡献动作的计分权重（一次动作得几分）。 */
+export interface TrustPointValues {
+  /** 发布一篇文章 */
+  publishDoc: number;
+  /** 一条行内批注（可见态） */
+  inlineComment: number;
+  /** 一条编辑建议（feedback，不改内容的意见） */
+  feedback: number;
+  /** 一个修订申请被采纳（suggestion 合入主线） */
+  suggestionMerged: number;
 }
 
-/** 信任结算输入——由 trust_events 事件流重放聚合而来，computeLevel 本身不碰事件流。 */
+/**
+ * 信任结算输入——由源表派生聚合而来（可重放），computeLevel 本身不碰数据库。
+ * points 为全生命周期累计分（决定 TL2）；windowPoints 为近 windowDays 天窗口内的分（决定 TL3）。
+ */
 export interface TrustStats {
-  accountAgeDays: number;
-  /** 累计活跃天数（全生命周期）。 */
-  activeDays: number;
-  /** 通过预审/未被删除的评论数。 */
-  commentsPosted: number;
-  /** 已发布文章数——发首文即达 T1（ADR-0010）。 */
+  /** 已发布文章数——发首文即达 TL1（ADR-0010 起，ADR-0016 收紧为 TL1 的唯一门槛）。 */
   publishedDocs: number;
-  window: TrustWindowStats;
+  /** 累计贡献分（全生命周期）——决定 TL2。 */
+  points: number;
+  /** 近 windowDays 天窗口内贡献分——决定 TL3（窗口滑动，跌破会回落）。 */
+  windowPoints: number;
 }
 
 export interface TrustThresholds {
-  /** TL3 滚动考核窗口长度（天）——取数方按它聚合 window 指标。 */
+  /** TL3 滚动考核窗口长度（天）。 */
   windowDays: number;
-  tl1: {
-    accountAgeDays: number;
-    activeDays: number;
-  };
-  tl2: {
-    activeDays: number;
-    commentsPosted: number;
-  };
-  /** TL3 全部基于滚动窗口：达标晋升、跌破回落（回落判定由调用方比较现等级）。 */
-  tl3: {
-    suggestionsMerged: number;
-    maxMergeRejectRatio: number;
-    minFlagsAccuracy: number;
-    activeDays: number;
-  };
+  /** 晋升 TL2 所需累计贡献分。 */
+  tl2Points: number;
+  /** 晋升 TL3 所需窗口内贡献分。 */
+  tl3WindowPoints: number;
+  /** 各动作计分权重。 */
+  points: TrustPointValues;
 }
 
-// TL4 永不出现在阈值表中：仅提名 + 人工授予（架构 §4）。
-export const DEFAULT_THRESHOLDS: TrustThresholds = {
-  windowDays: 100,
-  tl1: { accountAgeDays: 2, activeDays: 2 },
-  tl2: { activeDays: 15, commentsPosted: 10 },
-  tl3: {
-    suggestionsMerged: 10,
-    maxMergeRejectRatio: 0.25,
-    minFlagsAccuracy: 0.7,
-    activeDays: 30,
-  },
-};
-
-// 冷启动档：早期社区数据稀疏，阈值大幅调低，随规模上调（架构 §4）；两档均最终入 site_settings。
+// TL0 注册即是；TL1 发布 1 篇文章；TL2 累计 50 分；TL3 近一年窗口 150 分；
+// TL4 永不自动（TL3 + 管理员颁发认证，仅人工授予，不出现在阈值表中）。
 // 注意：packages/db/src/seed.ts 将本常量形状手抄入 site_settings['trust.thresholds'].thresholds
-// （依赖方向禁止 db import domain）。改本类型/常量必须同步 seed。
-export const COLD_START_THRESHOLDS: TrustThresholds = {
-  windowDays: 100,
-  tl1: { accountAgeDays: 1, activeDays: 1 },
-  tl2: { activeDays: 5, commentsPosted: 3 },
-  tl3: {
-    suggestionsMerged: 3,
-    maxMergeRejectRatio: 0.4,
-    minFlagsAccuracy: 0.5,
-    activeDays: 10,
+// （依赖方向禁止 db import domain）。改本类型/常量必须同步 seed 与 apps/web/server/trust.ts。
+export const DEFAULT_THRESHOLDS: TrustThresholds = {
+  windowDays: 365,
+  tl2Points: 50,
+  tl3WindowPoints: 150,
+  points: {
+    publishDoc: 12,
+    inlineComment: 1,
+    feedback: 2,
+    suggestionMerged: 3,
   },
 };

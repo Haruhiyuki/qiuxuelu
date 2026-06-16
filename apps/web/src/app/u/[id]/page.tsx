@@ -115,13 +115,7 @@ export default async function ProfilePage({ params }: ProfilePageProps) {
   let roadmapProgress: Parameters<typeof TrustRoadmap>[0]['progress'] = null;
   if (isOwnProfile) {
     const thresholds = await loadThresholds(db);
-    const stats = await computeUserStats(
-      db,
-      profile.id,
-      profile.createdAt,
-      new Date(),
-      thresholds.windowDays,
-    );
+    const stats = await computeUserStats(db, profile.id, new Date(), thresholds);
     roadmapProgress = { stats, thresholds };
   }
 
@@ -131,7 +125,6 @@ export default async function ProfilePage({ params }: ProfilePageProps) {
     { label: '修订贡献', value: Number(revisionRows[0]?.n ?? 0) },
     { label: '被采纳建议', value: mergedCount },
   ];
-
 
   return (
     <div className="mx-auto w-full max-w-3xl px-6 py-10">

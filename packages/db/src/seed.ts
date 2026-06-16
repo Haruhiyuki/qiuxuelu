@@ -1,4 +1,4 @@
-// 种子数据：四个顶级板块 + 信任阈值冷启动档。幂等，可重复执行。
+// 种子数据：顶级板块 + 信任积分阈值（ADR-0016）+ 私有→公共阈值。幂等，可重复执行。
 import { closeDb, getDb } from './client';
 import { siteSettings } from './schema/infra';
 import { sections } from './schema/sections';
@@ -42,22 +42,22 @@ const SECTION_ROWS = [
   },
 ];
 
-// 冷启动档（架构 §4）：早期社区数据稀疏，阈值大幅调低；规模化后上调并切换 profile。
+// 贡献积分制阈值（ADR-0016）：TL1 发首文、TL2 累计 50 分、TL3 近一年窗口 150 分、TL4 人工认证。
 // thresholds 的形状必须与 @harublog/domain 的 TrustThresholds（trust/levels.ts 的
-// COLD_START_THRESHOLDS）逐字段一致——依赖方向禁止 db import domain，故此处手抄并双向互注；
-// M2 信任结算会从本 key 读出 thresholds 直接喂 computeLevel，漂移即晋升全线失效。
-const TRUST_THRESHOLDS_COLD_START = {
-  profile: 'cold_start',
-  note: '冷启动档：社区早期数据稀疏，阈值大幅调低，随规模上调',
+// DEFAULT_THRESHOLDS）逐字段一致——依赖方向禁止 db import domain，故此处手抄并双向互注；
+// 信任结算从本 key 读出 thresholds 直接喂 computeLevel，漂移即晋升全线失效。
+const TRUST_THRESHOLDS = {
+  profile: 'launch',
+  note: '积分制（ADR-0016）：发文+12 / 行内批注+1 / 编辑建议+2 / 修订通过+3；TL2=50 累计、TL3=150 近一年',
   thresholds: {
-    windowDays: 100,
-    tl1: { accountAgeDays: 1, activeDays: 1 },
-    tl2: { activeDays: 5, commentsPosted: 3 },
-    tl3: {
-      suggestionsMerged: 3,
-      maxMergeRejectRatio: 0.4,
-      minFlagsAccuracy: 0.5,
-      activeDays: 10,
+    windowDays: 365,
+    tl2Points: 50,
+    tl3WindowPoints: 150,
+    points: {
+      publishDoc: 12,
+      inlineComment: 1,
+      feedback: 2,
+      suggestionMerged: 3,
     },
   },
 };
@@ -72,7 +72,7 @@ async function main(): Promise<void> {
     .values([
       {
         key: 'trust.thresholds',
-        value: TRUST_THRESHOLDS_COLD_START,
+        value: TRUST_THRESHOLDS,
       },
       {
         // 私有→公共自动升级阈值（实质协作累计数，ADR-0007 + ADR-0013）；治理阈值入配置不硬编码
