@@ -348,7 +348,7 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
           publisher: { '@type': 'Organization', name: SITE_NAME },
           mainEntityOfPage: articleUrl,
           inLanguage: 'zh-CN',
-          license: 'https://creativecommons.org/licenses/by-sa/4.0/',
+          license: 'https://creativecommons.org/licenses/by-nc-sa/4.0/',
         }}
       />
       <JsonLd
@@ -571,14 +571,14 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
           <p>
             本文以{' '}
             <a
-              href="https://creativecommons.org/licenses/by-sa/4.0/deed.zh-hans"
+              href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.zh-hans"
               rel="license noopener"
               target="_blank"
               className="text-brand-700 underline decoration-brand-300 underline-offset-2 hover:text-brand-900"
             >
-              CC BY-SA 4.0
+              CC BY-NC-SA 4.0
             </a>{' '}
-            协议发布：转载请署名并注明出处，演绎版本须以相同协议共享。
+            协议发布：转载请署名、注明出处并限非商业使用，演绎版本须以相同协议共享。
           </p>
         </footer>
 

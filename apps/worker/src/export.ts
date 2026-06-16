@@ -1,4 +1,4 @@
-// 全站内容导出（公益承诺：可随时 dump）。逐篇已发布文章输出一行 JSON（NDJSON），自带 CC BY-SA 协议与贡献者。
+// 全站内容导出（公益承诺：可随时 dump）。逐篇已发布文章输出一行 JSON（NDJSON），自带 CC BY-NC-SA 协议与贡献者。
 // 用法：pnpm --filter @harublog/worker exec tsx src/export.ts > harublog-dump.ndjson
 import { buildDocumentExport, getDb, listPublishedDocIds } from '@harublog/db';
 

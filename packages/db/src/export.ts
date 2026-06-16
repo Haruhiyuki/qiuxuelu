@@ -1,4 +1,4 @@
-// 可移植数据导出（兑现公益承诺：全站内容可 dump）。导出对象自带 CC BY-SA 协议与贡献者署名，
+// 可移植数据导出（兑现公益承诺：全站内容可 dump）。导出对象自带 CC BY-NC-SA 协议与贡献者署名，
 // 任何人可据此复刻内容。署名取自主线修订的全部作者（修订历史即贡献凭证，ADR-0003）。
 import { and, asc, eq, isNull } from 'drizzle-orm';
 import type { Database } from './client';
@@ -11,7 +11,7 @@ import {
 } from './schema/index';
 
 export const EXPORT_SCHEMA = 'harublog/export@1';
-export const CONTENT_LICENSE = 'CC-BY-SA-4.0';
+export const CONTENT_LICENSE = 'CC-BY-NC-SA-4.0';
 
 export interface DocumentExport {
   schema: typeof EXPORT_SCHEMA;
@@ -21,7 +21,7 @@ export interface DocumentExport {
   summary: string | null;
   section: { slug: string; name: string };
   author: string;
-  /** 主线全部修订作者去重（CC BY-SA 要求向所有贡献者署名）。 */
+  /** 主线全部修订作者去重（CC BY-NC-SA 要求向所有贡献者署名）。 */
   contributors: string[];
   publishedAt: string;
   updatedAt: string;

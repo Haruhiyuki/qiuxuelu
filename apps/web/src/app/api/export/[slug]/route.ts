@@ -1,4 +1,4 @@
-// 公开只读单篇导出 API（CC BY-SA 开放语料）：GET /api/export/<slug> → 可移植 JSON。
+// 公开只读单篇导出 API（CC BY-NC-SA 开放语料）：GET /api/export/<slug> → 可移植 JSON。
 import { buildDocumentExport, documents, getDb } from '@harublog/db';
 import { eq } from 'drizzle-orm';
 

@@ -1,4 +1,4 @@
-// 社区公约：注册时确认的「社区公约」的完整正文。内容据平台真实机制（CC BY-SA 授权、
+// 社区公约：注册时确认的「社区公约」的完整正文。内容据平台真实机制（CC BY-NC-SA 授权、
 // 修订留痕、双线权限/信任等级、巡查举报制裁、审计与透明度）撰写，与 onboarding 同意项一致。
 import type { Metadata } from 'next';
 import Link from 'next/link';
@@ -103,14 +103,14 @@ export default function CovenantPage() {
           <Item label="共享协议">
             你在此发布与贡献的内容，以{' '}
             <a
-              href="https://creativecommons.org/licenses/by-sa/4.0/deed.zh-hans"
+              href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.zh-hans"
               target="_blank"
               rel="license noopener noreferrer"
               className="text-brand-700 underline decoration-brand-300 underline-offset-2 hover:text-brand-900"
             >
-              CC BY-SA 4.0
+              CC BY-NC-SA 4.0
             </a>{' '}
-            协议共享：他人可在署名并以相同协议共享的前提下，自由使用与再创作。
+            协议共享：他人可在署名、非商业使用并以相同协议共享的前提下，自由使用与再创作。
           </Item>
           <Item label="署名与凭证">
             署名归原作者及全部贡献者，修订历史即贡献凭证——你的每一次贡献都会被记录与认可。

@@ -54,7 +54,7 @@ export default function RegisterPage() {
     }
     // 法律前置（PRD §7）：许可与公约未确认不得提交
     if (!licenseAccepted) {
-      setError('请先确认同意以 CC BY-SA 4.0 协议授权你发布的内容');
+      setError('请先确认同意以 CC BY-NC-SA 4.0 协议授权你发布的内容');
       return;
     }
     if (!covenantAccepted) {
@@ -186,14 +186,14 @@ export default function RegisterPage() {
             <span>
               我同意将我在本站发布的内容以{' '}
               <a
-                href="https://creativecommons.org/licenses/by-sa/4.0/deed.zh-hans"
+                href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.zh-hans"
                 rel="license noopener"
                 target="_blank"
                 className="text-brand-700 underline decoration-brand-300 underline-offset-2 hover:text-brand-900"
               >
-                CC BY-SA 4.0
+                CC BY-NC-SA 4.0
               </a>{' '}
-              协议授权共享，允许他人在署名并以相同方式共享的前提下转载与修改。
+              协议授权共享，允许他人在署名、非商业并以相同方式共享的前提下转载与修改。
             </span>
           </label>
           <label className="flex items-start gap-2.5 text-sm leading-relaxed text-ink-700">

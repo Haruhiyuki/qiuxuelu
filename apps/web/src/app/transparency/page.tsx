@@ -125,7 +125,7 @@ export default async function TransparencyPage() {
       </div>
 
       <p className="mt-10 text-ink-400 text-xs">
-        内容默认以 CC BY-SA 4.0 共享，全站内容可经 /api/export
+        内容默认以 CC BY-NC-SA 4.0 共享，全站内容可经 /api/export
         导出。治理高危操作均留有不可篡改的审计记录。
       </p>
     </div>

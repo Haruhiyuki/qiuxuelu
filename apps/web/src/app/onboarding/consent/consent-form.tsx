@@ -37,14 +37,14 @@ export function ConsentForm() {
         <span>
           我已阅读并同意：我发布与贡献的内容以{' '}
           <a
-            href="https://creativecommons.org/licenses/by-sa/4.0/deed.zh-hans"
+            href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.zh-hans"
             rel="license noopener"
             target="_blank"
             className="text-brand-700 underline decoration-brand-300 underline-offset-2 hover:text-brand-900"
           >
-            CC BY-SA 4.0
+            CC BY-NC-SA 4.0
           </a>{' '}
-          协议共享（署名归原作者及贡献者，修订历史即贡献凭证），并遵守{' '}
+          协议共享（须署名、非商业使用并以相同方式共享；修订历史即贡献凭证），并遵守{' '}
           <a
             href="/covenant"
             target="_blank"

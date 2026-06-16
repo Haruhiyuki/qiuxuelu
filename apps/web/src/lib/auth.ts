@@ -88,7 +88,7 @@ function buildAuth() {
               (typeof cov === 'string' && cov.length > 0);
             if (provided && (lic !== LICENSE_CONSENT_VERSION || cov !== COVENANT_CONSENT_VERSION)) {
               throw new APIError('BAD_REQUEST', {
-                message: '注册必须确认内容授权协议（CC BY-SA 4.0）与社区公约',
+                message: '注册必须确认内容授权协议（CC BY-NC-SA 4.0）与社区公约',
               });
             }
             // 统一身份：name 即 @提及句柄——校验格式 + 全站唯一（小写比较；

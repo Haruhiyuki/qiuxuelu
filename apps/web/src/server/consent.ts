@@ -1,4 +1,4 @@
-// 后置同意守卫：判断用户是否已确认当前版本的内容授权（CC BY-SA）+ 社区公约。
+// 后置同意守卫：判断用户是否已确认当前版本的内容授权（CC BY-NC-SA）+ 社区公约。
 // OAuth 用户创建时无凭证，须在贡献前经 /onboarding/consent 补齐；协议版本升级后存量用户也需重新确认。
 import { type Database, getDb, user as userTable } from '@harublog/db';
 import { eq } from 'drizzle-orm';

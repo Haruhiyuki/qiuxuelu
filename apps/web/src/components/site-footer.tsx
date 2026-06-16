@@ -24,11 +24,6 @@ export function SiteFooter() {
           <p className="font-medium text-ink-800">站内</p>
           <ul className="mt-3 flex flex-col gap-2 text-ink-500">
             <li>
-              <Link href="/" className="transition-colors hover:text-brand-700">
-                浏览文章
-              </Link>
-            </li>
-            <li>
               <Link href="/news" className="transition-colors hover:text-brand-700">
                 近闻
               </Link>
@@ -60,12 +55,12 @@ export function SiteFooter() {
           <ul className="mt-3 flex flex-col gap-2 text-ink-500">
             <li>
               <a
-                href="https://creativecommons.org/licenses/by-sa/4.0/deed.zh-hans"
+                href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.zh-hans"
                 rel="license noopener"
                 target="_blank"
                 className="transition-colors hover:text-brand-700"
               >
-                CC BY-SA 4.0
+                CC BY-NC-SA 4.0
               </a>
             </li>
             <li>
@@ -79,12 +74,18 @@ export function SiteFooter() {
                 GitHub
               </a>
             </li>
+            <li>
+              <Link href="/covenant" className="transition-colors hover:text-brand-700">
+                社区公约
+              </Link>
+            </li>
           </ul>
         </div>
       </div>
       <div className="border-ink-200/70 border-t">
         <p className="mx-auto w-full max-w-6xl px-6 py-4 text-ink-400 text-xs leading-relaxed">
-          除特别声明外，本站内容默认以 CC BY-SA 4.0 协议共享：转载请署名并注明出处。
+          除特别声明外，本站内容默认以 CC BY-NC-SA 4.0
+          协议共享：转载请署名、注明出处，限非商业使用。
         </p>
       </div>
     </footer>

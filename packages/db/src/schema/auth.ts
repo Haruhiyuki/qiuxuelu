@@ -39,7 +39,7 @@ export const user = pgTable(
     // 邮件通知偏好（默认开）：worker 据此决定是否发通知邮件
     emailNotifications: boolean('emailNotifications').notNull().default(true),
     // 注册时的法律同意凭证（PRD §7 前置决策）：由 better-auth additionalFields 服务端强制写入，
-    // 存协议版本号，同意时间即 createdAt——平台对 CC BY-SA 授权必须可举证，缺失即拒绝注册。
+    // 存协议版本号，同意时间即 createdAt——平台对 CC BY-NC-SA 授权必须可举证，缺失即拒绝注册。
     licenseConsentVersion: text('licenseConsentVersion').notNull().default(''),
     covenantConsentVersion: text('covenantConsentVersion').notNull().default(''),
     // 两步验证开关（better-auth twoFactor 插件必需列）：仅在 TOTP 首次校验通过后置真
