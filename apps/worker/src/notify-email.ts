@@ -17,6 +17,7 @@ const EMAIL_KINDS = [
   'suggestion_rejected',
   'suggestion_changes',
   'new_post',
+  'review_pending',
 ] as const;
 
 const SUBJECTS: Record<string, string> = {
@@ -28,6 +29,7 @@ const SUBJECTS: Record<string, string> = {
   suggestion_rejected: '你的编辑建议未被采纳',
   suggestion_changes: '你的编辑建议被要求修改',
   new_post: '你订阅的板块有新文章',
+  review_pending: '有新的待办事项待处理',
 };
 
 interface Payload {
@@ -37,9 +39,26 @@ interface Payload {
   suggestionId?: string;
   sectionName?: string;
   unsubToken?: string;
+  // review_pending：标记是哪个审校队列（决定跳转的后台页与正文）
+  queue?: string;
+}
+
+// review_pending 各队列 → 后台处理页
+function adminLinkForQueue(queue: string | undefined): string {
+  if (queue === 'suggestion') {
+    return `${APP_URL}/admin/suggestions`;
+  }
+  if (queue === 'flag') {
+    return `${APP_URL}/admin/flags`;
+  }
+  // new_document / first_post（发布审批）
+  return `${APP_URL}/admin/review`;
 }
 
 function linkFor(kind: string, p: Payload): string {
+  if (kind === 'review_pending') {
+    return adminLinkForQueue(p.queue);
+  }
   if (kind.startsWith('suggestion_') && p.suggestionId) {
     return `${APP_URL}/suggestions/${p.suggestionId}`;
   }
@@ -50,6 +69,18 @@ function linkFor(kind: string, p: Payload): string {
     return `${APP_URL}/a/${p.slug}`;
   }
   return `${APP_URL}/notifications`;
+}
+
+// review_pending 的正文（按队列定制）
+function reviewPendingBody(p: Payload): string {
+  const title = p.title ?? '';
+  if (p.queue === 'suggestion') {
+    return `有一条修订申请待审核${title ? `（《${title}》）` : ''}，请前往后台处理。`;
+  }
+  if (p.queue === 'flag') {
+    return '有一条举报待复核，请前往后台处理。';
+  }
+  return `有一篇新文章${title ? `《${title}》` : ''}待审批，请前往后台处理。`;
 }
 
 interface Row {
@@ -83,7 +114,9 @@ export async function drainNotificationEmails(db: Database): Promise<number> {
         const title = p.title ?? '';
         const subject = SUBJECTS[row.kind] ?? '求学路有新动态';
         let body: string;
-        if (row.kind === 'new_post') {
+        if (row.kind === 'review_pending') {
+          body = reviewPendingBody(p);
+        } else if (row.kind === 'new_post') {
           const sec = p.sectionName ?? '';
           body = `你订阅的板块${sec ? `《${sec}》` : ''}发布了新文章《${title}》。`;
           if (p.unsubToken) {

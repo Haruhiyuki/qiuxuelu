@@ -22,7 +22,9 @@ export type NotificationKind =
   | 'feedback_received'
   | 'feedback_handled'
   // 文章从私有升级为公共（祝贺原作者，ADR-0007）
-  | 'doc_promoted';
+  | 'doc_promoted'
+  // 有新待办进入审校队列，通知有权处理的成员（发布审批/修订申请/举报）
+  | 'review_pending';
 
 type TxLike = Pick<Database, 'insert'>;
 type ReadLike = Pick<Database, 'select'>;

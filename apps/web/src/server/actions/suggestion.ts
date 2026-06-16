@@ -53,6 +53,7 @@ import {
 } from '@/server/merge';
 import { insertNotification } from '@/server/notifications';
 import { maybeAutoPromote } from '@/server/promote';
+import { notifyQueueReviewers } from '@/server/review-notify';
 import { loadRevisionDoc } from '@/server/revision-doc';
 import { emitTrustEvent, recomputeTrust } from '@/server/trust';
 
@@ -322,6 +323,12 @@ export async function createSuggestion(
           sectionId: doc.sectionId,
         })
         .onConflictDoNothing();
+      await notifyQueueReviewers(tx, {
+        queue: 'suggestion',
+        sectionId: doc.sectionId,
+        actorId: actor.id,
+        payload: { queue: 'suggestion', title: doc.title },
+      });
       await insertNotification(tx, {
         recipientId: doc.ownerId,
         actorId: actor.id,

@@ -18,6 +18,7 @@ import { FLAG_REASON_CODES } from '@/lib/flag-reasons';
 import { getSession } from '@/lib/session';
 import type { ActionResult } from '@/server/action-result';
 import { loadActor } from '@/server/actors';
+import { notifyQueueReviewers } from '@/server/review-notify';
 
 function fail(error: string): { ok: false; error: string } {
   return { ok: false, error };
@@ -130,6 +131,19 @@ export async function flagContent(
         );
       const totalWeight = Number(totalWeightRows[0]?.w ?? 0);
 
+      // 是否已在举报队列：仅首次进入才通知复核者，后续追加举报只累加权重不重复打扰
+      const priorFlagItem = await tx
+        .select({ id: reviewItems.id })
+        .from(reviewItems)
+        .where(
+          and(
+            eq(reviewItems.queue, 'flag'),
+            eq(reviewItems.subjectType, subjectType.data),
+            eq(reviewItems.subjectId, rawSubjectId),
+            eq(reviewItems.status, 'pending'),
+          ),
+        )
+        .limit(1);
       await tx
         .insert(reviewItems)
         .values({
@@ -143,6 +157,14 @@ export async function flagContent(
           target: [reviewItems.queue, reviewItems.subjectType, reviewItems.subjectId],
           set: { priority: totalWeight, status: 'pending' },
         });
+      if (priorFlagItem.length === 0) {
+        await notifyQueueReviewers(tx, {
+          queue: 'flag',
+          sectionId: subject.sectionId,
+          actorId: actor.id,
+          payload: { queue: 'flag', subjectType: subjectType.data },
+        });
+      }
 
       // 累计权重越线：自动隐藏评论（待复核）。文档不自动下线，仅进队列人工处理。
       if (subjectType.data === 'comment' && totalWeight >= AUTO_HIDE_WEIGHT) {

@@ -55,6 +55,7 @@ import {
 import { insertNotification } from '@/server/notifications';
 import { maybeAutoPromote } from '@/server/promote';
 import { publishRevisionTx } from '@/server/publish';
+import { notifyQueueReviewers } from '@/server/review-notify';
 import { loadRevisionDoc } from '@/server/revision-doc';
 
 /** 业务可预期失败：事务内抛出触发回滚，边界处转成 {ok:false} 中文文案。 */
@@ -864,6 +865,12 @@ export async function requestPublish(
           sectionId: docRow.sectionId,
         })
         .onConflictDoNothing();
+      await notifyQueueReviewers(tx, {
+        queue: 'new_document',
+        sectionId: docRow.sectionId,
+        actorId: actor.id,
+        payload: { queue: 'new_document', title: docRow.title },
+      });
       // 已发布文章的改版申请不改变线上状态（published 不动），仅首发从 draft 进入 pending
       if (docRow.status === 'draft') {
         await tx
