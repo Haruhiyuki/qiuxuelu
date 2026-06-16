@@ -54,7 +54,7 @@ export default function CovenantPage() {
           <h1 className="font-semibold font-serif text-3xl text-ink-900">社区公约</h1>
         </div>
         <p className="mt-4 text-ink-600 leading-relaxed">
-          求学路是一个围绕各阶段求学生涯的博客平台。在这里发布的文章既是作者的个人博客，又可以由他人通过批注、编辑建议、修订申请等方式参与协作，以负责任的态度共同完成可供后来者阅读的内容。注册时你确认的「社区公约」，即指本页。
+          求学路是一个围绕各阶段求学生涯的博客平台。在这里发布的文章既是作者的个人博客，又可以由他人通过批注、编辑建议、修订申请等方式参与协作，以负责任的态度共同完成可供后来者阅读的内容。
         </p>
       </header>
 
@@ -70,10 +70,7 @@ export default function CovenantPage() {
             ，它便会升级为<span className="font-medium text-ink-800">公共页面</span>
             ，成为公共领域知识。作者依然保留对该文章的署名权与管理权，但社区内的其他贡献者也将能通过更多方式参与对该页面的贡献。
           </p>
-          <p>
-            每一次改动都会留痕、可追溯、可回退——修订历史本身就是大家共同的创作记录。以下是各等级用户在
-            「个人博客」与「公共页面」上所拥有的协作权限：
-          </p>
+          <p>以下是各等级贡献者在 「个人博客」与「公共页面」上所拥有的协作权限：</p>
           <div className="overflow-x-auto">
             <table className="w-full min-w-[30rem] border-collapse text-sm">
               <thead>
@@ -98,7 +95,7 @@ export default function CovenantPage() {
             </table>
           </div>
           <p className="text-ink-400 text-xs leading-relaxed">
-            「＋」表示该等级相对上一级新增的权限（含下级全部权限）。「修订」即直接改动正文：在公共页面上即时生效并进入巡查复核；个人博客的直接修订仅作者本人与板块版主及以上可做。协作记录指他人「被采纳的修订申请」与「直编修订」，评论、编辑建议等更轻的参与不计入升级阈值。T4（共建者）由人工授予。
+            「＋」表示该等级相对上一级新增的权限（含下级全部权限）。
           </p>
         </Article>
 
