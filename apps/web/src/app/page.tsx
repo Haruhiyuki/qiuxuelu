@@ -297,7 +297,7 @@ export default async function HomePage({
 
   return (
     <div className="mx-auto w-full max-w-6xl px-6 py-6">
-      {/* 精简标语：保留「共笔·互校·开放」的气质，去掉旧版的板块/写作按钮，改导向社区公约 */}
+      {/* 精简标语：保留「共笔·真诚·开放」的气质，去掉旧版的板块/写作按钮，改导向社区公约 */}
       {/* 不加底部分割线：下方列表头部已有一条，避免两条线并排 */}
       <section className="rise-in mb-6">
         {/* 置顶公告：作为低调小药丸融入标语顶部（不再整条铺底、不可永久关闭） */}
@@ -326,7 +326,7 @@ export default async function HomePage({
         ) : null}
         <p className="flex items-center gap-3 text-ink-500 text-sm tracking-[0.3em]">
           <span aria-hidden className="h-px w-8 bg-accent-600" />
-          共笔 · 互校 · 开放
+          共笔 · 真诚 · 开放
         </p>
         <h1 className="mt-3 max-w-2xl font-semibold font-serif text-2xl text-ink-900 leading-snug tracking-wide sm:text-3xl">
           把走过的路，写成后来者的地图

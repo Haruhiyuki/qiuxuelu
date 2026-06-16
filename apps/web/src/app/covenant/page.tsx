@@ -10,6 +10,16 @@ export const metadata: Metadata = {
   description: '求学路的社区共同约定：内容授权、内容准则、协作礼仪与治理秩序。',
 };
 
+// 各信任等级在「个人博客（私有）/ 公共页面」上对他人文章的协作权限（与 domain can() 一致）。
+// 「+」= 相对上一级新增（含下级全部）。门槛差异源于页面模式（ADR-0007/0010）。
+const TIERS = [
+  { tl: 'T0', name: '新成员', priv: '阅读、评论', pub: '阅读、评论' },
+  { tl: 'T1', name: '成员', priv: '＋行内批注', pub: '＋行内批注、编辑建议' },
+  { tl: 'T2', name: '贡献者', priv: '＋编辑建议', pub: '＋修订申请' },
+  { tl: 'T3', name: '资深贡献者', priv: '＋修订申请', pub: '＋直接修订' },
+  { tl: 'T4', name: '共建者', priv: '＋审核修订申请', pub: '＋审核修订申请' },
+];
+
 function Article({ title, children }: { title: string; children: ReactNode }) {
   return (
     <section className="border-ink-200/70 border-t pt-6">
@@ -44,17 +54,52 @@ export default function CovenantPage() {
           <h1 className="font-semibold font-serif text-3xl text-ink-900">社区公约</h1>
         </div>
         <p className="mt-4 text-ink-600 leading-relaxed">
-          求学路是一本由大家共同编纂的求学经验之书。你写下的内容会被他人阅读、修订与再发布——为了让协作既开放又有秩序，请与我们共同遵守以下约定。注册时你确认的「社区公约」，即指本页。
+          求学路是一个围绕各阶段求学生涯的博客平台。在这里发布的文章既是作者的个人博客，又可以由他人通过批注、编辑建议、修订申请等方式参与协作，以负责任的态度共同完成可供后来者阅读的内容。注册时你确认的「社区公约」，即指本页。
         </p>
       </header>
 
       <div className="flex flex-col gap-7">
-        <Article title="一、关于这个平台">
+        <Article title="一、协作规则">
           <p>
-            这里的每篇文章都是一份「活文档」：在权限允许下，他人可以修订你的内容。每一次改动都会留痕、可追溯、可回退——
-            修订历史本身就是大家的共同创作记录。
+            <span className="font-medium text-ink-800">共笔、真诚、开放</span>
+            是求学路的精神。你在社区内参与的贡献行为越多，便拥有越高的协作权限。
           </p>
-          <p>我们珍视真实、可考、对后来者真正有用的求学经验，而非流量与喧哗。</p>
+          <p>
+            当一篇个人博客积累了超过{' '}
+            <strong className="font-medium text-ink-800">50 条协作记录</strong>
+            ，它便会升级为<span className="font-medium text-ink-800">公共页面</span>
+            ，成为公共领域知识。作者依然保留对该文章的署名权与管理权，但社区内的其他贡献者也将能通过更多方式参与对该页面的贡献。
+          </p>
+          <p>
+            每一次改动都会留痕、可追溯、可回退——修订历史本身就是大家共同的创作记录。以下是各等级用户在
+            「个人博客」与「公共页面」上所拥有的协作权限：
+          </p>
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[30rem] border-collapse text-sm">
+              <thead>
+                <tr className="border-ink-200 border-b text-ink-500 text-xs">
+                  <th className="py-2 pr-3 text-left font-medium">等级</th>
+                  <th className="px-3 py-2 text-left font-medium">🔒 个人博客</th>
+                  <th className="px-3 py-2 text-left font-medium">🌐 公共页面</th>
+                </tr>
+              </thead>
+              <tbody className="text-ink-600">
+                {TIERS.map((t) => (
+                  <tr key={t.tl} className="border-ink-100 border-b align-top last:border-0">
+                    <td className="whitespace-nowrap py-2 pr-3">
+                      <span className="font-medium text-ink-700">{t.tl}</span>
+                      <span className="block text-ink-400 text-xs">{t.name}</span>
+                    </td>
+                    <td className="px-3 py-2">{t.priv}</td>
+                    <td className="px-3 py-2">{t.pub}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <p className="text-ink-400 text-xs leading-relaxed">
+            「＋」表示该等级相对上一级新增的权限（含下级全部权限）。「修订」即直接改动正文：在公共页面上即时生效并进入巡查复核；个人博客的直接修订仅作者本人与板块版主及以上可做。协作记录指他人「被采纳的修订申请」与「直编修订」，评论、编辑建议等更轻的参与不计入升级阈值。T4（共建者）由人工授予。
+          </p>
         </Article>
 
         <Article title="二、内容授权">
@@ -116,44 +161,8 @@ export default function CovenantPage() {
             </Link>{' '}
             查看。
           </p>
-
-          <p className="pt-2">
-            <span className="font-medium text-ink-800">协作权：公共页 / 私有页两条线。</span>对
-            <span className="font-medium text-ink-700">自己的文章</span>
-            ，从注册起（TL0）就拥有完整协作权；对
-            <span className="font-medium text-ink-700">他人的文章</span>
-            ，三种协作方式的门槛取决于页面是公共还是私有（能力阶梯：编辑建议 ＜ 修订申请 ＜ 修订）：
-          </p>
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[28rem] border-collapse text-sm">
-              <thead>
-                <tr className="border-ink-200 border-b text-ink-500 text-xs">
-                  <th className="py-2 pr-3 text-left font-medium">协作方式</th>
-                  <th className="px-3 py-2 text-left font-medium">🌐 公共页</th>
-                  <th className="px-3 py-2 text-left font-medium">🔒 私有页</th>
-                </tr>
-              </thead>
-              <tbody className="text-ink-600">
-                {[
-                  ['编辑建议', '提意见、不改内容', 'T1', 'T2'],
-                  ['修订申请', '改内容，需审核才生效', 'T2', 'T3'],
-                  ['修订', '改内容，立即生效（可撤回）', 'T3', '权限者'],
-                ].map((row) => (
-                  <tr key={row[0]} className="border-ink-100 border-b align-top last:border-0">
-                    <td className="py-2 pr-3">
-                      <span className="font-medium text-ink-700">{row[0]}</span>
-                      <span className="block text-ink-400 text-xs">{row[1]}</span>
-                    </td>
-                    <td className="px-3 py-2">{row[2]}</td>
-                    <td className="px-3 py-2">{row[3]}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          <p className="text-ink-400 text-xs leading-relaxed">
-            权限者 = 作者本人 + 板块版主及以上。私有页累计 50 次实质协作（他人被采纳的修订申请 +
-            直编修订；评论、编辑建议等更轻的参与不计）会自动转为公共页，也可由管理员手动设置；升级后保留原作者署名。
+          <p className="text-ink-500">
+            各协作方式的具体门槛见上文「一、协作规则」；自动升级与版主任命之外的权力，一律经任命授予。
           </p>
         </Article>
 
