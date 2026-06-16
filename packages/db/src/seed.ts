@@ -3,34 +3,42 @@ import { closeDb, getDb } from './client';
 import { siteSettings } from './schema/infra';
 import { sections } from './schema/sections';
 
+// 板块分类（可经超管「板块管理」后台增删改排序；stage 已退化为内部字段）
 const SECTION_ROWS = [
   {
-    slug: 'junior-high',
-    name: '初中',
-    description: '初中阶段的学习方法、学科经验与升学准备。',
+    slug: 'secondary',
+    name: '中学',
+    description: '初高中阶段的学习方法、学科经验与升学备考。',
     stage: 'junior',
     position: 0,
-  },
-  {
-    slug: 'senior-high',
-    name: '高中',
-    description: '高中阶段的学科攻略、备考心得与高考经验。',
-    stage: 'senior',
-    position: 1,
   },
   {
     slug: 'college',
     name: '大学',
     description: '大学阶段的专业学习、科研入门与生涯规划。',
     stage: 'college',
+    position: 1,
+  },
+  {
+    slug: 'mindset',
+    name: '心路',
+    description: '求学路上的心态、选择与成长感悟。',
+    stage: 'general',
     position: 2,
   },
   {
-    slug: 'methodology',
-    name: '通用方法论',
-    description: '跨阶段通用的学习方法、效率工具与心态建设。',
+    slug: 'observations',
+    name: '见闻',
+    description: '亲历的见闻、观察与经验分享。',
     stage: 'general',
     position: 3,
+  },
+  {
+    slug: 'methodology',
+    name: '通用方法',
+    description: '跨阶段通用的学习方法、效率工具与心态建设。',
+    stage: 'general',
+    position: 4,
   },
 ];
 
