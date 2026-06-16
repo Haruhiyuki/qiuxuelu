@@ -34,3 +34,6 @@ test-results/
 
 # 本地数据库数据卷
 .docker-data/
+
+# 设计过程归档（不随公开仓库分发）
+.archive/

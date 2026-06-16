@@ -1,6 +1,7 @@
 {
   "name": "harublog",
   "private": true,
+  "license": "AGPL-3.0-only",
   "packageManager": "pnpm@10.11.0",
   "engines": {
     "node": ">=22"

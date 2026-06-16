@@ -2,7 +2,7 @@
 
 - 状态：已采纳
 - 日期：2026-06-10
-- 关联：docs/02-architecture.md §1、docs/design/research-stack-2026.md
+- 关联：docs/02-architecture.md §1
 
 ## 背景
 

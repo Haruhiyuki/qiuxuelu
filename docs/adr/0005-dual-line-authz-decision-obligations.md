@@ -2,7 +2,7 @@
 
 - 状态：已采纳
 - 日期：2026-06-10
-- 关联：docs/02-architecture.md §4、docs/design/proposal-c-governance-first.md §4
+- 关联：docs/02-architecture.md §4
 
 ## 背景
 

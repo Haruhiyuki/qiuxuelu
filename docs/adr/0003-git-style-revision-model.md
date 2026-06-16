@@ -2,7 +2,7 @@
 
 - 状态：已采纳
 - 日期：2026-06-10
-- 关联：docs/02-architecture.md §3、docs/design/proposal-a-collab-kernel.md §3
+- 关联：docs/02-architecture.md §3
 
 ## 背景
 

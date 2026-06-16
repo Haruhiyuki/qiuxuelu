@@ -14,7 +14,7 @@
 | 项 | 值 |
 |----|----|
 | 域名 | `testblog.haruyuki.cn`（nginx vhost → `127.0.0.1:3100`） |
-| 服务器 | `119.23.77.86`（root；走 SSH key，见末尾） |
+| 服务器 | `<SERVER_IP>`（root；走 SSH key，见末尾） |
 | systemd 单元 | `harublog-web`（`Type=simple`，`MemoryMax=600M`/`MemoryHigh=480M`） |
 | 工作目录 | `/opt/harublog/web/apps/web`，`ExecStart=node …/server.js` |
 | 部署根（standalone 摊平） | `/opt/harublog/web/`：`apps/web/{.next,server.js,package.json,node_modules}` + 顶层 `node_modules` |
@@ -45,7 +45,7 @@
 # 本机：取最新稳定版二进制（linux-amd64），scp 上去
 TAG=$(curl -s https://api.github.com/repos/meilisearch/meilisearch/releases/latest | sed -nE 's/.*"tag_name": *"([^"]+)".*/\1/p' | head -1)
 curl -fL -o /tmp/meilisearch.linux-amd64 "https://github.com/meilisearch/meilisearch/releases/download/${TAG}/meilisearch-linux-amd64"
-scp -i ~/.ssh/harublog_deploy /tmp/meilisearch.linux-amd64 root@119.23.77.86:/tmp/
+scp -i ~/.ssh/<DEPLOY_KEY> /tmp/meilisearch.linux-amd64 root@<SERVER_IP>:/tmp/
 # 服务器：装二进制；生成强 master key（48 hex），写 meili.env 并同步进 web.env（原值是占位符 "disabled"）
 #   meili.env: MEILI_MASTER_KEY=<key> / MEILI_ENV=production / MEILI_NO_ANALYTICS=true
 #             / MEILI_DB_PATH=/opt/harublog/meili-data / MEILI_HTTP_ADDR=127.0.0.1:7700
@@ -61,7 +61,7 @@ scp -i ~/.ssh/harublog_deploy /tmp/meilisearch.linux-amd64 root@119.23.77.86:/tm
 # 本机：打包（worker 服务 + 一次性 reindex）
 pnpm dlx esbuild apps/worker/src/index.ts   --bundle --platform=node --format=cjs --target=node20 --outfile=/tmp/hb-worker.cjs
 pnpm dlx esbuild apps/worker/src/reindex.ts --bundle --platform=node --format=cjs --target=node20 --outfile=/tmp/hb-reindex.cjs
-scp -i ~/.ssh/harublog_deploy /tmp/hb-worker.cjs /tmp/hb-reindex.cjs root@119.23.77.86:/tmp/
+scp -i ~/.ssh/<DEPLOY_KEY> /tmp/hb-worker.cjs /tmp/hb-reindex.cjs root@<SERVER_IP>:/tmp/
 # 服务器：放 /opt/harublog/worker/，单元 harublog-worker.service：
 #   EnvironmentFile=/opt/harublog/web.env（复用 DATABASE_URL/MEILI*/RESEND*），ExecStart=$(command -v node) …/worker.cjs,
 #   MemoryMax=200M, Restart=on-failure, StandardOutput/Error=append:/var/log/harublog-worker.log
@@ -103,13 +103,13 @@ COPYFILE_DISABLE=1 tar -C apps/web/.next/standalone \
   -czf /tmp/hb-web.tgz apps/web/.next apps/web/server.js
 
 # 4) 传到服务器
-scp -i ~/.ssh/harublog_deploy /tmp/hb-web.tgz root@119.23.77.86:/tmp/hb-web.tgz
+scp -i ~/.ssh/<DEPLOY_KEY> /tmp/hb-web.tgz root@<SERVER_IP>:/tmp/hb-web.tgz
 ```
 
 服务器侧换包（停→备份→换→起→探活）：
 
 ```bash
-ssh -i ~/.ssh/harublog_deploy root@119.23.77.86 'bash -s' <<'REMOTE'
+ssh -i ~/.ssh/<DEPLOY_KEY> root@<SERVER_IP> 'bash -s' <<'REMOTE'
 set -e
 TS=$(date +%Y%m%d-%H%M%S); WEB=/opt/harublog/web/apps/web; STAGE=/tmp/hb-stage-$TS
 mkdir -p "$STAGE"; tar -C "$STAGE" -xzf /tmp/hb-web.tgz
@@ -162,7 +162,7 @@ REMOTE
 ## 回滚
 
 ```bash
-ssh -i ~/.ssh/harublog_deploy root@119.23.77.86 'bash -s' <<'REMOTE'
+ssh -i ~/.ssh/<DEPLOY_KEY> root@<SERVER_IP> 'bash -s' <<'REMOTE'
 set -e; WEB=/opt/harublog/web/apps/web
 BK=$(ls -d $WEB/.next.bak-* | sort | tail -1)          # 最近一次备份
 systemctl stop harublog-web
@@ -209,6 +209,6 @@ systemctl daemon-reload && systemctl enable --now harublog-minio
 
 ## 凭据与访问（不入库，仅本地）
 
-- SSH：私钥 `~/.ssh/harublog_deploy`（`root@119.23.77.86`）。
+- SSH：私钥 `~/.ssh/<DEPLOY_KEY>`（`root@<SERVER_IP>`）。
 - 应用密钥（DBPASS / AUTHSECRET）：本地 `/tmp/harublog-deploy-secrets.txt`；服务器侧已写入 `/opt/harublog/web.env`。
 - root 密码与服务器 IP 等敏感信息只在对话/本地，**不提交进仓库**。
