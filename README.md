@@ -1,4 +1,4 @@
-# 求学路（harublog）
+# 求学路（Qiuxuelu）
 
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPL_v3-blue.svg)](LICENSE)
 [![Code](https://img.shields.io/badge/code-AGPL--3.0-blue)](LICENSE)

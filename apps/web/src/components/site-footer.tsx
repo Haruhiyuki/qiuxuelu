@@ -60,9 +60,8 @@ export function SiteFooter() {
               </a>
             </li>
             <li>
-              {/* 仓库地址未定，先以组织名占位 */}
               <a
-                href="https://github.com/harublog"
+                href="https://github.com/Haruhiyuki/qiuxuelu"
                 rel="noopener"
                 target="_blank"
                 className="transition-colors hover:text-brand-700"
