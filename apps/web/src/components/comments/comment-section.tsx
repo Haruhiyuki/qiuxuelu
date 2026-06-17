@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { formatDateTime } from '@/lib/format';
 import { getSession } from '@/lib/session';
 import { loadActor } from '@/server/actors';
+import { getCommentReactions } from '@/server/comment-reactions';
 import { CommentForm } from './comment-form';
 import { CommentThread, type CommentView } from './comment-thread';
 
@@ -47,12 +48,24 @@ export async function CommentSection({ docId, sectionId }: CommentSectionProps) 
     )
     .orderBy(asc(comments.createdAt));
 
-  const toView = (r: (typeof rows)[number]): CommentView => ({
-    id: r.id,
-    authorName: r.authorName ?? '佚名',
-    text: bodyText(r.body),
-    createdAtLabel: formatDateTime(r.createdAt),
-  });
+  const reactions = await getCommentReactions(
+    db,
+    rows.map((r) => r.id),
+    session?.user.id ?? null,
+  );
+
+  const toView = (r: (typeof rows)[number]): CommentView => {
+    const rx = reactions.get(r.id);
+    return {
+      id: r.id,
+      authorName: r.authorName ?? '佚名',
+      text: bodyText(r.body),
+      createdAtLabel: formatDateTime(r.createdAt),
+      likeCount: rx?.likeCount ?? 0,
+      dislikeCount: rx?.dislikeCount ?? 0,
+      myVote: rx?.myVote ?? null,
+    };
+  };
 
   const repliesByParent = new Map<string, CommentView[]>();
   for (const r of rows) {

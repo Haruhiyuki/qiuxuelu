@@ -1,10 +1,13 @@
 'use client';
 
 import { usePrompt, useToast } from '@harublog/ui';
+import { ThumbsDown, ThumbsUp } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { FlagButton } from '@/components/flag-button';
 import { hideComment } from '@/server/actions/comment';
+import { voteComment } from '@/server/actions/reactions';
+import type { VoteDirection } from '@/server/reactions';
 import { CommentForm } from './comment-form';
 import { MentionText } from './mention-text';
 
@@ -13,6 +16,9 @@ export interface CommentView {
   authorName: string;
   text: string;
   createdAtLabel: string;
+  likeCount: number;
+  dislikeCount: number;
+  myVote: VoteDirection | null;
 }
 
 export interface CommentThreadProps {
@@ -65,14 +71,114 @@ function HideButton({ commentId }: { commentId: string }) {
   );
 }
 
+/** 评论赞/踩：乐观切换，未登录引导登录；计数为 0 时只显图标。 */
+function CommentReactions({
+  commentId,
+  likeCount,
+  dislikeCount,
+  myVote,
+  loggedIn,
+}: {
+  commentId: string;
+  likeCount: number;
+  dislikeCount: number;
+  myVote: VoteDirection | null;
+  loggedIn: boolean;
+}) {
+  const router = useRouter();
+  const toast = useToast();
+  const [likes, setLikes] = useState(likeCount);
+  const [dislikes, setDislikes] = useState(dislikeCount);
+  const [vote, setVote] = useState<VoteDirection | null>(myVote);
+  const [busy, setBusy] = useState(false);
+
+  async function handle(dir: VoteDirection) {
+    if (!loggedIn) {
+      toast('请先登录', 'info');
+      router.push('/login');
+      return;
+    }
+    if (busy) {
+      return;
+    }
+    setBusy(true);
+    const prev = { likes, dislikes, vote };
+    // 乐观推演
+    if (vote === dir) {
+      if (dir === 'like') {
+        setLikes((n) => n - 1);
+      } else {
+        setDislikes((n) => n - 1);
+      }
+      setVote(null);
+    } else {
+      if (dir === 'like') {
+        setLikes((n) => n + 1);
+        if (vote === 'dislike') {
+          setDislikes((n) => n - 1);
+        }
+      } else {
+        setDislikes((n) => n + 1);
+        if (vote === 'like') {
+          setLikes((n) => n - 1);
+        }
+      }
+      setVote(dir);
+    }
+    const r = await voteComment(commentId, dir);
+    if (r.ok) {
+      setLikes(r.data.likeCount);
+      setDislikes(r.data.dislikeCount);
+      setVote(r.data.myVote);
+    } else {
+      setLikes(prev.likes);
+      setDislikes(prev.dislikes);
+      setVote(prev.vote);
+      toast(r.error, 'error');
+    }
+    setBusy(false);
+  }
+
+  return (
+    <div className="mt-1.5 flex items-center gap-3 text-xs">
+      <button
+        type="button"
+        onClick={() => handle('like')}
+        aria-pressed={vote === 'like'}
+        aria-label="赞"
+        className={`inline-flex items-center gap-1 tabular-nums transition-colors ${
+          vote === 'like' ? 'text-brand-700' : 'text-ink-400 hover:text-brand-700'
+        }`}
+      >
+        <ThumbsUp className="h-3.5 w-3.5" aria-hidden />
+        {likes > 0 ? likes : ''}
+      </button>
+      <button
+        type="button"
+        onClick={() => handle('dislike')}
+        aria-pressed={vote === 'dislike'}
+        aria-label="踩"
+        className={`inline-flex items-center gap-1 tabular-nums transition-colors ${
+          vote === 'dislike' ? 'text-accent-700' : 'text-ink-400 hover:text-accent-700'
+        }`}
+      >
+        <ThumbsDown className="h-3.5 w-3.5" aria-hidden />
+        {dislikes > 0 ? dislikes : ''}
+      </button>
+    </div>
+  );
+}
+
 function CommentBody({
   view,
   canModerate,
   canFlag,
+  loggedIn,
 }: {
   view: CommentView;
   canModerate: boolean;
   canFlag: boolean;
+  loggedIn: boolean;
 }) {
   return (
     <div className="flex gap-3">
@@ -92,6 +198,13 @@ function CommentBody({
         <p className="mt-1 whitespace-pre-wrap text-ink-700 text-sm leading-relaxed">
           <MentionText text={view.text} />
         </p>
+        <CommentReactions
+          commentId={view.id}
+          likeCount={view.likeCount}
+          dislikeCount={view.dislikeCount}
+          myVote={view.myVote}
+          loggedIn={loggedIn}
+        />
       </div>
     </div>
   );
@@ -107,7 +220,12 @@ export function CommentThread({
   const [replying, setReplying] = useState(false);
   return (
     <li className="py-5">
-      <CommentBody view={comment} canModerate={canModerate} canFlag={canReply} />
+      <CommentBody
+        view={comment}
+        canModerate={canModerate}
+        canFlag={canReply}
+        loggedIn={canReply}
+      />
       <div className="mt-2 flex items-center gap-3 pl-10 text-xs">
         {canReply ? (
           <button
@@ -135,7 +253,12 @@ export function CommentThread({
         <ul className="mt-4 ml-3.5 flex flex-col gap-4 border-ink-200 border-l-2 pl-6">
           {replies.map((reply) => (
             <li key={reply.id}>
-              <CommentBody view={reply} canModerate={canModerate} canFlag={canReply} />
+              <CommentBody
+                view={reply}
+                canModerate={canModerate}
+                canFlag={canReply}
+                loggedIn={canReply}
+              />
             </li>
           ))}
         </ul>

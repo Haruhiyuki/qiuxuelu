@@ -2,7 +2,7 @@
 
 // 赞/踩/收藏：登录即可（轻量互动，非内容贡献，不过 consent 闸）。
 // 投票切换式：点同向取消、点反向改票（事务内删反向再写本向，保证一人一票）。
-import { docReactions, getDb } from '@harublog/db';
+import { commentReactions, docReactions, getDb } from '@harublog/db';
 import { and, count, eq, inArray } from 'drizzle-orm';
 import { z } from 'zod';
 import { getSession } from '@/lib/session';
@@ -85,6 +85,79 @@ export async function voteDoc(
     .from(docReactions)
     .where(and(eq(docReactions.documentId, docId), inArray(docReactions.kind, ['like', 'dislike'])))
     .groupBy(docReactions.kind);
+  let likeCount = 0;
+  let dislikeCount = 0;
+  for (const r of countRows) {
+    if (r.kind === 'like') {
+      likeCount = Number(r.n);
+    } else if (r.kind === 'dislike') {
+      dislikeCount = Number(r.n);
+    }
+  }
+  return { ok: true, data: { myVote, likeCount, dislikeCount } };
+}
+
+/** 评论赞/踩：登录即可（轻量互动）。切换式：点同向取消、点反向改票，事务内保证一人一票。 */
+export async function voteComment(
+  commentId: string,
+  direction: VoteDirection,
+): Promise<ActionResult<VoteResult>> {
+  const session = await getSession();
+  if (!session) {
+    return { ok: false, error: '请先登录' };
+  }
+  if (direction !== 'like' && direction !== 'dislike') {
+    return { ok: false, error: '非法操作' };
+  }
+  if (!uuid.safeParse(commentId).success) {
+    return { ok: false, error: '评论参数非法' };
+  }
+  const db = getDb();
+  const uid = session.user.id;
+  const opposite: VoteDirection = direction === 'like' ? 'dislike' : 'like';
+
+  const myVote = await db.transaction(async (tx) => {
+    const mine = await tx
+      .select({ kind: commentReactions.kind })
+      .from(commentReactions)
+      .where(and(eq(commentReactions.userId, uid), eq(commentReactions.commentId, commentId)));
+    const hasSame = mine.some((r) => r.kind === direction);
+    const hasOpposite = mine.some((r) => r.kind === opposite);
+    if (hasOpposite) {
+      await tx
+        .delete(commentReactions)
+        .where(
+          and(
+            eq(commentReactions.userId, uid),
+            eq(commentReactions.commentId, commentId),
+            eq(commentReactions.kind, opposite),
+          ),
+        );
+    }
+    if (hasSame) {
+      await tx
+        .delete(commentReactions)
+        .where(
+          and(
+            eq(commentReactions.userId, uid),
+            eq(commentReactions.commentId, commentId),
+            eq(commentReactions.kind, direction),
+          ),
+        );
+      return null;
+    }
+    await tx
+      .insert(commentReactions)
+      .values({ userId: uid, commentId, kind: direction })
+      .onConflictDoNothing();
+    return direction;
+  });
+
+  const countRows = await db
+    .select({ kind: commentReactions.kind, n: count() })
+    .from(commentReactions)
+    .where(eq(commentReactions.commentId, commentId))
+    .groupBy(commentReactions.kind);
   let likeCount = 0;
   let dislikeCount = 0;
   for (const r of countRows) {
