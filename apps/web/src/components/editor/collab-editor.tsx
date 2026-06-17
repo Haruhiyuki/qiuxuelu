@@ -124,18 +124,18 @@ export function CollabEditor({
         <Alert variant={notice.kind === 'info' ? 'info' : 'danger'}>{notice.text}</Alert>
       ) : null}
 
-      <div className="overflow-hidden rounded-sm border border-ink-200 bg-paper-50">
-        {editor ? (
-          <>
-            <EditorToolbar editor={editor} />
-            <BubbleToolbar editor={editor} />
-            <TableToolbar editor={editor} />
-            <EditorContent editor={editor} />
-          </>
-        ) : (
-          <p className="px-6 py-10 text-ink-500 text-sm">编辑器加载中…</p>
-        )}
-      </div>
+      {/* 工具栏作为本栏直接子节点：吸顶（sticky top-14，紧贴站点头）生效、自然取本栏宽度——
+          与写文章页布局一致，不再被 overflow-hidden 容器困住、盖住正文。 */}
+      {editor ? (
+        <>
+          <EditorToolbar editor={editor} />
+          <BubbleToolbar editor={editor} />
+          <TableToolbar editor={editor} />
+          <EditorContent editor={editor} />
+        </>
+      ) : (
+        <p className="py-16 text-ink-400 text-sm">编辑器加载中…</p>
+      )}
 
       <div className="flex flex-col gap-2">
         <Label htmlFor="collab-message">{copy.msgLabel}</Label>
