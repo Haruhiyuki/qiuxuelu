@@ -180,4 +180,24 @@ describe('normalize 往返不变式', () => {
     const tiptap = kernelToTiptap({ type: 'doc', content: [] });
     expect(tiptap.content?.[0]?.type).toBe('paragraph');
   });
+
+  it('段落/标题的 align/indent 往返不变（ADR-0017），普通块保持纯净', () => {
+    const doc: DocJson = {
+      type: 'doc',
+      content: [
+        {
+          type: 'paragraph',
+          attrs: { blockId: 'p1', align: 'center', indent: 2 },
+          content: [{ type: 'text', text: '居中且缩进' }],
+        },
+        {
+          type: 'heading',
+          attrs: { blockId: 'h1', level: 3, align: 'right' },
+          content: [{ type: 'text', text: '右对齐标题' }],
+        },
+        { type: 'paragraph', attrs: { blockId: 'p2' }, content: [{ type: 'text', text: '普通' }] },
+      ],
+    };
+    expect(roundTrip(doc)).toEqual(doc);
+  });
 });

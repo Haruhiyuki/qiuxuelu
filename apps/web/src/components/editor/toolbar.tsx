@@ -6,6 +6,9 @@ import { cn, usePrompt, useToast } from '@harublog/ui';
 import type { Editor } from '@tiptap/react';
 import { useEditorState } from '@tiptap/react';
 import {
+  AlignCenter,
+  AlignLeft,
+  AlignRight,
   Bold,
   Code,
   Code2,
@@ -86,6 +89,12 @@ export function EditorToolbar({ editor }: { editor: Editor }) {
       highlight: e.isActive('highlight'),
       code: e.isActive('code'),
       link: e.isActive('link'),
+      alignCenter:
+        e.isActive('paragraph', { textAlign: 'center' }) ||
+        e.isActive('heading', { textAlign: 'center' }),
+      alignRight:
+        e.isActive('paragraph', { textAlign: 'right' }) ||
+        e.isActive('heading', { textAlign: 'right' }),
       blockquote: e.isActive('blockquote'),
       bulletList: e.isActive('bulletList'),
       orderedList: e.isActive('orderedList'),
@@ -109,6 +118,17 @@ export function EditorToolbar({ editor }: { editor: Editor }) {
       .chain()
       .focus()
       .insertContent({ type: 'figure', attrs: { src: uploaded.url, alt: '', caption: '' } })
+      .run();
+  }
+
+  // 对齐作用于当前段落/标题；left 视为默认（清空属性）。两类型各调一次，仅命中当前块的生效。
+  function setAlign(align: 'left' | 'center' | 'right') {
+    const val = align === 'left' ? null : align;
+    editor
+      .chain()
+      .focus()
+      .updateAttributes('paragraph', { textAlign: val })
+      .updateAttributes('heading', { textAlign: val })
       .run();
   }
 
@@ -163,6 +183,20 @@ export function EditorToolbar({ editor }: { editor: Editor }) {
         onClick={() => editor.chain().focus().toggleHeading({ level: 4 }).run()}
       >
         <Heading4 className={ICON} />
+      </ToolbarButton>
+      <Divider />
+      <ToolbarButton
+        title="左对齐"
+        active={!state.alignCenter && !state.alignRight}
+        onClick={() => setAlign('left')}
+      >
+        <AlignLeft className={ICON} />
+      </ToolbarButton>
+      <ToolbarButton title="居中对齐" active={state.alignCenter} onClick={() => setAlign('center')}>
+        <AlignCenter className={ICON} />
+      </ToolbarButton>
+      <ToolbarButton title="右对齐" active={state.alignRight} onClick={() => setAlign('right')}>
+        <AlignRight className={ICON} />
       </ToolbarButton>
       <Divider />
       <ToolbarButton

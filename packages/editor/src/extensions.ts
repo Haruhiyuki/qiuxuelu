@@ -7,6 +7,7 @@ import { TableHeader } from '@tiptap/extension-table-header';
 import { TableRow } from '@tiptap/extension-table-row';
 import type { Schema } from '@tiptap/pm/model';
 import StarterKit from '@tiptap/starter-kit';
+import { BlockFormatting } from './block-format';
 import { BlockId } from './block-id';
 import { Callout } from './callout';
 import { Figure } from './figure';
@@ -30,6 +31,7 @@ export function buildExtensions(): Extensions {
     Figure,
     Callout,
     MathBlock,
+    BlockFormatting,
     BlockId,
   ];
 }

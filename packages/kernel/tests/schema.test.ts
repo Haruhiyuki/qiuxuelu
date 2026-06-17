@@ -81,8 +81,34 @@ const fullDoc: DocJson = {
 };
 
 describe('schema/validateDoc', () => {
-  it('版本号锁定为 1', () => {
-    expect(SCHEMA_VERSION).toBe(1);
+  it('版本号锁定为 2', () => {
+    expect(SCHEMA_VERSION).toBe(2);
+  });
+
+  it('接受段落/标题的 align/indent（ADR-0017），拒绝 left 与越界缩进', () => {
+    expect(
+      validateDoc({
+        type: 'doc',
+        content: [
+          { type: 'paragraph', attrs: { blockId: 'p1', align: 'center', indent: 3 } },
+          { type: 'heading', attrs: { blockId: 'h1', level: 2, align: 'right' } },
+        ],
+      }),
+    ).toBeTruthy();
+    // left 不是合法存储值（默认应省略）
+    expect(() =>
+      validateDoc({
+        type: 'doc',
+        content: [{ type: 'paragraph', attrs: { blockId: 'p', align: 'left' } }],
+      }),
+    ).toThrow();
+    // 缩进越界（>8）
+    expect(() =>
+      validateDoc({
+        type: 'doc',
+        content: [{ type: 'paragraph', attrs: { blockId: 'p', indent: 9 } }],
+      }),
+    ).toThrow();
   });
 
   it('接受覆盖全部节点类型的文档并原样返回数据', () => {

@@ -36,6 +36,35 @@ function readBlockId(node: JSONContent): string {
   throw new Error(`顶层块（${node.type ?? '未知类型'}）缺少 blockId，请刷新页面后重试`);
 }
 
+/** 读取 Tiptap 段落/标题的块级排版（ADR-0017）：对齐仅 center/right，缩进 1–8；默认值省略。 */
+function readBlockFormat(node: JSONContent): { align?: 'center' | 'right'; indent?: number } {
+  const out: { align?: 'center' | 'right'; indent?: number } = {};
+  const a = node.attrs?.textAlign;
+  if (a === 'center' || a === 'right') {
+    out.align = a;
+  }
+  const i = node.attrs?.indent;
+  if (typeof i === 'number' && i >= 1) {
+    out.indent = Math.min(8, Math.floor(i));
+  }
+  return out;
+}
+
+/** kernel 段落/标题 attrs → Tiptap attrs：把 align/indent 还原为 textAlign/indent（默认值不落键）。 */
+function withBlockFormat(
+  blockId: string,
+  attrs: { align?: 'center' | 'right'; indent?: number },
+): Record<string, unknown> {
+  const out: Record<string, unknown> = { blockId };
+  if (attrs.align !== undefined) {
+    out.textAlign = attrs.align;
+  }
+  if (typeof attrs.indent === 'number' && attrs.indent >= 1) {
+    out.indent = attrs.indent;
+  }
+  return out;
+}
+
 function toKernelMarks(marks: JSONContent['marks']): Mark[] {
   const out: Mark[] = [];
   for (const mark of marks ?? []) {
@@ -114,9 +143,10 @@ function toKernelBlock(node: JSONContent): BlockNode | null {
     case 'paragraph': {
       const blockId = readBlockId(node);
       const content = toKernelInline(node.content);
+      const attrs = { blockId, ...readBlockFormat(node) };
       return content.length > 0
-        ? { type: 'paragraph', attrs: { blockId }, content }
-        : { type: 'paragraph', attrs: { blockId } };
+        ? { type: 'paragraph', attrs, content }
+        : { type: 'paragraph', attrs };
     }
     case 'heading': {
       const blockId = readBlockId(node);
@@ -126,9 +156,8 @@ function toKernelBlock(node: JSONContent): BlockNode | null {
         | 3
         | 4;
       const content = toKernelInline(node.content);
-      return content.length > 0
-        ? { type: 'heading', attrs: { blockId, level }, content }
-        : { type: 'heading', attrs: { blockId, level } };
+      const attrs = { blockId, level, ...readBlockFormat(node) };
+      return content.length > 0 ? { type: 'heading', attrs, content } : { type: 'heading', attrs };
     }
     case 'blockquote':
       return {
@@ -298,13 +327,14 @@ function fromKernelBlock(node: BlockNode): JSONContent {
   switch (node.type) {
     case 'paragraph': {
       const content = fromKernelInline(node.content);
+      const attrs = withBlockFormat(blockId, node.attrs);
       return content.length > 0
-        ? { type: 'paragraph', attrs: { blockId }, content }
-        : { type: 'paragraph', attrs: { blockId } };
+        ? { type: 'paragraph', attrs, content }
+        : { type: 'paragraph', attrs };
     }
     case 'heading': {
       const content = fromKernelInline(node.content);
-      const attrs = { blockId, level: node.attrs.level };
+      const attrs = { ...withBlockFormat(blockId, node.attrs), level: node.attrs.level };
       return content.length > 0 ? { type: 'heading', attrs, content } : { type: 'heading', attrs };
     }
     case 'blockquote':

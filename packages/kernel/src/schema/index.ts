@@ -1,10 +1,16 @@
 import { z } from 'zod';
 
 /** ProseMirror 文档 schema 版本；节点集/attrs 语义变化时必须递增并提供迁移函数链（ADR-0003 跟进项）。 */
-export const SCHEMA_VERSION = 1;
+// v2（ADR-0017）：段落/标题新增可选 align/indent 块级排版属性。
+export const SCHEMA_VERSION = 2;
 
 // 块身份由编辑器插件注入、服务端校验唯一性；空串无法充当外键，直接拒绝。
 const blockIdSchema = z.string().min(1);
+
+// 块级排版（ADR-0017）：对齐只存非默认值（left 默认 → 省略）；缩进 1–8 级（0 默认 → 省略）。
+// 默认值一律省略，保证旧文档与未排版块的内容寻址哈希不变（canonicalize 见不到该键 = 哈希同旧）。
+const alignSchema = z.enum(['center', 'right']);
+const indentSchema = z.number().int().min(1).max(8);
 
 const markSchema = z.discriminatedUnion('type', [
   z.strictObject({ type: z.literal('bold') }),
@@ -36,7 +42,11 @@ const innerParagraphSchema = z.strictObject({
 
 const paragraphSchema = z.strictObject({
   type: z.literal('paragraph'),
-  attrs: z.strictObject({ blockId: blockIdSchema }),
+  attrs: z.strictObject({
+    blockId: blockIdSchema,
+    align: alignSchema.optional(),
+    indent: indentSchema.optional(),
+  }),
   content: z.array(inlineSchema).optional(),
 });
 
@@ -46,6 +56,8 @@ const headingSchema = z.strictObject({
   attrs: z.strictObject({
     blockId: blockIdSchema,
     level: z.union([z.literal(2), z.literal(3), z.literal(4)]),
+    align: alignSchema.optional(),
+    indent: indentSchema.optional(),
   }),
   content: z.array(inlineSchema).optional(),
 });
