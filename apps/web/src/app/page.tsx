@@ -21,6 +21,7 @@ import { HomeFilterDrawer } from '@/components/home-filter-drawer';
 import { Pagination } from '@/components/pagination';
 import { getSession } from '@/lib/session';
 import { getHomepageBanner } from '@/server/announcements';
+import { loadDocScores } from '@/server/doc-scores';
 import { getSectionTags } from '@/server/section-tags';
 
 export const dynamic = 'force-dynamic';
@@ -214,13 +215,19 @@ export default async function HomePage({
     getSession(),
   ]);
 
-  const items =
+  const baseItems =
     page === 1
       ? interleave(
           rows.map((r) => toItem(r, false)),
           featuredRows.map((r) => toItem(r, true)),
         )
       : rows.map((r) => toItem(r, false));
+  // 净分（赞−踩）一次批量查出后并入列表项
+  const scoreMap = await loadDocScores(
+    db,
+    baseItems.map((i) => i.id),
+  );
+  const items = baseItems.map((i) => ({ ...i, score: scoreMap.get(i.id) ?? 0 }));
 
   const writeHref = session ? '/write/new' : '/register';
   const pageParams: Record<string, string> = {};

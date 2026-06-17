@@ -1,4 +1,5 @@
 import { Badge } from '@harublog/ui';
+import { ThumbsUp } from 'lucide-react';
 import Link from 'next/link';
 import { formatDate } from '@/lib/format';
 
@@ -14,6 +15,8 @@ export interface DocumentListItem {
   sectionSlug?: string;
   /** 精选：列表内标注「精选」徽标（首页混排时用） */
   featured?: boolean;
+  /** 净分（赞 − 踩）：列表内低调展示，缺省视作 0 */
+  score?: number;
 }
 
 /**
@@ -58,6 +61,14 @@ export function DocumentList({ items }: { items: DocumentListItem[] }) {
                 </Link>
               ) : null}
               <span>{item.authorName ?? '佚名'}</span>
+              {/* 赞踩净分：小药丸 + 点赞图标，读起来明确是「分数」；仍随行不另起行、不撑高 */}
+              <span
+                className="inline-flex items-center gap-1 rounded-full bg-paper-200 px-2 py-0.5 font-medium text-ink-600 tabular-nums"
+                title="赞踩净分（赞 − 踩）"
+              >
+                <ThumbsUp className="h-3 w-3 text-ink-400" aria-hidden />
+                {item.score ?? 0}
+              </span>
               <time dateTime={item.publishedAt.toISOString()} className="sm:hidden">
                 {formatDate(item.publishedAt)}
               </time>

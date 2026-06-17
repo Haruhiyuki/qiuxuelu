@@ -14,6 +14,7 @@ import { Tag } from 'lucide-react';
 import type { Metadata } from 'next';
 import { Breadcrumb } from '@/components/breadcrumb';
 import { DocumentList } from '@/components/document-list';
+import { loadDocScores } from '@/server/doc-scores';
 
 export const dynamic = 'force-dynamic';
 
@@ -52,6 +53,11 @@ export default async function TagPage({ params }: TagPageProps) {
     .orderBy(desc(publishedSnapshots.publishedAt))
     .limit(50);
 
+  const scoreMap = await loadDocScores(
+    db,
+    docs.map((d) => d.id),
+  );
+
   return (
     <div className="mx-auto w-full max-w-3xl px-6 py-10">
       <Breadcrumb items={[{ label: '首页', href: '/' }, { label: `#${tag}` }]} />
@@ -61,7 +67,13 @@ export default async function TagPage({ params }: TagPageProps) {
       </header>
       {docs.length > 0 ? (
         <div className="mt-4">
-          <DocumentList items={docs.map((d) => ({ ...d, authorName: d.authorName ?? null }))} />
+          <DocumentList
+            items={docs.map((d) => ({
+              ...d,
+              authorName: d.authorName ?? null,
+              score: scoreMap.get(d.id) ?? 0,
+            }))}
+          />
         </div>
       ) : (
         <EmptyState

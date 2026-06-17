@@ -15,6 +15,7 @@ import { redirect } from 'next/navigation';
 import { Breadcrumb } from '@/components/breadcrumb';
 import { DocumentList } from '@/components/document-list';
 import { getSession } from '@/lib/session';
+import { loadDocScores } from '@/server/doc-scores';
 
 export const dynamic = 'force-dynamic';
 export const metadata: Metadata = { title: '我的收藏', robots: { index: false } };
@@ -50,6 +51,11 @@ export default async function BookmarksPage() {
     )
     .orderBy(desc(docReactions.createdAt));
 
+  const scoreMap = await loadDocScores(
+    db,
+    rows.map((r) => r.id),
+  );
+
   return (
     <div className="mx-auto w-full max-w-3xl px-6 py-10">
       <Breadcrumb items={[{ label: '首页', href: '/' }, { label: '我的收藏' }]} />
@@ -58,7 +64,13 @@ export default async function BookmarksPage() {
       </header>
       {rows.length > 0 ? (
         <div className="mt-4">
-          <DocumentList items={rows.map((d) => ({ ...d, authorName: d.authorName ?? null }))} />
+          <DocumentList
+            items={rows.map((d) => ({
+              ...d,
+              authorName: d.authorName ?? null,
+              score: scoreMap.get(d.id) ?? 0,
+            }))}
+          />
         </div>
       ) : (
         <EmptyState
