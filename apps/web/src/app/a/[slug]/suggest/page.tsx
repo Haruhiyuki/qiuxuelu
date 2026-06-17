@@ -23,7 +23,7 @@ function Blocked({ slug, text }: { slug: string; text: string }) {
       <p className="mt-3 text-ink-500 text-sm">{text}</p>
       <p className="mt-6 text-sm">
         <Link href={`/a/${slug}`} className="text-brand-700 hover:text-brand-900">
-          ← 返回文章
+          ← 返回博客
         </Link>
       </p>
     </div>
@@ -59,7 +59,7 @@ export default async function SuggestPage({ params }: SuggestPageProps) {
     notFound();
   }
   if (doc.ownerId === session.user.id) {
-    return <Blocked slug={slug} text="作者请直接修订自己的文章，无需申请。" />;
+    return <Blocked slug={slug} text="作者请直接修订自己的博客，无需申请。" />;
   }
 
   const actor = await loadActor(session.user.id);
@@ -90,7 +90,7 @@ export default async function SuggestPage({ params }: SuggestPageProps) {
   try {
     initialDoc = validateDoc(doc.content);
   } catch {
-    return <Blocked slug={slug} text="文章内容暂时无法载入编辑器。" />;
+    return <Blocked slug={slug} text="博客内容暂时无法载入编辑器。" />;
   }
 
   return (

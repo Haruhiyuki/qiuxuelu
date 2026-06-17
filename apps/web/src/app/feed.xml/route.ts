@@ -1,4 +1,4 @@
-// RSS 2.0 订阅源：最新已发布文章。博客刚需的内容分发出口（阅读器订阅）。
+// RSS 2.0 订阅源：最新已发布博客。博客刚需的内容分发出口（阅读器订阅）。
 // 规范要点：atom:self 自指链接、dc:creator 作者名（RSS2 的 <author> 须为邮箱，故改用 Dublin Core）、
 // lastBuildDate；无摘要时回退取正文文本片段，避免条目描述空白。
 import { SITE_DESCRIPTION, SITE_NAME } from '@harublog/config';

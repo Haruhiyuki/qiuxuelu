@@ -1,6 +1,6 @@
 'use server';
 
-// 文章标签：作者或板块编辑可设置。整体替换式（传完整标签列表），按名称去重、即时建标签。
+// 博客标签：作者或板块编辑可设置。整体替换式（传完整标签列表），按名称去重、即时建标签。
 import { documents, documentTags, getDb, tags } from '@harublog/db';
 import { can, type DocCtx } from '@harublog/domain';
 import { eq, inArray } from 'drizzle-orm';
@@ -50,7 +50,7 @@ export async function setDocumentTags(docId: string, names: string[]): Promise<A
       .limit(1)
   )[0];
   if (!doc) {
-    return { ok: false, error: '文章不存在' };
+    return { ok: false, error: '博客不存在' };
   }
   const isOwner = doc.ownerId === actor.id;
   const allowed =
@@ -65,7 +65,7 @@ export async function setDocumentTags(docId: string, names: string[]): Promise<A
       },
     }).allow;
   if (!allowed) {
-    return { ok: false, error: '无权编辑该文章的标签' };
+    return { ok: false, error: '无权编辑该博客的标签' };
   }
 
   const wanted = normalize(names);

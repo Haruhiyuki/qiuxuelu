@@ -17,11 +17,11 @@ export async function GET(
     .limit(1);
   const docId = rows[0]?.id;
   if (docId === undefined) {
-    return Response.json({ error: '文章不存在' }, { status: 404 });
+    return Response.json({ error: '博客不存在' }, { status: 404 });
   }
   const data = await buildDocumentExport(db, docId);
   if (data === null) {
-    return Response.json({ error: '文章未发布' }, { status: 404 });
+    return Response.json({ error: '博客未发布' }, { status: 404 });
   }
   return Response.json(data, {
     headers: {

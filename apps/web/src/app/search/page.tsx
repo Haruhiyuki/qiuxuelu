@@ -75,7 +75,7 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
           type="search"
           name="q"
           defaultValue={query}
-          placeholder="搜索文章、作者或标签…"
+          placeholder="搜索博客、作者或标签…"
           aria-label="搜索关键词"
           className="h-11 flex-1 rounded-lg border border-ink-300 bg-paper-50 px-3.5 text-ink-900 placeholder:text-ink-400 focus-visible:border-brand-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-200"
         />
@@ -134,7 +134,7 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
           </div>
 
           <p className="mt-5 text-ink-500 text-sm">
-            约 {total} 篇相关文章
+            约 {total} 篇相关博客
             {activeSectionName != null ? ` · 板块「${activeSectionName}」` : ''}
           </p>
 

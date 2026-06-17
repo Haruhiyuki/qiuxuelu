@@ -1,4 +1,4 @@
-// 文章系列读路径（ADR-0014）：系列页 / 个人主页 / 文章底部导航 / 管理页 / 撰写器选择器共用。
+// 博客系列读路径（ADR-0014）：系列页 / 个人主页 / 博客底部导航 / 管理页 / 撰写器选择器共用。
 // 系列是作者编排元数据，读路径按调用方需要分别取（公开视图只露已发布条目，所有者另见草稿）。
 import {
   documents,
@@ -154,14 +154,14 @@ export async function loadSeriesPicker(
 export interface SeriesNav {
   seriesSlug: string;
   seriesTitle: string;
-  /** 当前文章在已发布条目中的序号（1 基）与已发布总数 */
+  /** 当前博客在已发布条目中的序号（1 基）与已发布总数 */
   index: number;
   total: number;
   prev: { slug: string; title: string } | null;
   next: { slug: string; title: string } | null;
 }
 
-/** 文章底部系列导航：文档所属系列 + 在已发布条目中的位次与上一篇/下一篇。不属于任何系列返回 null。 */
+/** 博客底部系列导航：文档所属系列 + 在已发布条目中的位次与上一篇/下一篇。不属于任何系列返回 null。 */
 export async function getDocSeriesNav(docId: string): Promise<SeriesNav | null> {
   const db = getDb();
   const memberRows = await db

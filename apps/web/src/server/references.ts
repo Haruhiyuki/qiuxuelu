@@ -12,7 +12,7 @@ import { and, eq, inArray, ne } from 'drizzle-orm';
 
 type Tx = Pick<Database, 'select' | 'insert' | 'delete'>;
 
-/** 从 /a/<slug>[#...|?...|/...] 取出 slug；非站内文章链接返回 null。 */
+/** 从 /a/<slug>[#...|?...|/...] 取出 slug；非站内博客链接返回 null。 */
 export function slugFromHref(href: string): string | null {
   const m = /^\/a\/([^/#?]+)/.exec(href.trim());
   if (m === null) {
@@ -25,7 +25,7 @@ export function slugFromHref(href: string): string | null {
   }
 }
 
-/** 正文 → 去重的站内文章 slug 集合（指向其它帖子的提及）。content 容错（坏数据返回空）。 */
+/** 正文 → 去重的站内博客 slug 集合（指向其它帖子的提及）。content 容错（坏数据返回空）。 */
 export function collectInternalSlugs(content: unknown): string[] {
   let doc: DocJson;
   try {

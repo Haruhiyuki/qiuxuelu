@@ -1,6 +1,6 @@
 'use client';
 
-// 板块管理面板（admin+）：新建、重命名、调整顺序（上下移）、移动文章所属板块、删除（需空）。
+// 板块管理面板（admin+）：新建、重命名、调整顺序（上下移）、移动博客所属板块、删除（需空）。
 import { useConfirm, useToast } from '@harublog/ui';
 import { ArrowDown, ArrowUp, Plus, Trash2 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
@@ -117,7 +117,7 @@ export function SectionManager({
 
   async function removeSection(s: SectionRow) {
     if (s.docCount > 0) {
-      toast(`「${s.name}」下还有 ${s.docCount} 篇文章，请先移走`, 'error');
+      toast(`「${s.name}」下还有 ${s.docCount} 篇博客，请先移走`, 'error');
       return;
     }
     if (
@@ -129,7 +129,7 @@ export function SectionManager({
   }
 
   async function moveDoc(docId: string, sectionId: string) {
-    await run(() => moveDocumentSection(docId, sectionId), '文章已移动');
+    await run(() => moveDocumentSection(docId, sectionId), '博客已移动');
   }
 
   return (
@@ -254,7 +254,7 @@ export function SectionManager({
               {sectionDocs.length > 0 ? (
                 <details className="mt-3 border-ink-100 border-t pt-3">
                   <summary className="cursor-pointer text-ink-500 text-sm transition-colors hover:text-ink-800">
-                    文章（{sectionDocs.length}）—— 可移动所属板块
+                    博客（{sectionDocs.length}）—— 可移动所属板块
                   </summary>
                   <ul className="mt-2 flex flex-col gap-1.5">
                     {sectionDocs.map((d) => (

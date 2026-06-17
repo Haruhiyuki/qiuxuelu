@@ -27,7 +27,7 @@ const FLAG = FLAG_REASON_LABELS as Record<string, string>;
 
 // 高危操作的中文动作名（审计可读化）
 const ACTION_LABELS: Record<string, string> = {
-  'doc.create': '创建文章',
+  'doc.create': '创建博客',
   'doc.commit_revision': '提交修订',
   'doc.request_publish': '申请发布',
   'doc.collab_edit': '协作直编',
@@ -35,7 +35,7 @@ const ACTION_LABELS: Record<string, string> = {
   'doc.protect': '设编辑策略',
   'doc.feature': '精选设置',
   'doc.publicize': '设为公共页',
-  'doc.unpublish': '撤下文章',
+  'doc.unpublish': '撤下博客',
   'publish_request.approve': '通过发布',
   'publish_request.reject': '驳回发布',
   'doc.publish_direct': '直接发布',

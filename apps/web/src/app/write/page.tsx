@@ -83,7 +83,7 @@ function DocList({ docs, kind }: { docs: DocRow[]; kind: 'draft' | 'pending' | '
                 href={`/a/${doc.slug}`}
                 className="text-ink-500 transition-colors hover:text-brand-700"
               >
-                查看文章
+                查看博客
               </Link>
             ) : null}
             {/* 仅未发布稿可删（deleteDocument 同样校验） */}
@@ -194,7 +194,7 @@ export default async function WritePage() {
         <div>
           <h1 className="font-semibold font-serif text-2xl text-ink-900">创作中心</h1>
           <p className="mt-2 text-ink-500 text-sm">
-            管理草稿、已发布文章与文章系列。写作内容自动保存，申请发布后由志愿者审校上线。
+            管理草稿、已发布博客与博客系列。写作内容自动保存，申请发布后由志愿者审校上线。
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -204,7 +204,7 @@ export default async function WritePage() {
           </ButtonLink>
           <ButtonLink href="/write/new" className="h-10 px-5">
             <PenLine className="h-4 w-4" aria-hidden />
-            写文章
+            写博客
           </ButtonLink>
         </div>
       </header>
@@ -215,7 +215,7 @@ export default async function WritePage() {
           <GroupHeading
             title="草稿箱"
             count={drafts.length + publishedUncommitted.length}
-            sub="未编辑完成的文章"
+            sub="未编辑完成的博客"
           />
           {drafts.length > 0 || publishedUncommitted.length > 0 ? (
             <div className="mt-2">
@@ -233,7 +233,7 @@ export default async function WritePage() {
             <EmptyState
               icon={<PenLine />}
               title="草稿箱是空的"
-              description="点右上角「写文章」开始写，内容会自动保存。"
+              description="点右上角「写博客」开始写，内容会自动保存。"
             />
           )}
           {drafts.some((d) => d.status === 'pending') ? (
@@ -251,7 +251,7 @@ export default async function WritePage() {
               <DocList docs={published} kind="published" />
             </div>
           ) : (
-            <p className="mt-4 text-ink-400 text-sm">还没有发布的文章。</p>
+            <p className="mt-4 text-ink-400 text-sm">还没有发布的博客。</p>
           )}
         </section>
 

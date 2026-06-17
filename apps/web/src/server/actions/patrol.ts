@@ -1,6 +1,6 @@
 'use server';
 
-// 巡查队列处置（架构 §5）：协作直编已发布文章后入 edit_patrol 队列。
+// 巡查队列处置（架构 §5）：协作直编已发布博客后入 edit_patrol 队列。
 // 巡查通过 = 标记已巡查；巡查回退 = 创建 kind='rollback' 修订指回被改前的树并移 published ref（历史不删）。
 import {
   auditLog,
@@ -262,6 +262,6 @@ export async function patrolRevert(rawRevisionId: string): Promise<ActionResult>
     });
     return { ok: true, data: null };
   } catch {
-    return fail('回退失败，该项可能已被处理或文章已更新');
+    return fail('回退失败，该项可能已被处理或博客已更新');
   }
 }

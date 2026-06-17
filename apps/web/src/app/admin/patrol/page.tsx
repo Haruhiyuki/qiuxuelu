@@ -88,7 +88,7 @@ export default async function PatrolQueuePage() {
       <AdminPageHeader
         title="巡查队列"
         count={rows.length}
-        description="协作者对已发布文章的直接编辑；标记已巡查，或一键回退。"
+        description="协作者对已发布博客的直接编辑；标记已巡查，或一键回退。"
       />
 
       {rows.length === 0 ? (

@@ -34,7 +34,7 @@ export function ReviewPanel({ requestId, selfReview }: ReviewPanelProps) {
     setMessage(null);
     const result = await approvePublish(requestId);
     if (result.ok) {
-      setMessage({ kind: 'info', text: '已通过审批，文章已发布' });
+      setMessage({ kind: 'info', text: '已通过审批，博客已发布' });
       router.refresh();
     } else {
       setMessage({ kind: 'danger', text: result.error });
@@ -51,7 +51,7 @@ export function ReviewPanel({ requestId, selfReview }: ReviewPanelProps) {
     setMessage(null);
     const result = await rejectPublish(requestId, reason, note);
     if (result.ok) {
-      setMessage({ kind: 'info', text: '已驳回，文章退回草稿状态' });
+      setMessage({ kind: 'info', text: '已驳回，博客退回草稿状态' });
       setRejectOpen(false);
       router.refresh();
     } else {

@@ -152,10 +152,10 @@ export async function createSuggestion(
     .limit(1);
   const doc = docRows[0];
   if (doc?.status !== 'published') {
-    return fail('只能对已发布的文章提交编辑建议');
+    return fail('只能对已发布的博客提交编辑建议');
   }
   if (doc.ownerId === actor.id) {
-    return fail('作者请直接编辑自己的文章，无需提建议');
+    return fail('作者请直接编辑自己的博客，无需提建议');
   }
   const decision = can(actor, 'suggestion.create', { sectionId: doc.sectionId });
   if (!decision.allow) {
@@ -196,7 +196,7 @@ export async function createSuggestion(
         .limit(1);
       const baseRevisionId = refRows[0]?.revisionId;
       if (baseRevisionId === undefined) {
-        throw new Error('文章没有发布修订');
+        throw new Error('博客没有发布修订');
       }
       const baseRows = await tx
         .select({ blockId: revisionBlocks.blockId, hash: revisionBlocks.blobHash })
@@ -398,7 +398,7 @@ async function loadSuggestion(
   return rows[0];
 }
 
-/** 审校者准入：can('suggestion.review')（含作者审自己文章的建议——owner 自 TL0 起，ADR-0008）。 */
+/** 审校者准入：can('suggestion.review')（含作者审自己博客的建议——owner 自 TL0 起，ADR-0008）。 */
 function reviewDecision(actor: Parameters<typeof can>[0], sg: SgRow) {
   return can(actor, 'suggestion.review', {
     sectionId: sg.sectionId,
@@ -664,7 +664,7 @@ export async function mergeSuggestion(
         .where(and(eq(documentRefs.documentId, sg.documentId), eq(documentRefs.name, 'published')))
         .limit(1);
       const oursHead = pubRows[0]?.revisionId;
-      if (oursHead === undefined) throw new Error('文章无发布修订');
+      if (oursHead === undefined) throw new Error('博客无发布修订');
 
       const [baseEntries, oursEntries, theirsEntries] = await Promise.all([
         entriesOf(tx, sg.baseRevisionId),

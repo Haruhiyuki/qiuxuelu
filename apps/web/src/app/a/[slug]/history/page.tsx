@@ -35,7 +35,7 @@ export async function generateMetadata({ params }: HistoryPageProps): Promise<Me
     .where(eq(documents.slug, slug))
     .limit(1);
   const doc = rows[0];
-  return { title: doc ? `${doc.title} · 修订历史` : '文章不存在' };
+  return { title: doc ? `${doc.title} · 修订历史` : '博客不存在' };
 }
 
 export default async function HistoryPage({ params }: HistoryPageProps) {
@@ -245,7 +245,7 @@ export default async function HistoryPage({ params }: HistoryPageProps) {
           })}
         </ol>
       ) : (
-        <p className="mt-10 text-ink-500 text-sm">这篇文章还没有任何修订。</p>
+        <p className="mt-10 text-ink-500 text-sm">这篇博客还没有任何修订。</p>
       )}
     </div>
   );

@@ -71,7 +71,7 @@ export default async function TransparencyPage() {
     {
       title: '内容规模',
       stats: [
-        { label: '已发布文章', value: String(publishedDocs) },
+        { label: '已发布博客', value: String(publishedDocs) },
         { label: '主线修订数', value: String(mainlineRevisions) },
         { label: '贡献者', value: String(contributors) },
         { label: '注册用户', value: String(totalUsers) },

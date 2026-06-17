@@ -12,7 +12,7 @@ async function main(): Promise<void> {
     .select({ id: documents.id })
     .from(documents)
     .where(eq(documents.status, 'published'));
-  console.log(`[reindex] 共 ${docs.length} 篇已发布文章，开始重建…`);
+  console.log(`[reindex] 共 ${docs.length} 篇已发布博客，开始重建…`);
   for (const d of docs) {
     await syncDocument(db, d.id);
     console.log(`[reindex] ✓ ${d.id}`);

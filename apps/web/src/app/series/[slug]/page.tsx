@@ -1,4 +1,4 @@
-// 文章系列公开页（ADR-0014）：系列头 + 有序条目。公开只露已发布，所有者另见草稿（带状态标注）。
+// 博客系列公开页（ADR-0014）：系列头 + 有序条目。公开只露已发布，所有者另见草稿（带状态标注）。
 import { Badge, EmptyState } from '@harublog/ui';
 import { Layers, Pencil } from 'lucide-react';
 import type { Metadata } from 'next';
@@ -23,7 +23,7 @@ export async function generateMetadata({ params }: SeriesPageProps): Promise<Met
     return { title: '系列不存在', robots: { index: false } };
   }
   const description =
-    data.head.description ?? `${data.head.ownerName ?? '佚名'} 的文章系列「${data.head.title}」`;
+    data.head.description ?? `${data.head.ownerName ?? '佚名'} 的博客系列「${data.head.title}」`;
   return { title: data.head.title, description };
 }
 
@@ -52,7 +52,7 @@ export default async function SeriesPage({ params }: SeriesPageProps) {
             <Layers className="h-6 w-6" aria-hidden />
           </span>
           <div className="min-w-0 flex-1">
-            <p className="font-medium text-brand-700 text-xs tracking-wide">文章系列</p>
+            <p className="font-medium text-brand-700 text-xs tracking-wide">博客系列</p>
             <h1 className="mt-0.5 font-semibold font-serif text-2xl text-ink-900 leading-tight">
               {head.title}
             </h1>
@@ -102,11 +102,11 @@ export default async function SeriesPage({ params }: SeriesPageProps) {
         <div className="mt-8">
           <EmptyState
             icon={<Layers />}
-            title="这个系列还没有文章"
+            title="这个系列还没有博客"
             description={
               isOwner
-                ? '去「管理」里把文章加入系列，或在系列内新建文章。'
-                : '作者还没有发布该系列的文章。'
+                ? '去「管理」里把博客加入系列，或在系列内新建博客。'
+                : '作者还没有发布该系列的博客。'
             }
           />
         </div>

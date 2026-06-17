@@ -43,7 +43,7 @@ function Blocked({ slug, text }: { slug: string; text: string }) {
       <p className="mt-3 text-ink-500 text-sm">{text}</p>
       <p className="mt-6 text-sm">
         <Link href={`/a/${slug}`} className="text-brand-700 hover:text-brand-900">
-          ← 返回文章
+          ← 返回博客
         </Link>
       </p>
     </div>

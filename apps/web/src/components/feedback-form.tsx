@@ -1,7 +1,7 @@
 'use client';
 
 // 编辑建议提交表单（ADR-0010）：选「对全文 / 对某段」。对某段时可直接在原文段落列表里点选，
-// 自动回填被评片段并记下锚点（blockId），作者处理时可一键跳回原文。不改文章内容。
+// 自动回填被评片段并记下锚点（blockId），作者处理时可一键跳回原文。不改博客内容。
 import { Alert, Button, Label, Textarea } from '@harublog/ui';
 import { ExternalLink } from 'lucide-react';
 import { useRouter } from 'next/navigation';
@@ -85,7 +85,7 @@ export function FeedbackForm({
         已提交，谢谢你的意见——它已送到作者与编辑后台，处理后你会收到通知。
         <span className="ml-2">
           <a href={`/a/${slug}`} className="text-brand-700 underline underline-offset-2">
-            返回文章
+            返回博客
           </a>
         </span>
       </Alert>
@@ -95,7 +95,7 @@ export function FeedbackForm({
   return (
     <div className="flex flex-col gap-4">
       <p className="text-ink-500 text-sm leading-relaxed">
-        编辑建议<strong className="text-ink-700">不会改动文章内容</strong>
+        编辑建议<strong className="text-ink-700">不会改动博客内容</strong>
         ，只是把你的意见送给作者与编辑参考；他们处理后会回复并标注处理状态。
       </p>
 

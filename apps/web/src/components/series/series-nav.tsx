@@ -1,4 +1,4 @@
-// 文章底部系列导航卡（ADR-0014）：所属系列 + 第 N/共 M 篇 + 上一篇/下一篇（仅已发布范围）。
+// 博客底部系列导航卡（ADR-0014）：所属系列 + 第 N/共 M 篇 + 上一篇/下一篇（仅已发布范围）。
 import { ChevronLeft, ChevronRight, Layers } from 'lucide-react';
 import Link from 'next/link';
 import type { SeriesNav as SeriesNavData } from '@/server/series';
@@ -6,7 +6,7 @@ import type { SeriesNav as SeriesNavData } from '@/server/series';
 export function SeriesNav({ nav }: { nav: SeriesNavData }) {
   return (
     <nav
-      aria-label="文章系列导航"
+      aria-label="博客系列导航"
       className="rounded-xl border border-ink-200 bg-paper-50 p-5 shadow-paper"
     >
       <Link href={`/series/${nav.seriesSlug}`} className="group flex items-center gap-2.5">

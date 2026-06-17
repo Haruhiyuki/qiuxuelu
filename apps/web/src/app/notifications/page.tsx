@@ -38,31 +38,31 @@ function readPayload(payload: unknown): PayloadShape {
 
 /** 通知 → 中文文案 + 跳转链接。 */
 function describe(kind: string, p: PayloadShape): { text: string; href: string } {
-  const title = p.title ?? '某篇文章';
+  const title = p.title ?? '某篇博客';
   const by = p.byName ?? '有人';
   switch (kind) {
     case 'comment_on_doc':
-      return { text: `${by} 评论了你的文章《${title}》`, href: `/a/${p.slug ?? ''}#comments` };
+      return { text: `${by} 评论了你的博客《${title}》`, href: `/a/${p.slug ?? ''}#comments` };
     case 'comment_reply':
       return { text: `${by} 回复了你在《${title}》下的评论`, href: `/a/${p.slug ?? ''}#comments` };
     case 'mention':
       return { text: `${by} 在《${title}》中提到了你`, href: `/a/${p.slug ?? ''}#comments` };
     case 'new_post':
-      return { text: `你订阅的板块有新文章《${title}》`, href: `/a/${p.slug ?? ''}` };
+      return { text: `你订阅的板块有新博客《${title}》`, href: `/a/${p.slug ?? ''}` };
     case 'publish_approved':
-      return { text: `你的文章《${title}》已通过审批并发布`, href: `/a/${p.slug ?? ''}` };
+      return { text: `你的博客《${title}》已通过审批并发布`, href: `/a/${p.slug ?? ''}` };
     case 'publish_rejected':
       return {
-        text: `你的文章《${title}》的发布申请被驳回，可修改后重新申请`,
+        text: `你的博客《${title}》的发布申请被驳回，可修改后重新申请`,
         href: `/write/${p.docId ?? ''}`,
       };
     case 'doc_edited':
-      return { text: `有协作者编辑了你的文章《${title}》`, href: `/a/${p.slug ?? ''}/history` };
+      return { text: `有协作者编辑了你的博客《${title}》`, href: `/a/${p.slug ?? ''}/history` };
     case 'patrol_reverted':
       return { text: `你对《${title}》的编辑被巡查回退`, href: `/a/${p.slug ?? ''}/history` };
     case 'suggestion_received':
       return {
-        text: `${by} 对你的文章《${title}》提交了修订申请`,
+        text: `${by} 对你的博客《${title}》提交了修订申请`,
         href: `/suggestions/${p.suggestionId ?? ''}`,
       };
     case 'suggestion_merged':
@@ -82,7 +82,7 @@ function describe(kind: string, p: PayloadShape): { text: string; href: string }
       };
     case 'feedback_received':
       return {
-        text: `${by} 对你的文章《${title}》提了一条编辑建议`,
+        text: `${by} 对你的博客《${title}》提了一条编辑建议`,
         href: '/account/feedback',
       };
     case 'feedback_handled':
@@ -92,7 +92,7 @@ function describe(kind: string, p: PayloadShape): { text: string; href: string }
       };
     case 'doc_promoted':
       return {
-        text: `🎉 恭喜！你的文章《${title}》已被认可有公共价值，升级为公共页面——你仍是它的原作者`,
+        text: `🎉 恭喜！你的博客《${title}》已被认可有公共价值，升级为公共页面——你仍是它的原作者`,
         href: `/a/${p.slug ?? ''}`,
       };
     case 'review_pending':
@@ -105,7 +105,7 @@ function describe(kind: string, p: PayloadShape): { text: string; href: string }
       if (p.queue === 'flag') {
         return { text: '有一条举报待你复核', href: '/admin/flags' };
       }
-      return { text: `有新文章《${p.title ?? '某篇文章'}》待你审批`, href: '/admin/review' };
+      return { text: `有新博客《${p.title ?? '某篇博客'}》待你审批`, href: '/admin/review' };
     default:
       return { text: '你有一条新通知', href: '/' };
   }

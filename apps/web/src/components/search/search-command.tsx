@@ -3,7 +3,7 @@
 // ⌘K 速搜命令面板（成熟产品式：Algolia DocSearch / Linear / Notion 那种）。
 // 全局挂载一次（随站点页头一起），监听 ⌘K/Ctrl+K、「/」以及自定义事件 harublog:open-search 打开。
 // 防抖调用 quickSearch（服务端 Server Action），结果每篇一条（已去重），命中直达最佳段落。
-// 列表首项恒为「查看全部结果」：回车默认进详细结果页，↑↓ 选具体文章、esc 关闭。
+// 列表首项恒为「查看全部结果」：回车默认进详细结果页，↑↓ 选具体博客、esc 关闭。
 import { Clock, CornerDownLeft, FileText, Loader2, Search } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -128,7 +128,7 @@ export function SearchCommand() {
   const q = query.trim();
   const hasQuery = q.length > 0;
 
-  // 命中文章：去重后每篇一条，取最佳命中块
+  // 命中博客：去重后每篇一条，取最佳命中块
   const articles = useMemo(() => {
     if (result === null || result.failed) {
       return [];
@@ -150,7 +150,7 @@ export function SearchCommand() {
     });
   }, [result]);
 
-  // 可选中项：第 0 项恒为「查看全部结果」（回车默认进结果页），其后为各篇文章
+  // 可选中项：第 0 项恒为「查看全部结果」（回车默认进结果页），其后为各篇博客
   const items = useMemo(() => {
     if (!hasQuery) {
       return [] as string[];
@@ -200,7 +200,7 @@ export function SearchCommand() {
     }
     if (e.key === 'Enter') {
       e.preventDefault();
-      // 默认（active=0）→ 全部结果页；选中具体文章 → 打开该文
+      // 默认（active=0）→ 全部结果页；选中具体博客 → 打开该文
       const href = items[active] ?? items[0];
       if (href !== undefined) {
         go(href);
@@ -239,7 +239,7 @@ export function SearchCommand() {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={onKeyDown}
-            placeholder="搜索文章标题或段落…"
+            placeholder="搜索博客标题或段落…"
             aria-label="搜索关键词"
             autoComplete="off"
             className="h-14 min-w-0 flex-1 bg-transparent text-base text-ink-900 outline-none placeholder:text-ink-400"
@@ -323,7 +323,7 @@ export function SearchCommand() {
                   <CornerDownLeft className="h-3.5 w-3.5 shrink-0 text-ink-400" aria-hidden />
                 </button>
               </li>
-              {/* 命中文章（每篇一条） */}
+              {/* 命中博客（每篇一条） */}
               {articles.map((a, i) => {
                 const idx = i + 1;
                 return (

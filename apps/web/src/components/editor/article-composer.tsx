@@ -1,6 +1,6 @@
 'use client';
 
-// 统一文章撰写器：标题 + 正文 + 发布设置一体（现代写作台范式，告别「先建后编」两段式）。
+// 统一博客撰写器：标题 + 正文 + 发布设置一体（现代写作台范式，告别「先建后编」两段式）。
 // 新建模式懒创建：首次真正编辑（标题/正文有内容）才落库，避免空草稿堆积；落库后静默把
 // URL 换成 /write/[id]（刷新即进编辑模式）。所有改动随写随存（标题/板块/摘要走 updateDocumentMeta，
 // 正文走 saveWorkingCopy，标签走 setDocumentTags）。提交修订 / 申请发布逻辑沿用既有动作。
@@ -57,7 +57,7 @@ export interface ArticleComposerProps {
   headSeq: number | null;
   /** T2+ 免预审：作者可直接发布而非进审批队列（ADR-0010） */
   canSelfPublish: boolean;
-  /** 文章系列（ADR-0014）：作者的系列选项 + 本文当前所属系列 id */
+  /** 博客系列（ADR-0014）：作者的系列选项 + 本文当前所属系列 id */
   seriesOptions: { id: string; title: string }[];
   currentSeriesId: string | null;
 }
@@ -361,9 +361,9 @@ export function ArticleComposer(props: ArticleComposerProps) {
       return;
     }
     const ok = await confirm({
-      title: props.canSelfPublish ? '发布文章？' : '申请发布？',
+      title: props.canSelfPublish ? '发布博客？' : '申请发布？',
       description: props.canSelfPublish
-        ? '发布后文章立即公开，之后仍可继续修改。'
+        ? '发布后博客立即公开，之后仍可继续修改。'
         : '提交后由志愿者审校，通过后公开；期间仍可继续修改。',
       confirmLabel: props.canSelfPublish ? '发布' : '申请发布',
     });
@@ -381,8 +381,8 @@ export function ArticleComposer(props: ArticleComposerProps) {
       if (id === null) {
         return;
       }
-      // 申请发布前自动把当前草稿固化为一次修订（新文章无需手动「提交修订」）：
-      // 内容有变则提交；与上次修订一致且已有修订则直接发布；空文章则提示先写内容。
+      // 申请发布前自动把当前草稿固化为一次修订（新博客无需手动「提交修订」）：
+      // 内容有变则提交；与上次修订一致且已有修订则直接发布；空博客则提示先写内容。
       const commit = await commitRevision(id, '');
       if (commit.ok && !commit.data.committed) {
         // 发布前固化草稿撞并发冲突：先弹裁决，解决后再发布
@@ -404,12 +404,12 @@ export function ArticleComposer(props: ArticleComposerProps) {
       const result = await requestPublish(id);
       if (result.ok) {
         if (result.data.published) {
-          // 已真正发布：直接跳到文章页（保持 pending 状态指示，避免跳转前闪烁）
-          setNotice({ kind: 'info', text: '已发布，正在跳转到文章…' });
+          // 已真正发布：直接跳到博客页（保持 pending 状态指示，避免跳转前闪烁）
+          setNotice({ kind: 'info', text: '已发布，正在跳转到博客…' });
           router.push(`/a/${result.data.slug}`);
         } else {
           setDocStatus('pending');
-          setNotice({ kind: 'info', text: '已提交发布申请，审校通过后文章将公开可见' });
+          setNotice({ kind: 'info', text: '已提交发布申请，审校通过后博客将公开可见' });
           router.refresh();
         }
       } else {
@@ -420,8 +420,8 @@ export function ArticleComposer(props: ArticleComposerProps) {
     }
   }
 
-  // 新文章（草稿）：直接「申请发布」（内部自动固化修订），不暴露「提交修订」这个版本史概念；
-  // 已发布文章在撰写器里再编辑时，「提交修订」才有意义（向版本历史追加一次改动）。
+  // 新博客（草稿）：直接「申请发布」（内部自动固化修订），不暴露「提交修订」这个版本史概念；
+  // 已发布博客在撰写器里再编辑时，「提交修订」才有意义（向版本历史追加一次改动）。
   const isDraft = docStatus === 'draft';
   const canRequestPublish = isDraft && title.trim().length > 0 && !actionPending && editor !== null;
 
@@ -472,7 +472,7 @@ export function ArticleComposer(props: ArticleComposerProps) {
           onChange={(e) => onTitleChange(e.target.value)}
           rows={1}
           placeholder="标题"
-          aria-label="文章标题"
+          aria-label="博客标题"
           className="mt-8 mb-5 w-full resize-none overflow-hidden border-none bg-transparent font-semibold font-serif text-3xl text-ink-900 leading-snug tracking-wide outline-none placeholder:text-ink-300 sm:text-4xl"
         />
 
@@ -526,7 +526,7 @@ export function ArticleComposer(props: ArticleComposerProps) {
                 maxLength={200}
                 value={summary}
                 onChange={(e) => onSummaryChange(e.target.value)}
-                placeholder="一句话概括这篇文章"
+                placeholder="一句话概括这篇博客"
               />
               <span className="text-ink-400 text-xs">{summary.length}/200</span>
             </div>
@@ -571,7 +571,7 @@ export function ArticleComposer(props: ArticleComposerProps) {
           </div>
         </section>
 
-        {/* 提交修订：仅已发布文章的再编辑需要（向版本史追加一次改动）；新草稿发布时自动固化 */}
+        {/* 提交修订：仅已发布博客的再编辑需要（向版本史追加一次改动）；新草稿发布时自动固化 */}
         {!isDraft ? (
           <section className="mt-8 border-ink-200 border-t pt-8">
             <h2 className="font-medium font-serif text-ink-800 text-lg">提交修订</h2>
@@ -621,7 +621,7 @@ export function ArticleComposer(props: ArticleComposerProps) {
                 disabled={!canRequestPublish}
                 className="shrink-0"
               >
-                {props.canSelfPublish ? '发布文章' : '申请发布'}
+                {props.canSelfPublish ? '发布博客' : '申请发布'}
               </Button>
             </div>
             {title.trim().length === 0 ? (

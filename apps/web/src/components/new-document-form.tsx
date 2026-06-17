@@ -22,7 +22,7 @@ export function NewDocumentForm({ sections }: { sections: SectionOption[] }) {
     event.preventDefault();
     setError(null);
     if (title.trim().length === 0) {
-      setError('请输入文章标题');
+      setError('请输入博客标题');
       return;
     }
     if (sectionId === '') {
@@ -69,7 +69,7 @@ export function NewDocumentForm({ sections }: { sections: SectionOption[] }) {
         </select>
       </div>
       <Button type="submit" disabled={pending} className="self-start">
-        {pending ? '创建中…' : '新建文章'}
+        {pending ? '创建中…' : '新建博客'}
       </Button>
     </form>
   );

@@ -1,5 +1,5 @@
-// 个人中心 · 编辑建议（ADR-0010）：上半「待我处理」（我的文章 + 我负责板块收到的，可处理），
-// 下半「我提交的」（含处理状态与回复）。修订申请/修订记录见各自入口（草稿箱 / 文章历史）。
+// 个人中心 · 编辑建议（ADR-0010）：上半「待我处理」（我的博客 + 我负责板块收到的，可处理），
+// 下半「我提交的」（含处理状态与回复）。修订申请/修订记录见各自入口（草稿箱 / 博客历史）。
 import { documents, feedback, getDb, user as userTable } from '@harublog/db';
 import { Badge, EmptyState } from '@harublog/ui';
 import { and, desc, eq, inArray, or } from 'drizzle-orm';
@@ -95,7 +95,7 @@ export default async function MyFeedbackPage() {
   const db = getDb();
   const scope = sectionScopeForCapability(actor, 'feedback.handle');
 
-  // 待我处理：status=open 且（我的文章 或 我负责板块）
+  // 待我处理：status=open 且（我的博客 或 我负责板块）
   const ownerCond = eq(documents.ownerId, actor.id);
   const inboxWhere =
     scope === 'all'
@@ -132,7 +132,7 @@ export default async function MyFeedbackPage() {
       <div className="flex items-baseline gap-3">
         <Inbox className="h-5 w-5 self-center text-brand-600" aria-hidden />
         <h1 className="font-semibold font-serif text-2xl text-ink-900">编辑建议</h1>
-        <p className="text-ink-400 text-sm">他人对文章的意见——不改内容，处理后回复</p>
+        <p className="text-ink-400 text-sm">他人对博客的意见——不改内容，处理后回复</p>
       </div>
 
       <section className="mt-8">
@@ -182,7 +182,7 @@ export default async function MyFeedbackPage() {
           <div className="mt-3">
             <EmptyState
               title="还没提过编辑建议"
-              description="在文章顶部「协作」里可以对全文或某段提意见。"
+              description="在博客顶部「协作」里可以对全文或某段提意见。"
             />
           </div>
         ) : (

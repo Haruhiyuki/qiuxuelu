@@ -10,13 +10,13 @@ export interface RestoreButtonProps {
   docId: string;
   revisionId: string;
   seq: number;
-  /** 文章是否已发布——决定回退后是否需重新发布才上线（文案据此清晰化）。 */
+  /** 博客是否已发布——决定回退后是否需重新发布才上线（文案据此清晰化）。 */
   published: boolean;
 }
 
 /**
  * 把草稿回退到指定历史修订：在草稿分支创建 kind='rollback' 新修订并还原作者工作副本（历史不删）。
- * 回退只动草稿；已发布文章需在写作器重新发布才上线——故成功后直接带去写作器复核/发布，避免「点了没反应」。
+ * 回退只动草稿；已发布博客需在写作器重新发布才上线——故成功后直接带去写作器复核/发布，避免「点了没反应」。
  */
 export function RestoreButton({ docId, revisionId, seq, published }: RestoreButtonProps) {
   const router = useRouter();
@@ -28,7 +28,7 @@ export function RestoreButton({ docId, revisionId, seq, published }: RestoreButt
     const ok = await confirm({
       title: `回退到第 ${seq} 号修订？`,
       description: published
-        ? '把草稿还原到该版本的内容（历史保留、不删除）。文章已发布，线上版本暂不变——需在写作器重新发布才会上线。'
+        ? '把草稿还原到该版本的内容（历史保留、不删除）。博客已发布，线上版本暂不变——需在写作器重新发布才会上线。'
         : '把草稿还原到该版本的内容（历史保留、不删除），可继续编辑。',
       confirmLabel: '回退',
     });

@@ -25,7 +25,7 @@ function requirementsFor(
 ): Requirement[] {
   switch (targetLevel) {
     case 1:
-      return [{ label: '发布文章', actual: stats.publishedDocs, required: 1 }];
+      return [{ label: '发布博客', actual: stats.publishedDocs, required: 1 }];
     case 2:
       return [{ label: '累计贡献分', actual: stats.points, required: t.tl2Points }];
     case 3:

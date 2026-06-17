@@ -140,7 +140,7 @@ export async function createComment(
   }
   const doc = await loadPublishedDoc(rawDocId);
   if (doc?.status !== 'published') {
-    return fail('只能评论已发布的文章');
+    return fail('只能评论已发布的博客');
   }
 
   const decision = can(actor, 'comment.create', { sectionId: doc.sectionId });
@@ -329,7 +329,7 @@ export async function createInlineComment(
 
   const doc = await loadPublishedDoc(rawDocId);
   if (doc?.status !== 'published') {
-    return fail('只能对已发布的文章添加行内批注');
+    return fail('只能对已发布的博客添加行内批注');
   }
 
   // 行内评论是 TL1 能力（与文末评论的 comment.create 分开）
@@ -358,7 +358,7 @@ export async function createInlineComment(
     .limit(1);
   const publishedRevisionId = refRows[0]?.revisionId;
   if (publishedRevisionId === undefined) {
-    return fail('文章尚未发布');
+    return fail('博客尚未发布');
   }
   const inRev = await db
     .select({ blockId: revisionBlocks.blockId })

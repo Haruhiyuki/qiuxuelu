@@ -99,7 +99,7 @@ export default async function FlagQueuePage() {
             .where(eq(documents.id, item.subjectId))
             .limit(1)
         )[0];
-        preview = d ? `文章：${d.title}` : '（文章已不存在）';
+        preview = d ? `博客：${d.title}` : '（博客已不存在）';
         link = d ? `/a/${d.slug}` : '/';
       }
       return { item, flagRows, preview, link };
@@ -125,7 +125,7 @@ export default async function FlagQueuePage() {
             >
               <div className="flex flex-wrap items-center gap-2 text-sm">
                 <Badge variant="accent">权重 {item.priority}</Badge>
-                <Badge variant="outline">{item.subjectType === 'comment' ? '评论' : '文章'}</Badge>
+                <Badge variant="outline">{item.subjectType === 'comment' ? '评论' : '博客'}</Badge>
                 {isOverdue(item.createdAt) ? <Badge variant="accent">超时</Badge> : null}
                 {item.sectionName ? <span className="text-ink-500">{item.sectionName}</span> : null}
                 <span className="text-ink-400">{flagRows.length} 人举报</span>

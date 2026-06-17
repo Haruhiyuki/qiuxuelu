@@ -1,5 +1,5 @@
 // 首页：双列信息流。左列 = 板块（上）+ 标签（下，内滚动），可板块×标签交叉筛选；
-// 右列 = 文章列表，多种排序（默认最新），精选文章分散插入第一页并标注，分页在右列。
+// 右列 = 博客列表，多种排序（默认最新），精选博客分散插入第一页并标注，分页在右列。
 import { SITE_DESCRIPTION } from '@harublog/config';
 import {
   docReactions,
@@ -82,7 +82,7 @@ function baseQuery() {
     .leftJoin(userTable, eq(userTable.id, documents.ownerId));
 }
 
-/** 非精选文章：交叉筛选 + 排序 + 分页（多取一条判 hasNext） */
+/** 非精选博客：交叉筛选 + 排序 + 分页（多取一条判 hasNext） */
 async function fetchArticles(
   sectionId: string | null,
   tag: string | null,
@@ -104,7 +104,7 @@ async function fetchArticles(
   return { rows: rows.slice(0, PAGE_SIZE), hasNext: rows.length > PAGE_SIZE };
 }
 
-/** 精选文章（同样受交叉筛选约束）：仅第一页混排用 */
+/** 精选博客（同样受交叉筛选约束）：仅第一页混排用 */
 async function fetchFeatured(sectionId: string | null, tag: string | null): Promise<ArticleRow[]> {
   return baseQuery()
     .where(articleConds(sectionId, tag, true))
@@ -241,7 +241,7 @@ export default async function HomePage({
     pageParams.sort = sort;
   }
 
-  const scopeLabel = `${activeSection?.name ?? '全部文章'}${activeTag !== null ? ` · #${activeTag}` : ''}`;
+  const scopeLabel = `${activeSection?.name ?? '全部博客'}${activeTag !== null ? ` · #${activeTag}` : ''}`;
 
   // 筛选内容（板块 + 标签）：桌面左栏与移动抽屉共用；外层容器给定高度，标签区 flex-1 填充滚动
   const renderFilter = () => (
@@ -354,7 +354,7 @@ export default async function HomePage({
           {renderFilter()}
         </aside>
 
-        {/* 右列：文章列表 + 排序 + 分页 */}
+        {/* 右列：博客列表 + 排序 + 分页 */}
         <div className="min-w-0">
           <div className="flex flex-wrap items-center justify-between gap-3 border-ink-200 border-b pb-3">
             <div className="flex items-center gap-3">
@@ -393,8 +393,8 @@ export default async function HomePage({
                 icon={<PenLine />}
                 title={
                   sectionId !== null || activeTag !== null
-                    ? '该筛选下还没有文章'
-                    : '还没有发布的文章'
+                    ? '该筛选下还没有博客'
+                    : '还没有发布的博客'
                 }
                 description={
                   sectionId !== null || activeTag !== null

@@ -16,7 +16,7 @@ import { loadSeriesPicker } from '@/server/series';
 
 export const dynamic = 'force-dynamic';
 
-export const metadata: Metadata = { title: '编辑文章' };
+export const metadata: Metadata = { title: '编辑博客' };
 
 interface EditPageProps {
   params: Promise<{ docId: string }>;
@@ -62,7 +62,7 @@ export default async function EditDocumentPage({ params }: EditPageProps) {
       <div className="mx-auto w-full max-w-3xl px-6 py-20 text-center">
         <h1 className="font-semibold font-serif text-2xl text-ink-900">无权编辑</h1>
         <p className="mt-3 text-ink-500 text-sm leading-relaxed">
-          这篇文章不属于你。仅作者本人可直接编辑，对他人文章可提交修订申请。
+          这篇博客不属于你。仅作者本人可直接编辑，对他人博客可提交修订申请。
         </p>
         <p className="mt-6">
           <Link href="/write" className="text-brand-700 hover:text-brand-900">
@@ -113,7 +113,7 @@ export default async function EditDocumentPage({ params }: EditPageProps) {
   // T2+ 免预审：直接发布（ADR-0010）
   const actor = await loadActor(session.user.id);
   const canSelfPublish = (actor?.trustLevel ?? 0) >= 2;
-  // 文章系列（ADR-0014）：作者的系列选项 + 本文当前所属系列
+  // 博客系列（ADR-0014）：作者的系列选项 + 本文当前所属系列
   const seriesPicker = await loadSeriesPicker(session.user.id, doc.id);
 
   return (

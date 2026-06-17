@@ -1,6 +1,6 @@
 'use client';
 
-// 文章评分（赞/踩，Reddit 式净分胶囊）+ 收藏：乐观切换，未登录提示登录。
+// 博客评分（赞/踩，Reddit 式净分胶囊）+ 收藏：乐观切换，未登录提示登录。
 // 一人一票：点同向取消、点反向改票；展示净分，明细进 title 提示。
 import { useToast } from '@harublog/ui';
 import { ArrowBigDown, ArrowBigUp, Bookmark } from 'lucide-react';
@@ -121,7 +121,7 @@ export function ReactionBar({
           type="button"
           onClick={() => vote('like')}
           aria-pressed={myVote === 'like'}
-          aria-label="赞同这篇文章"
+          aria-label="赞同这篇博客"
           className={`group rounded-l-full py-1.5 pr-1.5 pl-3 transition-colors ${
             myVote === 'like' ? 'text-moss-600' : 'text-ink-400 hover:text-moss-600'
           }`}
@@ -148,7 +148,7 @@ export function ReactionBar({
           type="button"
           onClick={() => vote('dislike')}
           aria-pressed={myVote === 'dislike'}
-          aria-label="不赞同这篇文章"
+          aria-label="不赞同这篇博客"
           className={`group rounded-r-full py-1.5 pr-3 pl-1.5 transition-colors ${
             myVote === 'dislike' ? 'text-accent-600' : 'text-ink-400 hover:text-accent-600'
           }`}

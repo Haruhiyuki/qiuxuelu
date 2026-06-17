@@ -11,7 +11,7 @@ import { listUserSeries } from '@/server/series';
 
 export const dynamic = 'force-dynamic';
 
-export const metadata: Metadata = { title: '写文章' };
+export const metadata: Metadata = { title: '写博客' };
 
 const EMPTY_DOC: DocJson = { type: 'doc', content: [] };
 
@@ -29,7 +29,7 @@ export default async function NewDocumentPage() {
   // T2+ 免预审：直接发布（ADR-0010）
   const actor = await loadActor(session.user.id);
   const canSelfPublish = (actor?.trustLevel ?? 0) >= 2;
-  // 文章系列（ADR-0014）：作者的现有系列，供新文就地归类（也可在抽屉里新建）
+  // 博客系列（ADR-0014）：作者的现有系列，供新文就地归类（也可在抽屉里新建）
   const mySeries = await listUserSeries(session.user.id);
 
   return (

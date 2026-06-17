@@ -27,7 +27,7 @@ const SANCTION_KIND_LABELS: Record<string, string> = {
   no_edit: '禁止直接编辑',
 };
 
-const SUBJECT_LABELS: Record<string, string> = { comment: '评论', document: '文章' };
+const SUBJECT_LABELS: Record<string, string> = { comment: '评论', document: '博客' };
 
 function sanctionStatus(s: { endsAt: Date | null; revokedAt: Date | null }, now: number): string {
   if (s.revokedAt !== null) {
@@ -107,7 +107,7 @@ export default async function GovernancePage() {
       })
       .from(revisions)
       .innerJoin(documents, eq(documents.id, revisions.documentId))
-      // 巡查回退：主线 rollback 修订；仅公示已发布文章（可链接、属公开内容）
+      // 巡查回退：主线 rollback 修订；仅公示已发布博客（可链接、属公开内容）
       .where(
         and(
           eq(revisions.kind, 'rollback'),

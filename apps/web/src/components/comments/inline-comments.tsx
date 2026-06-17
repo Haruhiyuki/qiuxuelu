@@ -25,7 +25,7 @@ export interface InlineCommentView {
   authorName: string;
   state: 'live' | 'remapped' | 'orphaned';
   createdAtLabel: string;
-  /** 作者注：作者本人对自己文章的行内批注，置顶展示并标注 */
+  /** 作者注：作者本人对自己博客的行内批注，置顶展示并标注 */
   isAuthorNote: boolean;
 }
 

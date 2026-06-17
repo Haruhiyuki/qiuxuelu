@@ -25,7 +25,7 @@ export async function generateMetadata({ params }: DiffPageProps): Promise<Metad
     .limit(1);
   const doc = rows[0];
   // 修订对比页不进搜索引擎索引（防内容重复，架构 §7）
-  return { title: doc ? `${doc.title} · 修订对比` : '文章不存在', robots: { index: false } };
+  return { title: doc ? `${doc.title} · 修订对比` : '博客不存在', robots: { index: false } };
 }
 
 export default async function DiffPage({ params, searchParams }: DiffPageProps) {
@@ -76,7 +76,7 @@ export default async function DiffPage({ params, searchParams }: DiffPageProps) 
         <h1 className="mt-3 font-serif text-2xl font-semibold text-ink-900">
           {doc.title} · 修订对比
         </h1>
-        <p className="mt-6 text-sm text-ink-500">这篇文章只有一个修订，暂无可对比的版本。</p>
+        <p className="mt-6 text-sm text-ink-500">这篇博客只有一个修订，暂无可对比的版本。</p>
       </div>
     );
   }

@@ -7,22 +7,22 @@ export interface TrustTier {
   level: number;
   /** 公示称谓 */
   name: string;
-  /** 个人博客（私有页）上对他人文章的协作权限 */
+  /** 个人博客（私有页）上对他人博客的协作权限 */
   priv: string;
-  /** 公共页面上对他人文章的协作权限 */
+  /** 公共页面上对他人博客的协作权限 */
   pub: string;
   /** 路线图备注（升级路径说明）；权限表不展示 */
   note?: string;
 }
 
 export const TRUST_TIERS: TrustTier[] = [
-  { level: 0, name: '新成员', priv: '评论、发布新文章', pub: '评论、发布新文章', note: '注册即是' },
+  { level: 0, name: '新成员', priv: '评论、发布新博客', pub: '评论、发布新博客', note: '注册即是' },
   {
     level: 1,
     name: '成员',
     priv: '＋行内批注',
     pub: '＋行内批注、编辑建议',
-    note: '发布 1 篇文章即达',
+    note: '发布 1 篇博客即达',
   },
   { level: 2, name: '贡献者', priv: '＋编辑建议', pub: '＋修订申请', note: '累计贡献满 50 分' },
   {

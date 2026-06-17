@@ -67,20 +67,20 @@ export async function SiteHeader() {
         </div>
         <SearchTrigger />
         {/* 桌面账户簇（md+）：从左到右按「内容 → 操作 → 工具 → 身份」分组——
-            创作中心(枢纽) · 写文章(主操作) · 主题(工具) · 头像菜单(身份，含设置/通知/收藏/退出) */}
+            创作中心(枢纽) · 写博客(主操作) · 主题(工具) · 头像菜单(身份，含设置/通知/收藏/退出) */}
         <div className="hidden items-center gap-3 text-sm md:flex md:gap-4">
           {session ? (
             <Link href="/write" className="text-ink-600 transition-colors hover:text-brand-700">
               创作中心
             </Link>
           ) : null}
-          {/* 写文章：直达写作页（未登录跳登录，拒绝变引导） */}
+          {/* 写博客：直达写作页（未登录跳登录，拒绝变引导） */}
           <Link
             href={session ? '/write/new' : '/login'}
             className="inline-flex items-center gap-1.5 rounded-sm bg-fill px-3 py-1.5 font-medium text-on-fill shadow-paper transition-colors hover:bg-fill-hover"
           >
             <PenLine className="h-4 w-4" aria-hidden />
-            写文章
+            写博客
           </Link>
           <ThemeToggle />
           {session ? (
@@ -104,15 +104,15 @@ export async function SiteHeader() {
             </>
           )}
         </div>
-        {/* 移动端：低调的「写文章」直出在栏上 + 汉堡菜单（其余收进抽屉） */}
+        {/* 移动端：低调的「写博客」直出在栏上 + 汉堡菜单（其余收进抽屉） */}
         <div className="flex items-center gap-1 md:hidden">
           <Link
             href={session ? '/write/new' : '/login'}
-            aria-label="写文章"
+            aria-label="写博客"
             className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-ink-600 text-sm transition-colors hover:bg-paper-200 hover:text-brand-700"
           >
             <PenLine className="h-4 w-4" aria-hidden />
-            写文章
+            写博客
           </Link>
           <MobileNav
             loggedIn={session !== null}

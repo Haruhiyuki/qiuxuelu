@@ -5,7 +5,7 @@
 // 只「平移/缩放视窗」到新邻域、并让新节点就地渐入。于是是在一张稳定的图上逐步探索，
 // 视角方向基本不变（绝不翻转）。初次布局走力导向（FR + 按 depth 径向分层）；之后增量：
 // 既有节点钉死，仅把新节点放到其锚点附近做轻量松弛避免重叠。
-// 单击节点：把它移到视角中心（fetchDocGraph 取新邻域）；双击节点：打开其文章。
+// 单击节点：把它移到视角中心（fetchDocGraph 取新邻域）；双击节点：打开其博客。
 // 每对节点只画一条线（无向去重）；尊重 prefers-reduced-motion。
 import { ArrowUpRight, FileText, Loader2 } from 'lucide-react';
 import Link from 'next/link';
@@ -519,7 +519,7 @@ export function KnowledgeGraph({ initialGraph }: { initialGraph: LayeredGraph })
             <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
           </span>
         ) : null}
-        <p className="absolute bottom-3 left-3 text-ink-400 text-xs">单击移到中心 · 双击打开文章</p>
+        <p className="absolute bottom-3 left-3 text-ink-400 text-xs">单击移到中心 · 双击打开博客</p>
         {graph.truncated ? (
           <p className="absolute right-3 bottom-3 text-ink-400 text-xs">关系较多，仅展示部分</p>
         ) : null}
@@ -558,7 +558,7 @@ export function KnowledgeGraph({ initialGraph }: { initialGraph: LayeredGraph })
                 href={`/a/${center.slug}`}
                 className="mt-4 inline-flex w-full items-center justify-center gap-1.5 rounded-md bg-fill py-2 font-medium text-on-fill text-sm transition-colors hover:bg-fill-hover"
               >
-                打开文章
+                打开博客
                 <ArrowUpRight className="h-4 w-4" aria-hidden />
               </Link>
             </div>
@@ -593,7 +593,7 @@ export function KnowledgeGraph({ initialGraph }: { initialGraph: LayeredGraph })
                 ))}
                 {list.length === 0 ? (
                   <li className="px-2 py-4 text-center text-ink-400 text-xs">
-                    {tab === 'in' ? '还没有文章引用它' : '它还没有引用其它文章'}
+                    {tab === 'in' ? '还没有博客引用它' : '它还没有引用其它博客'}
                   </li>
                 ) : null}
               </ul>

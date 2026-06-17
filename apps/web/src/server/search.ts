@@ -1,6 +1,6 @@
 // 站内搜索读路径：在 @harublog/search（Meilisearch 块级索引）之上做「按文档去重 + 板块分面」。
 // 全文页与 ⌘K 速搜共用 runSearch，保证去重/降级语义一致。Meilisearch 非真相源——查询失败降级不崩页。
-// 索引已设 distinctAttribute=docId：一篇文章只回一个最佳命中块（不再同文多段刷屏）。
+// 索引已设 distinctAttribute=docId：一篇博客只回一个最佳命中块（不再同文多段刷屏）。
 // 作者/标签已并入可搜字段（自由文本即可命中），故无需单独的标签筛选 UI——保持简单。
 
 import { getDb, sections } from '@harublog/db';
@@ -48,7 +48,7 @@ export interface RunSearchArgs {
 
 export interface RunSearchResult {
   groups: SearchGroup[];
-  /** 命中文章估计总数（distinct docId，用于翻页与计数）。 */
+  /** 命中博客估计总数（distinct docId，用于翻页与计数）。 */
   total: number;
   sectionFacets: SearchFacet[];
   /** Meilisearch 不可用时为 true：调用方降级提示。 */
@@ -102,7 +102,7 @@ export async function runSearch(args: RunSearchArgs): Promise<RunSearchResult> {
 
     // 板块分面计数：Meilisearch 的 facetDistribution 计的是「命中块」数（distinctAttribute 不作用于分面），
     // 与去重后的「篇」数对不上（长文同词多段会虚高）。故先用一次 facets 查询拿到「有命中的板块集合」，
-    // 再对每个板块各跑一次 limit:0 查询，用其 estimatedTotal（已按 docId 去重=命中文章数）作为分面数。
+    // 再对每个板块各跑一次 limit:0 查询，用其 estimatedTotal（已按 docId 去重=命中博客数）作为分面数。
     let sectionFacets: SearchFacet[] = [];
     const secDist = facetRes?.facetDistribution?.sectionSlug;
     if (secDist !== undefined) {

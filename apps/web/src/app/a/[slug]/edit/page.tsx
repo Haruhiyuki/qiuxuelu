@@ -23,7 +23,7 @@ function Blocked({ slug, text }: { slug: string; text: string }) {
       <p className="mt-3 text-ink-500 text-sm">{text}</p>
       <p className="mt-6 text-sm">
         <Link href={`/a/${slug}`} className="text-brand-700 hover:text-brand-900">
-          ← 返回文章
+          ← 返回博客
         </Link>
       </p>
     </div>
@@ -58,7 +58,7 @@ export default async function CollabEditPage({ params }: EditPageProps) {
     notFound();
   }
   if (doc.ownerId === session.user.id) {
-    return <Blocked slug={slug} text="作者请通过「写文章」的草稿与发布审批流程修改自己的文章。" />;
+    return <Blocked slug={slug} text="作者请通过「写博客」的草稿与发布审批流程修改自己的博客。" />;
   }
 
   const actor = await loadActor(session.user.id);
@@ -78,7 +78,7 @@ export default async function CollabEditPage({ params }: EditPageProps) {
     return (
       <Blocked
         slug={slug}
-        text="这篇文章当前不开放协作直接编辑（或你的信任等级尚未解锁）。你仍可在阅读页提出行内批注。"
+        text="这篇博客当前不开放协作直接编辑（或你的信任等级尚未解锁）。你仍可在阅读页提出行内批注。"
       />
     );
   }
@@ -87,7 +87,7 @@ export default async function CollabEditPage({ params }: EditPageProps) {
   try {
     initialDoc = validateDoc(doc.content);
   } catch {
-    return <Blocked slug={slug} text="文章内容暂时无法载入编辑器。" />;
+    return <Blocked slug={slug} text="博客内容暂时无法载入编辑器。" />;
   }
 
   return (

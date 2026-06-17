@@ -157,7 +157,7 @@ export default async function UsersAdminPage({
   const pageUsers = users.slice(0, PAGE_SIZE);
   const pageIds = pageUsers.map((u) => u.id);
 
-  // 当前页用户的：角色、活跃制裁、已发布文章数（仅按页内 id 取，省查询）
+  // 当前页用户的：角色、活跃制裁、已发布博客数（仅按页内 id 取，省查询）
   const [grantRows, sanctionRows, docCountRows, sectionOpts] = await Promise.all([
     pageIds.length > 0
       ? db

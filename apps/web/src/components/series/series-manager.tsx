@@ -1,7 +1,7 @@
 'use client';
 
 // 系列管理器（ADR-0014）：改名/改简介、重排（上下移，乐观更新）、移出条目、
-// 加入已有文章、在系列内新建文章、删除系列。所有写操作走 series Server Actions（所有权直检）。
+// 加入已有博客、在系列内新建博客、删除系列。所有写操作走 series Server Actions（所有权直检）。
 import { useConfirm, useToast } from '@harublog/ui';
 import { ArrowDown, ArrowUp, ExternalLink, Plus, Trash2, X } from 'lucide-react';
 import Link from 'next/link';
@@ -182,7 +182,7 @@ export function SeriesManager(props: SeriesManagerProps) {
     if (
       !(await confirm({
         title: '删除这个系列？',
-        description: '只删除系列本身与其编排，文章不会被删除。此操作不可撤销。',
+        description: '只删除系列本身与其编排，博客不会被删除。此操作不可撤销。',
         danger: true,
         confirmLabel: '删除系列',
       }))
@@ -239,11 +239,11 @@ export function SeriesManager(props: SeriesManagerProps) {
 
       {/* 条目排序 */}
       <section>
-        <h2 className="font-medium font-serif text-ink-800">系列内文章（{items.length}）</h2>
+        <h2 className="font-medium font-serif text-ink-800">系列内博客（{items.length}）</h2>
         <p className="mt-1 text-ink-400 text-xs">用上下箭头调整顺序，顺序即读者的阅读次序。</p>
         {items.length === 0 ? (
           <p className="mt-4 rounded-lg border border-ink-100 border-dashed px-4 py-8 text-center text-ink-400 text-sm">
-            还没有文章。从下方加入已有文章，或在系列内新建。
+            还没有博客。从下方加入已有博客，或在系列内新建。
           </p>
         ) : (
           <ol className="mt-3 flex flex-col gap-2">
@@ -301,11 +301,11 @@ export function SeriesManager(props: SeriesManagerProps) {
         )}
       </section>
 
-      {/* 加入已有文章 */}
+      {/* 加入已有博客 */}
       <section>
-        <h2 className="font-medium font-serif text-ink-800">加入已有文章</h2>
+        <h2 className="font-medium font-serif text-ink-800">加入已有博客</h2>
         {candidates.length === 0 ? (
-          <p className="mt-2 text-ink-400 text-sm">没有可加入的文章了。</p>
+          <p className="mt-2 text-ink-400 text-sm">没有可加入的博客了。</p>
         ) : (
           <div className="mt-3 flex flex-wrap items-center gap-2">
             <select
@@ -313,7 +313,7 @@ export function SeriesManager(props: SeriesManagerProps) {
               onChange={(e) => setAddPick(e.target.value)}
               className="h-9 min-w-0 flex-1 rounded-lg border border-ink-200 bg-paper-50 px-3 text-ink-800 text-sm focus-visible:outline-2 focus-visible:outline-brand-600 focus-visible:outline-offset-2"
             >
-              <option value="">选择一篇文章…</option>
+              <option value="">选择一篇博客…</option>
               {candidates.map((c) => (
                 <option key={c.id} value={c.id}>
                   {c.title}
@@ -334,15 +334,15 @@ export function SeriesManager(props: SeriesManagerProps) {
         )}
       </section>
 
-      {/* 在系列内新建文章 */}
+      {/* 在系列内新建博客 */}
       <section>
-        <h2 className="font-medium font-serif text-ink-800">在系列内新建文章</h2>
+        <h2 className="font-medium font-serif text-ink-800">在系列内新建博客</h2>
         <div className="mt-3 flex flex-wrap items-center gap-2">
           <input
             value={newTitle}
             onChange={(e) => setNewTitle(e.target.value)}
             maxLength={120}
-            placeholder="新文章标题"
+            placeholder="新博客标题"
             className="h-9 min-w-0 flex-1 rounded-lg border border-ink-200 bg-paper-50 px-3 text-ink-800 text-sm placeholder:text-ink-400 focus-visible:outline-2 focus-visible:outline-brand-600 focus-visible:outline-offset-2"
           />
           <select
@@ -379,7 +379,7 @@ export function SeriesManager(props: SeriesManagerProps) {
           <Trash2 className="h-4 w-4" aria-hidden />
           删除系列
         </button>
-        <p className="mt-2 text-ink-400 text-xs">只删除系列与其编排，文章本身不受影响。</p>
+        <p className="mt-2 text-ink-400 text-xs">只删除系列与其编排，博客本身不受影响。</p>
       </section>
 
       {confirmDialog}

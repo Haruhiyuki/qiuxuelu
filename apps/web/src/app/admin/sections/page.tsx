@@ -1,4 +1,4 @@
-// 板块管理（section.manage，admin+）：新建/重命名/移动文章/删除/排序。
+// 板块管理（section.manage，admin+）：新建/重命名/移动博客/删除/排序。
 import { documents, getDb, sections } from '@harublog/db';
 import { can } from '@harublog/domain';
 import { asc, eq, sql } from 'drizzle-orm';
@@ -66,7 +66,7 @@ export default async function SectionsAdminPage() {
     <div className="mx-auto w-full max-w-3xl px-6 py-8">
       <AdminPageHeader
         title="板块管理"
-        description="新建、重命名、调整顺序、移动文章所属板块、删除空板块。板块改动即时生效（首页与筛选按 slug）。"
+        description="新建、重命名、调整顺序、移动博客所属板块、删除空板块。板块改动即时生效（首页与筛选按 slug）。"
       />
       <div className="mt-6">
         <SectionManager initialSections={initialSections} docs={docs} />

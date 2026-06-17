@@ -16,7 +16,7 @@ export const metadata: Metadata = {
 // 维度与 TrustRoadmap 的 requirementsFor / domain TrustThresholds 对应。
 const UPGRADE_REQS = [
   { tl: 'TL0', name: '新成员', req: '注册即是' },
-  { tl: 'TL1', name: '成员', req: '发布 1 篇文章' },
+  { tl: 'TL1', name: '成员', req: '发布 1 篇博客' },
   { tl: 'TL2', name: '贡献者', req: '累计贡献满 50 分' },
   {
     tl: 'TL3',
@@ -60,7 +60,7 @@ export default function CovenantPage() {
           <h1 className="font-semibold font-serif text-3xl text-ink-900">社区公约</h1>
         </div>
         <p className="mt-4 text-ink-600 leading-relaxed">
-          求学路是一个围绕各阶段求学生涯的博客平台。在这里发布的文章既是作者的个人博客，又可以由他人通过批注、编辑建议、修订申请等方式参与协作，以负责任的态度共同完成可供后来者阅读的内容。
+          求学路是一个围绕各阶段求学生涯的博客平台。在这里发布的博客既是作者的个人博客，又可以由他人通过批注、编辑建议、修订申请等方式参与协作，以负责任的态度共同完成可供后来者阅读的内容。
         </p>
       </header>
 
@@ -74,7 +74,7 @@ export default function CovenantPage() {
             当一篇个人博客积累了超过{' '}
             <strong className="font-medium text-ink-800">50 条协作记录</strong>
             ，它便会升级为<span className="font-medium text-ink-800">公共页面</span>
-            ，成为公共领域知识。作者依然保留对该文章的署名权与管理权，但社区内的其他贡献者也将能通过更多方式参与对该页面的贡献。
+            ，成为公共领域知识。作者依然保留对该博客的署名权与管理权，但社区内的其他贡献者也将能通过更多方式参与对该页面的贡献。
           </p>
           <p>以下是各等级贡献者在 「个人博客」与「公共页面」上所拥有的协作权限：</p>
           <div className="overflow-x-auto">
@@ -188,7 +188,7 @@ export default function CovenantPage() {
             </table>
           </div>
           <p>
-            贡献分按动作累计：发布文章 <span className="font-medium text-ink-800">+12</span>
+            贡献分按动作累计：发布博客 <span className="font-medium text-ink-800">+12</span>
             、行内批注 <span className="font-medium text-ink-800">+1</span>、编辑建议{' '}
             <span className="font-medium text-ink-800">+2</span>、修订申请被采纳{' '}
             <span className="font-medium text-ink-800">+3</span>。
@@ -203,7 +203,7 @@ export default function CovenantPage() {
 
         <Article title="六、举报与申诉">
           <Item label="举报">
-            发现违规内容或行为，可在评论或文章处就近举报，志愿者与管理员会跟进。
+            发现违规内容或行为，可在评论或博客处就近举报，志愿者与管理员会跟进。
           </Item>
           <Item label="申诉">
             对针对你的处罚有异议，可在{' '}

@@ -21,7 +21,7 @@ export type NotificationKind =
   // 编辑建议（反馈，ADR-0010）：收到 / 被处理
   | 'feedback_received'
   | 'feedback_handled'
-  // 文章从私有升级为公共（祝贺原作者，ADR-0007）
+  // 博客从私有升级为公共（祝贺原作者，ADR-0007）
   | 'doc_promoted'
   // 有新待办进入审校队列，通知有权处理的成员（发布审批/修订申请/举报）
   | 'review_pending';

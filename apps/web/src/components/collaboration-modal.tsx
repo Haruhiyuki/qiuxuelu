@@ -1,6 +1,6 @@
 'use client';
 
-// 文章顶部「协作」入口：点击弹窗列出三种协作方式（修订 / 修订申请 / 编辑建议，ADR-0010）。
+// 博客顶部「协作」入口：点击弹窗列出三种协作方式（修订 / 修订申请 / 编辑建议，ADR-0010）。
 // 权限不够的功能标灰 + 显示原因；可用的点击进入对应界面。弹窗 portal 到 body，Esc/遮罩/✕ 关闭。
 import { ArrowRight, Lock, Users } from 'lucide-react';
 import Link from 'next/link';

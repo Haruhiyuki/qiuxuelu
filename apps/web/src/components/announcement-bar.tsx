@@ -76,7 +76,7 @@ export function AnnouncementBar(props: BannerProps) {
             </a>
           )
         ) : (
-          // 无显式链接时，「了解更多」指向这条公告自己的近闻文章页
+          // 无显式链接时，「了解更多」指向这条公告自己的近闻博客页
           <Link href={`/news/${props.id}`} className={linkClass}>
             了解更多
           </Link>

@@ -1,4 +1,4 @@
-// 我的收藏：当前用户收藏的已发布文章。
+// 我的收藏：当前用户收藏的已发布博客。
 import {
   docReactions,
   documents,
@@ -76,7 +76,7 @@ export default async function BookmarksPage() {
         <EmptyState
           icon={<Bookmark />}
           title="还没有收藏"
-          description="在文章页点「收藏」，之后可在这里快速找回。"
+          description="在博客页点「收藏」，之后可在这里快速找回。"
         />
       )}
     </div>

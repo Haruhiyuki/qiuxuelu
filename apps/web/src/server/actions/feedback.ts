@@ -100,7 +100,7 @@ export async function createFeedback(
 
   const doc = await loadPublishedDoc(rawDocId);
   if (doc?.status !== 'published') {
-    return fail('只能对已发布的文章提编辑建议');
+    return fail('只能对已发布的博客提编辑建议');
   }
   const decision = can(actor, 'feedback.create', docCtx(doc));
   if (!decision.allow) {
@@ -124,7 +124,7 @@ export async function createFeedback(
       if (!row) {
         throw new Error('insert failed');
       }
-      // 通知文章作者（送达后台）；@提及不解析（编辑建议非公开讨论）
+      // 通知博客作者（送达后台）；@提及不解析（编辑建议非公开讨论）
       await insertNotification(tx, {
         recipientId: doc.ownerId,
         actorId: actor.id,

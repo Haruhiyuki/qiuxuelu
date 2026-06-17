@@ -17,8 +17,8 @@ import { and, asc, eq } from 'drizzle-orm';
 type ReadDb = Pick<Database, 'select'>;
 
 /**
- * 把一篇文章的「当前已发布修订」的全部块同步进搜索索引（幂等，读当前状态）。
- * 文章非 published / 无 published 指针 → 视为下线，移除其索引。
+ * 把一篇博客的「当前已发布修订」的全部块同步进搜索索引（幂等，读当前状态）。
+ * 博客非 published / 无 published 指针 → 视为下线，移除其索引。
  * 这样 'doc.published' 与 'doc.unpublished' 两个 outbox 主题都可走同一处理。
  */
 export async function syncDocument(db: ReadDb, docId: string): Promise<void> {

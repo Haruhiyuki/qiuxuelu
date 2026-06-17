@@ -21,14 +21,14 @@ const EMAIL_KINDS = [
 ] as const;
 
 const SUBJECTS: Record<string, string> = {
-  publish_approved: '你的文章已通过审核并发布',
+  publish_approved: '你的博客已通过审核并发布',
   publish_rejected: '你的发布申请未通过审核',
   patrol_reverted: '你的协作编辑被巡查回退',
-  suggestion_received: '有人向你的文章提交了编辑建议',
+  suggestion_received: '有人向你的博客提交了编辑建议',
   suggestion_merged: '你的编辑建议已被采纳',
   suggestion_rejected: '你的编辑建议未被采纳',
   suggestion_changes: '你的编辑建议被要求修改',
-  new_post: '你订阅的板块有新文章',
+  new_post: '你订阅的板块有新博客',
   review_pending: '有新的待办事项待处理',
 };
 
@@ -80,7 +80,7 @@ function reviewPendingBody(p: Payload): string {
   if (p.queue === 'flag') {
     return '有一条举报待复核，请前往后台处理。';
   }
-  return `有一篇新文章${title ? `《${title}》` : ''}待审批，请前往后台处理。`;
+  return `有一篇新博客${title ? `《${title}》` : ''}待审批，请前往后台处理。`;
 }
 
 interface Row {
@@ -118,7 +118,7 @@ export async function drainNotificationEmails(db: Database): Promise<number> {
           body = reviewPendingBody(p);
         } else if (row.kind === 'new_post') {
           const sec = p.sectionName ?? '';
-          body = `你订阅的板块${sec ? `《${sec}》` : ''}发布了新文章《${title}》。`;
+          body = `你订阅的板块${sec ? `《${sec}》` : ''}发布了新博客《${title}》。`;
           if (p.unsubToken) {
             body += `\n\n不想再收到此板块更新？一键退订：${APP_URL}/api/unsubscribe?token=${p.unsubToken}`;
           }

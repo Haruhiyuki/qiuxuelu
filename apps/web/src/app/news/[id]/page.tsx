@@ -1,4 +1,4 @@
-// 近闻详情页：单条站点新闻/公告作为可点开的文章；正文复用博客渲染器（kernel DocJson）。
+// 近闻详情页：单条站点新闻/公告作为可点开的博客；正文复用博客渲染器（kernel DocJson）。
 import { getDb } from '@harublog/db';
 import { type DocJson, validateDoc } from '@harublog/kernel';
 import { ArticleRenderer } from '@harublog/renderer';

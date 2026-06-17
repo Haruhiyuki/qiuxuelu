@@ -1,4 +1,4 @@
-// 标签页：列出带某标签的已发布文章。
+// 标签页：列出带某标签的已发布博客。
 import {
   documents,
   documentTags,
@@ -25,7 +25,7 @@ interface TagPageProps {
 export async function generateMetadata({ params }: TagPageProps): Promise<Metadata> {
   const { name } = await params;
   const tag = decodeURIComponent(name);
-  return { title: `标签：${tag}`, description: `带「${tag}」标签的求学经验文章。` };
+  return { title: `标签：${tag}`, description: `带「${tag}」标签的求学经验博客。` };
 }
 
 export default async function TagPage({ params }: TagPageProps) {
@@ -63,7 +63,7 @@ export default async function TagPage({ params }: TagPageProps) {
       <Breadcrumb items={[{ label: '首页', href: '/' }, { label: `#${tag}` }]} />
       <header className="border-ink-200 border-b pb-6">
         <h1 className="font-semibold font-serif text-2xl text-ink-900">#{tag}</h1>
-        <p className="mt-2 text-ink-500 text-sm">带此标签的已发布文章</p>
+        <p className="mt-2 text-ink-500 text-sm">带此标签的已发布博客</p>
       </header>
       {docs.length > 0 ? (
         <div className="mt-4">
@@ -78,7 +78,7 @@ export default async function TagPage({ params }: TagPageProps) {
       ) : (
         <EmptyState
           icon={<Tag />}
-          title="还没有文章用此标签"
+          title="还没有博客用此标签"
           description="换个标签或去首页浏览。"
         />
       )}

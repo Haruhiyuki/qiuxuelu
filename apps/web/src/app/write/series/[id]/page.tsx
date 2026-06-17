@@ -45,7 +45,7 @@ export default async function ManageSeriesPage({ params }: ManagePageProps) {
 
   const [itemRows, candRows, sectionRows] = await Promise.all([
     loadSeriesItems(head.id),
-    // 候选 = 本人「未归入任何系列」的文章（避免误把已在别系列的文章悄悄迁走）
+    // 候选 = 本人「未归入任何系列」的博客（避免误把已在别系列的博客悄悄迁走）
     db
       .select({ id: documents.id, title: documents.title, status: documents.status })
       .from(documents)

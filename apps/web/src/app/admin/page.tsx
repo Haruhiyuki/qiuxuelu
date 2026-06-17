@@ -35,7 +35,7 @@ export default async function AdminHome() {
     {
       href: '/admin/review',
       title: '发布审批',
-      desc: '审批新文章与改版的发布申请',
+      desc: '审批新博客与改版的发布申请',
       visible: has('doc.publish'),
     },
     {

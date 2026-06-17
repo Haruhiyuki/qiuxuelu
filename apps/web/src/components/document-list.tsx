@@ -20,7 +20,7 @@ export interface DocumentListItem {
 }
 
 /**
- * 已发布文章列表（首页 / 板块页共用），标题链向文章阅读页 /a/[slug]。
+ * 已发布博客列表（首页 / 板块页共用），标题链向博客阅读页 /a/[slug]。
  * 整行可点（标题链接铺满行块），日期在宽屏靠右对齐形成时间轴感。
  */
 export function DocumentList({ items }: { items: DocumentListItem[] }) {

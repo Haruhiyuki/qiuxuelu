@@ -1,4 +1,4 @@
-// 行内评论锚点重映射（架构 §3.4）：文章发布新修订后，把已有行内批注锚点重定位到新文本。
+// 行内评论锚点重映射（架构 §3.4）：博客发布新修订后，把已有行内批注锚点重定位到新文本。
 // 用 kernel remapAnchorAcrossBlocks：先在原块按五级阶梯重映射，原块没了/找不到再全文找回
 // （块被拆分/合并/移动也能跟随）；引文 + 前后文模糊匹配、码点安全；全文都找不到才 orphaned，永不静默丢弃。
 import type { Database } from '@harublog/db';
@@ -14,7 +14,7 @@ export interface RemapStats {
 }
 
 /**
- * 把某文章所有 visible 行内批注的锚点，重映射到其当前发布修订的块文本。
+ * 把某博客所有 visible 行内批注的锚点，重映射到其当前发布修订的块文本。
  * 返回统计（用于「锚点存活率 ≥95%」红线核验）。
  */
 export async function remapDocumentAnchors(db: Database, docId: string): Promise<RemapStats> {

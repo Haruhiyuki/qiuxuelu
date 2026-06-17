@@ -1,6 +1,6 @@
 'use client';
 
-// 文章页治理入口（板块管理员+ 可见）：收成「管理」小胶囊，点击弹窗操作——
+// 博客页治理入口（板块管理员+ 可见）：收成「管理」小胶囊，点击弹窗操作——
 // 精选开关 / 锁定编辑 / 转为公共页面。与「协作」入口同款胶囊 + portal 弹窗。
 import { useConfirm, useToast } from '@harublog/ui';
 import { Globe, Lock, LockOpen, Settings2, Star } from 'lucide-react';
@@ -197,7 +197,7 @@ export function ModerationBar({
                     <Row
                       icon={<Star className="h-4 w-4" aria-hidden />}
                       title={feat ? '取消精选' : '设为精选'}
-                      desc="精选文章在板块与首页优先展示。"
+                      desc="精选博客在板块与首页优先展示。"
                       state={feat ? '已精选' : '未精选'}
                       onClick={onToggleFeatured}
                       disabled={busy}

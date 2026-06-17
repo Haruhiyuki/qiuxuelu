@@ -13,7 +13,7 @@ export type RejectReasonCode = (typeof REJECT_REASON_CODES)[number];
 export const REJECT_REASON_LABELS: Record<RejectReasonCode, string> = {
   quality_low: '质量未达发布标准',
   off_topic: '内容与板块主题不符',
-  duplicate: '与已有文章重复',
+  duplicate: '与已有博客重复',
   incomplete: '内容不完整或尚未成文',
   compliance: '涉及合规风险内容',
   other: '其他原因（见备注）',

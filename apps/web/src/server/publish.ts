@@ -95,7 +95,7 @@ export async function publishRevisionTx(tx: Tx, p: PublishParams): Promise<void>
     });
   }
 
-  // 板块订阅者：发「板块有新文章」（actor=作者 → 作者自己订阅会自动跳过）
+  // 板块订阅者：发「板块有新博客」（actor=作者 → 作者自己订阅会自动跳过）
   const subs = await tx
     .select({ userId: subscriptions.userId, token: subscriptions.token })
     .from(subscriptions)
@@ -122,7 +122,7 @@ export async function publishRevisionTx(tx: Tx, p: PublishParams): Promise<void>
     .insert(searchOutbox)
     .values({ topic: 'doc.published', payload: { docId: p.documentId } });
 
-  // 信任：作者文章发布，记事件并重算（发首文即达 T1）
+  // 信任：作者博客发布，记事件并重算（发首文即达 T1）
   if (p.authorId !== null) {
     await emitTrustEvent(tx, {
       userId: p.authorId,

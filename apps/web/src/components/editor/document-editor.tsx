@@ -213,7 +213,7 @@ export function DocumentEditor(props: DocumentEditorProps) {
       const result = await requestPublish(props.docId);
       if (result.ok) {
         setDocStatus('pending');
-        setNotice({ kind: 'info', text: '已提交发布申请，审校通过后文章将公开可见' });
+        setNotice({ kind: 'info', text: '已提交发布申请，审校通过后博客将公开可见' });
         router.refresh();
       } else {
         setNotice({ kind: 'danger', text: result.error });

@@ -136,7 +136,7 @@ export function AccountForm({
     const v = await prompt({
       title: '注销账号',
       label:
-        '此操作不可逆：资料将被匿名化、无法再登录（文章/贡献会保留为「已注销用户」）。输入「注销」确认',
+        '此操作不可逆：资料将被匿名化、无法再登录（博客/贡献会保留为「已注销用户」）。输入「注销」确认',
       placeholder: '注销',
       confirmLabel: '确认注销',
       required: true,
@@ -521,7 +521,7 @@ export function AccountForm({
       <SettingsGroup id="data" title="数据与账号">
         <SettingsCard
           title="导出与注销"
-          description="注销为不可逆操作：个人资料将被匿名化、无法再登录；你的文章与贡献会保留并署名为「已注销用户」。"
+          description="注销为不可逆操作：个人资料将被匿名化、无法再登录；你的博客与贡献会保留并署名为「已注销用户」。"
           tone="danger"
         >
           <div className="flex flex-wrap items-center gap-3">

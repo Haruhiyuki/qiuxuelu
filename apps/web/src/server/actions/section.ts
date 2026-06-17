@@ -1,6 +1,6 @@
 'use server';
 
-// 板块管理（section.manage，admin+）：新建 / 重命名 / 移动文章所属板块 / 删除（需空）/ 调整顺序。
+// 板块管理（section.manage，admin+）：新建 / 重命名 / 移动博客所属板块 / 删除（需空）/ 调整顺序。
 // 高危治理操作，全部经 can() 鉴权并写 audit_log。slug 用于 /?section=<slug> 筛选。
 import {
   auditLog,
@@ -179,7 +179,7 @@ export async function renameSection(
   }
 }
 
-/** 把单篇文章移到另一板块；已发布文章重新入队搜索同步（板块名/slug 进索引）。 */
+/** 把单篇博客移到另一板块；已发布博客重新入队搜索同步（板块名/slug 进索引）。 */
 export async function moveDocumentSection(
   rawDocId: string,
   rawSectionId: string,
@@ -207,7 +207,7 @@ export async function moveDocumentSection(
     .limit(1);
   const doc = docRows[0];
   if (!doc) {
-    return fail('文章不存在');
+    return fail('博客不存在');
   }
   await db.transaction(async (tx) => {
     await tx
@@ -232,7 +232,7 @@ export async function moveDocumentSection(
   return { ok: true, data: null };
 }
 
-/** 删除板块：必须先移走全部文章；分离治理引用（置空）、订阅经外键级联随之删除。 */
+/** 删除板块：必须先移走全部博客；分离治理引用（置空）、订阅经外键级联随之删除。 */
 export async function deleteSection(rawSectionId: string): Promise<ActionResult> {
   const actor = await requireManager();
   if (!actor) {
@@ -248,7 +248,7 @@ export async function deleteSection(rawSectionId: string): Promise<ActionResult>
     .where(eq(documents.sectionId, rawSectionId));
   const docCount = Number(cntRows[0]?.n ?? 0);
   if (docCount > 0) {
-    return fail(`板块下还有 ${docCount} 篇文章，请先移到其它板块再删除`);
+    return fail(`板块下还有 ${docCount} 篇博客，请先移到其它板块再删除`);
   }
   const nameRows = await db
     .select({ name: sections.name })

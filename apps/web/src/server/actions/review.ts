@@ -242,7 +242,7 @@ export async function approvePublish(rawRequestId: string): Promise<ActionResult
         kind: 'publish_approved',
         payload: { docId: request.documentId, slug: request.docSlug, title: request.docTitle },
       });
-      // 板块订阅者：发「板块有新文章」通知（in-app + 邮件管线）。actorId=作者 → 订阅者恰为作者会自动跳过。
+      // 板块订阅者：发「板块有新博客」通知（in-app + 邮件管线）。actorId=作者 → 订阅者恰为作者会自动跳过。
       const subs = await tx
         .select({ userId: subscriptions.userId, token: subscriptions.token })
         .from(subscriptions)
@@ -272,7 +272,7 @@ export async function approvePublish(rawRequestId: string): Promise<ActionResult
       await tx
         .insert(searchOutbox)
         .values({ topic: 'doc.published', payload: { docId: request.documentId } });
-      // 信任：作者文章过审发布，记事件并重算其等级
+      // 信任：作者博客过审发布，记事件并重算其等级
       if (request.requesterId !== null) {
         await emitTrustEvent(tx, {
           userId: request.requesterId,
@@ -355,8 +355,8 @@ export async function rejectPublish(
         throw new ActionError('该请求刚被其他审稿人处理，请刷新页面查看结果');
       }
 
-      // 驳回后的文章状态取决于是否已有发布版本：首发被驳回退回草稿；
-      // 已发布文章的改版被驳回时线上版本不动（绝不能误下架）。
+      // 驳回后的博客状态取决于是否已有发布版本：首发被驳回退回草稿；
+      // 已发布博客的改版被驳回时线上版本不动（绝不能误下架）。
       const publishedRef = await tx
         .select({ revisionId: documentRefs.revisionId })
         .from(documentRefs)

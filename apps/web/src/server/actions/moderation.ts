@@ -27,7 +27,7 @@ export async function toggleFeatured(docId: string, featured: boolean): Promise<
       .limit(1)
   )[0];
   if (!doc) {
-    return { ok: false, error: '文章不存在' };
+    return { ok: false, error: '博客不存在' };
   }
   const decision = can(actor, 'doc.feature', { sectionId: doc.sectionId });
   if (!decision.allow) {
@@ -74,7 +74,7 @@ export async function setEditPolicy(docId: string, policy: string): Promise<Acti
       .limit(1)
   )[0];
   if (!doc) {
-    return { ok: false, error: '文章不存在' };
+    return { ok: false, error: '博客不存在' };
   }
   const decision = can(actor, 'doc.protect', {
     sectionId: doc.sectionId,
@@ -121,7 +121,7 @@ export async function publicizeDocument(docId: string): Promise<ActionResult> {
       .limit(1)
   )[0];
   if (!doc) {
-    return { ok: false, error: '文章不存在' };
+    return { ok: false, error: '博客不存在' };
   }
   const decision = can(actor, 'doc.set_visibility', { sectionId: doc.sectionId });
   if (!decision.allow) {

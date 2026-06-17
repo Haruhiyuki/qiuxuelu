@@ -70,7 +70,7 @@ export function TagEditor({ docId, initialTags }: { docId: string; initialTags: 
           />
         ) : null}
       </div>
-      <p className="text-ink-400 text-xs">最多 5 个标签，帮助读者按主题发现你的文章。</p>
+      <p className="text-ink-400 text-xs">最多 5 个标签，帮助读者按主题发现你的博客。</p>
     </div>
   );
 }

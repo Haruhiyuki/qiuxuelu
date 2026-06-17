@@ -92,10 +92,10 @@ export async function rateCollabItem(
     .limit(1);
   const doc = docRows[0];
   if (!doc) {
-    return fail('文章不存在');
+    return fail('博客不存在');
   }
   if (doc.visibility !== 'public') {
-    return fail('评议仅对公共页文章开放');
+    return fail('评议仅对公共页博客开放');
   }
   // 借 comment.create 守 silence 制裁（TL0+ 即可评议）
   const decision = can(actor, 'comment.create', { sectionId: doc.sectionId });

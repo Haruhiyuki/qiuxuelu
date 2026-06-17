@@ -35,7 +35,7 @@ export function SubscribeButton({
     const r = await toggleSubscription(sectionId);
     if (r.ok) {
       setSubscribed(r.data.subscribed);
-      toast(r.data.subscribed ? '已订阅，新文章将邮件通知你' : '已退订', 'success');
+      toast(r.data.subscribed ? '已订阅，新博客将邮件通知你' : '已退订', 'success');
     } else {
       setSubscribed(subscribed);
       toast(r.error, 'error');

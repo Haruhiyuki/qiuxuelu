@@ -26,7 +26,7 @@ export default async function MySeriesPage() {
       <Breadcrumb items={[{ label: '我的写作', href: '/write' }, { label: '我的系列' }]} />
       <h1 className="font-semibold font-serif text-2xl text-ink-900">我的系列</h1>
       <p className="mt-2 text-ink-500 text-sm">
-        把多篇文章编排成有序合集，读者可在文章底部顺序阅读。
+        把多篇博客编排成有序合集，读者可在博客底部顺序阅读。
       </p>
 
       <div className="mt-6">
@@ -38,7 +38,7 @@ export default async function MySeriesPage() {
           <EmptyState
             icon={<Layers />}
             title="还没有系列"
-            description="新建一个系列，把相关文章组织起来。"
+            description="新建一个系列，把相关博客组织起来。"
           />
         </div>
       ) : (

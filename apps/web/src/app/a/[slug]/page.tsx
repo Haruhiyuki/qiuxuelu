@@ -121,7 +121,7 @@ export async function generateMetadata({ params }: ArticlePageProps): Promise<Me
   const article = await loadArticle(slug);
   if (!article) {
     // notFound() 在 Next 16 会软返回 200（框架限制）；至少标 noindex，避免「不存在」页被搜索引擎收录
-    return { title: '文章不存在', robots: { index: false } };
+    return { title: '博客不存在', robots: { index: false } };
   }
   const content = await loadPublishedContent(article.revisionId);
   const description = buildDescription(article.summary, content);
@@ -188,7 +188,7 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
     );
   }
 
-  // 行内批注（kind='inline'，含锚点状态），与文章正文同页展示
+  // 行内批注（kind='inline'，含锚点状态），与博客正文同页展示
   const db = getDb();
   const session = await getSession();
 
@@ -202,7 +202,7 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
   let canRevise = false;
   let canReqRevision = false;
   let canFeedback = false;
-  // 举报文章（flag.create，TL0 起）：登录且未被制裁封禁者可举报
+  // 举报博客（flag.create，TL0 起）：登录且未被制裁封禁者可举报
   let canFlag = false;
   if (session) {
     const actor = await loadActor(session.user.id);
@@ -226,7 +226,7 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
       canFeature = can(actor, 'doc.feature', { sectionId: article.sectionId }).allow;
       canProtect = can(actor, 'doc.protect', docCtx).allow;
       canPublicize = can(actor, 'doc.set_visibility', { sectionId: article.sectionId }).allow;
-      // 举报：登录且有 flag.create（管理员也有）；不在自己的文章上显示（举报自己无意义）
+      // 举报：登录且有 flag.create（管理员也有）；不在自己的博客上显示（举报自己无意义）
       canFlag =
         article.ownerId !== actor.id &&
         can(actor, 'flag.create', { sectionId: article.sectionId }).allow;
@@ -238,7 +238,7 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
     {
       key: 'revise',
       title: '修订',
-      desc: '直接修改文章，立即生效（进巡查队列，权限者可撤回）',
+      desc: '直接修改博客，立即生效（进巡查队列，权限者可撤回）',
       href: `/a/${article.slug}/edit`,
       allowed: canRevise,
       reason:
@@ -250,7 +250,7 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
     {
       key: 'request',
       title: '修订申请',
-      desc: '直接修改文章，提交后需权限者审核通过才生效',
+      desc: '直接修改博客，提交后需权限者审核通过才生效',
       href: `/a/${article.slug}/suggest`,
       allowed: canReqRevision,
       reason: loginReason ?? (isPublic ? '需达到 T2（贡献者）' : '私有页需达到 T3（资深贡献者）'),
@@ -313,7 +313,7 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
     authorName: r.authorName ?? '佚名',
     state: r.state as InlineCommentView['state'],
     createdAtLabel: formatDateTime(r.createdAt),
-    // 作者注：行内批注的作者即文章原作者——同一通道，展示时置顶并标注（无需新列）
+    // 作者注：行内批注的作者即博客原作者——同一通道，展示时置顶并标注（无需新列）
     isAuthorNote: r.authorId !== null && r.authorId === article.ownerId,
   }));
 
@@ -573,7 +573,7 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
           </div>
         ) : null}
 
-        {/* 文末操作：举报这篇文章（flag.create；后端 subjectType=document，进版主复核队列）。
+        {/* 文末操作：举报这篇博客（flag.create；后端 subjectType=document，进版主复核队列）。
             放在正文末、协议声明上方，登录非作者可见——比塞进协议框里更易找到 */}
         {canFlag ? (
           <div className="flex flex-col items-center pb-6">

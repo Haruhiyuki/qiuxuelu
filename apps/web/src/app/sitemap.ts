@@ -1,4 +1,4 @@
-// 动态站点地图：首页 + 全部已发布文章 + 含已发布文章的系列 + 透明度页。供搜索引擎遍历收录。
+// 动态站点地图：首页 + 全部已发布博客 + 含已发布博客的系列 + 透明度页。供搜索引擎遍历收录。
 // 板块浏览已并入首页筛选（/?section=），不再单列板块 URL。
 import { documents, getDb, series, seriesItems } from '@harublog/db';
 import { desc, eq } from 'drizzle-orm';
@@ -15,7 +15,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       .from(documents)
       .where(eq(documents.status, 'published'))
       .orderBy(desc(documents.updatedAt)),
-    // 至少含一篇已发布文章的系列才进站点地图（空系列无收录价值）
+    // 至少含一篇已发布博客的系列才进站点地图（空系列无收录价值）
     db
       .selectDistinct({ slug: series.slug, updatedAt: series.updatedAt })
       .from(series)

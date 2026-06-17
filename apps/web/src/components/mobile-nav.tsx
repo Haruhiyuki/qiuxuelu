@@ -1,6 +1,6 @@
 'use client';
 
-// 移动端导航抽屉：窄屏把板块/写文章/管理 + 账户操作 + 搜索收进汉堡菜单，避免顶栏挤压。
+// 移动端导航抽屉：窄屏把板块/写博客/管理 + 账户操作 + 搜索收进汉堡菜单，避免顶栏挤压。
 // 自右滑入的 sheet，遮罩点击/Esc/路由切换均关闭，开启时锁背景滚动。桌面端（md+）整体不渲染。
 import {
   Bell,
@@ -122,10 +122,10 @@ export function MobileNav(props: MobileNavProps) {
                     className="mb-5 flex h-10 w-full items-center gap-2.5 rounded-full border border-ink-200 bg-paper-50 px-4 text-ink-400 text-sm transition-colors hover:border-brand-300"
                   >
                     <Search className="h-4 w-4" aria-hidden />
-                    搜索文章…
+                    搜索博客…
                   </button>
 
-                  {/* 主导航（「写文章」已直出在页头栏上，不再重复收进抽屉） */}
+                  {/* 主导航（「写博客」已直出在页头栏上，不再重复收进抽屉） */}
                   <nav className="flex flex-col">
                     <DrawerLink href="/news" match="/news" pathname={pathname}>
                       近闻

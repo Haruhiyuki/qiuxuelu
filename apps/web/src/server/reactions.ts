@@ -1,4 +1,4 @@
-// 文章互动状态读取（非 Server Action）：赞/踩计数 + 当前用户的投票方向与收藏状态。
+// 博客互动状态读取（非 Server Action）：赞/踩计数 + 当前用户的投票方向与收藏状态。
 import { type Database, docReactions } from '@harublog/db';
 import { and, count, eq, inArray } from 'drizzle-orm';
 

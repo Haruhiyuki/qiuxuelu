@@ -1,4 +1,4 @@
-// 贡献者公开主页：身份 + 信任等级 + 贡献统计 + 已发布文章。内容溯源与作者信象（架构 §4）。
+// 贡献者公开主页：身份 + 信任等级 + 贡献统计 + 已发布博客。内容溯源与作者信象（架构 §4）。
 import {
   documents,
   getDb,
@@ -70,7 +70,7 @@ export async function generateMetadata({ params }: ProfilePageProps): Promise<Me
   }
   return {
     title: `${profile.name} 的主页`,
-    description: `${profile.name} 在求学路的公开贡献与文章。`,
+    description: `${profile.name} 在求学路的公开贡献与博客。`,
   };
 }
 
@@ -110,7 +110,7 @@ export default async function ProfilePage({ params }: ProfilePageProps) {
   // 路线图的达标进度仅本人可见：访客只看路线与当前位置，不见统计数字
   const session = await getSession();
   const isOwnProfile = session?.user.id === profile.id;
-  // 文章系列：访客只见有已发布条目的系列，本人见全部
+  // 博客系列：访客只见有已发布条目的系列，本人见全部
   const userSeries = await listUserSeries(profile.id, { onlyWithPublished: !isOwnProfile });
   let roadmapProgress: Parameters<typeof TrustRoadmap>[0]['progress'] = null;
   if (isOwnProfile) {
@@ -121,7 +121,7 @@ export default async function ProfilePage({ params }: ProfilePageProps) {
 
   const mergedCount = Number(mergedRows[0]?.n ?? 0);
   const stats = [
-    { label: '已发布文章', value: docs.length },
+    { label: '已发布博客', value: docs.length },
     { label: '修订贡献', value: Number(revisionRows[0]?.n ?? 0) },
     { label: '被采纳建议', value: mergedCount },
   ];
@@ -220,11 +220,11 @@ export default async function ProfilePage({ params }: ProfilePageProps) {
         </dl>
       </div>
 
-      {/* 已发布文章：贡献者的主要产出，紧随身份卡 */}
+      {/* 已发布博客：贡献者的主要产出，紧随身份卡 */}
       <section className="mt-10">
         <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
           <span aria-hidden className="h-4 w-1 self-center rounded-xs bg-accent-600" />
-          <h2 className="font-medium font-serif text-ink-800 text-lg">已发布文章</h2>
+          <h2 className="font-medium font-serif text-ink-800 text-lg">已发布博客</h2>
           {docs.length > 0 ? (
             <span className="text-ink-400 text-xs tabular-nums">共 {docs.length} 篇</span>
           ) : null}
@@ -257,19 +257,19 @@ export default async function ProfilePage({ params }: ProfilePageProps) {
           <div className="mt-4">
             <EmptyState
               icon={<PenLine />}
-              title="还没有公开文章"
-              description="这位贡献者尚未发布文章——也许正在共建他人的篇章。"
+              title="还没有公开博客"
+              description="这位贡献者尚未发布博客——也许正在共建他人的篇章。"
             />
           </div>
         )}
       </section>
 
-      {/* 文章系列：作者编排的有序合集 */}
+      {/* 博客系列：作者编排的有序合集 */}
       {userSeries.length > 0 ? (
         <section className="mt-10">
           <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
             <span aria-hidden className="h-4 w-1 self-center rounded-xs bg-brand-500" />
-            <h2 className="font-medium font-serif text-ink-800 text-lg">文章系列</h2>
+            <h2 className="font-medium font-serif text-ink-800 text-lg">博客系列</h2>
             <span className="text-ink-400 text-xs tabular-nums">共 {userSeries.length} 个</span>
             {isOwnProfile ? (
               <Link

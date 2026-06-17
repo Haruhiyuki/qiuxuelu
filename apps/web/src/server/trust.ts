@@ -50,9 +50,9 @@ function isThresholds(t: unknown): t is TrustThresholds {
 
 /**
  * 从源表聚合用户当前 TrustStats（纯派生，可重放）。
- * 计分（ADR-0016）：发布文章 × publishDoc、可见行内批注 × inlineComment、编辑建议 × feedback、
+ * 计分（ADR-0016）：发布博客 × publishDoc、可见行内批注 × inlineComment、编辑建议 × feedback、
  * 修订申请合入 × suggestionMerged。points 为全生命周期累计；windowPoints 仅计近 windowDays 天内
- * 发生的贡献（文章/批注/建议按 createdAt，合入按 resolvedAt）。
+ * 发生的贡献（博客/批注/建议按 createdAt，合入按 resolvedAt）。
  */
 export async function computeUserStats(
   db: Pick<Database, 'select'>,
@@ -63,7 +63,7 @@ export async function computeUserStats(
   const windowStart = new Date(now.getTime() - thresholds.windowDays * MS_PER_DAY);
   const pv = thresholds.points;
 
-  // 发布文章（owner + published）
+  // 发布博客（owner + published）
   const docRows = await db
     .select({
       total: sql<number>`count(*)`,

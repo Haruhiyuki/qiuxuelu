@@ -1,4 +1,4 @@
-// 板块内标签聚合（读路径，非 Server Action）：统计某板块已发布文章用到的标签及各自篇数。
+// 板块内标签聚合（读路径，非 Server Action）：统计某板块已发布博客用到的标签及各自篇数。
 // 标签全局存在（tags.name 站内唯一），但「分类」是按板块聚合的——同一个 #数学 可同时
 // 出现在高中与大学板块，各板块各自统计自己的篇数。无需改 schema，纯派生。
 import { type Database, documents, documentTags, publishedSnapshots, tags } from '@harublog/db';
@@ -9,7 +9,7 @@ export interface SectionTag {
   count: number;
 }
 
-/** 某板块内、已发布文章用到的标签 + 篇数，按篇数降序（同数按名）。 */
+/** 某板块内、已发布博客用到的标签 + 篇数，按篇数降序（同数按名）。 */
 export async function getSectionTags(
   db: Pick<Database, 'select'>,
   sectionId: string,
@@ -29,7 +29,7 @@ export async function getSectionTags(
   return rows.map((r) => ({ name: r.name, count: Number(r.count) }));
 }
 
-/** 板块内已发布文章总数（「全部」分类的计数）。 */
+/** 板块内已发布博客总数（「全部」分类的计数）。 */
 export async function countSectionPublished(
   db: Pick<Database, 'select'>,
   sectionId: string,
@@ -42,7 +42,7 @@ export async function countSectionPublished(
   return Number(rows[0]?.n ?? 0);
 }
 
-/** drizzle where 片段：限定某板块、可选某标签的已发布文章（供文章列表查询复用）。 */
+/** drizzle where 片段：限定某板块、可选某标签的已发布博客（供博客列表查询复用）。 */
 export function sectionDocFilter(sectionId: string, tagName: string | null) {
   return tagName === null
     ? eq(documents.sectionId, sectionId)

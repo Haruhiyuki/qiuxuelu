@@ -1,4 +1,4 @@
-// 每篇文章的动态分享卡（og:image）：Next 自动据此文件注入 og/twitter image 元信息。
+// 每篇博客的动态分享卡（og:image）：Next 自动据此文件注入 og/twitter image 元信息。
 // CJK 字体在「生成时」于服务端取用并光栅化为 PNG——读者只下载图片、不下载字体，不违阅读端零字体红线。
 import { SITE_NAME } from '@harublog/config';
 import { documents, getDb, publishedSnapshots, sections } from '@harublog/db';
@@ -8,7 +8,7 @@ import { ImageResponse } from 'next/og';
 export const runtime = 'nodejs';
 export const size = { width: 1200, height: 630 };
 export const contentType = 'image/png';
-export const alt = '文章分享卡';
+export const alt = '博客分享卡';
 
 // 取 Noto Sans SC 的按文字子集（仅卡片用到的字），Satori 据此渲染中文；取不到则返回 null（降级）。
 async function loadCjkFont(text: string): Promise<ArrayBuffer | null> {
@@ -38,9 +38,9 @@ export default async function OgImage({ params }: { params: Promise<{ slug: stri
     .innerJoin(publishedSnapshots, eq(publishedSnapshots.documentId, documents.id))
     .where(and(eq(documents.slug, slug), eq(documents.status, 'published')))
     .limit(1);
-  const title = rows[0]?.title ?? '文章';
+  const title = rows[0]?.title ?? '博客';
   const section = rows[0]?.section ?? '';
-  const font = await loadCjkFont(`${title}${section}${SITE_NAME}文章分享`);
+  const font = await loadCjkFont(`${title}${section}${SITE_NAME}博客分享`);
 
   return new ImageResponse(
     <div

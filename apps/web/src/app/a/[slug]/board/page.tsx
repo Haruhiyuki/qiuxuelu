@@ -172,7 +172,7 @@ export default async function CollabBoardPage({ params }: { params: Promise<{ sl
       {isPublic ? (
         <Section title="编辑建议" count={fbs.length}>
           {fbs.length === 0 ? (
-            <EmptyState title="还没有编辑建议" description="读者可在文章顶部「协作」里提意见。" />
+            <EmptyState title="还没有编辑建议" description="读者可在博客顶部「协作」里提意见。" />
           ) : (
             <ul className="flex flex-col gap-4">
               {fbs.map((f) => (
@@ -214,7 +214,7 @@ export default async function CollabBoardPage({ params }: { params: Promise<{ sl
           {sugs.length === 0 ? (
             <EmptyState
               title="还没有修订申请"
-              description="贡献者可对文章提交改动申请，待审核合入。"
+              description="贡献者可对博客提交改动申请，待审核合入。"
             />
           ) : (
             <ul className="flex flex-col gap-4">
@@ -243,7 +243,7 @@ export default async function CollabBoardPage({ params }: { params: Promise<{ sl
 
       <Section title="修订记录" count={revs.length}>
         {revs.length === 0 ? (
-          <EmptyState title="暂无修订记录" description="文章发布后，每次改动都会留痕在这里。" />
+          <EmptyState title="暂无修订记录" description="博客发布后，每次改动都会留痕在这里。" />
         ) : (
           <ul className="flex flex-col gap-4">
             {revs.map((rv) => (

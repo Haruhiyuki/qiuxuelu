@@ -243,7 +243,7 @@ export async function createDocument(
         .returning({ id: documents.id });
       const doc = inserted[0];
       if (!doc) {
-        throw new ActionError('文章创建失败，请稍后重试');
+        throw new ActionError('博客创建失败，请稍后重试');
       }
       await tx.insert(workingCopies).values({
         documentId: doc.id,
@@ -262,7 +262,7 @@ export async function createDocument(
     });
     return { ok: true, data: { docId } };
   } catch (err) {
-    return toFailure(err, '文章创建失败，请稍后重试');
+    return toFailure(err, '博客创建失败，请稍后重试');
   }
 }
 
@@ -279,10 +279,10 @@ export async function saveWorkingCopy(
   }
   const doc = await findDoc(rawDocId);
   if (!doc) {
-    return fail('文章不存在');
+    return fail('博客不存在');
   }
   if (doc.ownerId !== actor.id) {
-    return fail('只有作者本人可以编辑这篇文章');
+    return fail('只有作者本人可以编辑这篇博客');
   }
   // 与 commitRevision 同闸：停用账号与 no_edit/suspend 制裁在保存阶段即一票否决，
   // 不给被制裁者留下任何服务端写路径（含私有工作副本）。
@@ -337,10 +337,10 @@ export async function updateDocumentMeta(
   }
   const doc = await findDoc(rawDocId);
   if (!doc) {
-    return fail('文章不存在');
+    return fail('博客不存在');
   }
   if (doc.ownerId !== actor.id) {
-    return fail('只有作者本人可以编辑这篇文章');
+    return fail('只有作者本人可以编辑这篇博客');
   }
   const decision = can(actor, 'doc.edit_direct', { sectionId: doc.sectionId, doc: toDocCtx(doc) });
   if (!decision.allow) {
@@ -402,7 +402,7 @@ export async function commitRevision(
 
   const docRow = await findDoc(rawDocId);
   if (!docRow) {
-    return fail('文章不存在');
+    return fail('博客不存在');
   }
   if (docRow.ownerId !== actor.id) {
     return fail('只有作者本人可以提交修订');
@@ -688,7 +688,7 @@ export async function commitRevision(
 
 /**
  * 删除草稿（草稿箱）：仅作者本人、且文档处于 draft/pending（未发布）状态。
- * 已发布文章不在此删除（属更重的治理动作）。事务内按外键顺序清理子表后删文档：
+ * 已发布博客不在此删除（属更重的治理动作）。事务内按外键顺序清理子表后删文档：
  * revisionChanges/revisionBlocks → documentRefs/workingCopies → 发布请求/审批项 →
  * blocks → revisions → slugHistory → documents；documentTags/seriesItems/
  * documentReferences/docReactions 经 onDelete cascade 随文档删除。blobs 内容寻址共享，保留。
@@ -703,13 +703,13 @@ export async function deleteDocument(rawDocId: string): Promise<ActionResult> {
   }
   const docRow = await findDoc(rawDocId);
   if (!docRow) {
-    return fail('文章不存在');
+    return fail('博客不存在');
   }
   if (docRow.ownerId !== actor.id) {
-    return fail('只有作者本人可以删除这篇文章');
+    return fail('只有作者本人可以删除这篇博客');
   }
   if (docRow.status !== 'draft' && docRow.status !== 'pending') {
-    return fail('只能删除草稿；已发布的文章请先下线');
+    return fail('只能删除草稿；已发布的博客请先下线');
   }
   // 经 can() 让停用/制裁一票否决（与编辑同闸）
   const decision = can(actor, 'doc.edit_direct', {
@@ -782,7 +782,7 @@ export async function requestPublish(
   }
   const docRow = await findDoc(rawDocId);
   if (!docRow) {
-    return fail('文章不存在');
+    return fail('博客不存在');
   }
   if (docRow.ownerId !== actor.id) {
     return fail('只有作者本人可以申请发布');
@@ -854,7 +854,7 @@ export async function requestPublish(
         .returning({ id: publishRequests.id });
       const request = inserted[0];
       if (!request) {
-        throw new ActionError('这篇文章已有待审的发布请求，请耐心等待审批');
+        throw new ActionError('这篇博客已有待审的发布请求，请耐心等待审批');
       }
       await tx
         .insert(reviewItems)
@@ -871,7 +871,7 @@ export async function requestPublish(
         actorId: actor.id,
         payload: { queue: 'new_document', title: docRow.title },
       });
-      // 已发布文章的改版申请不改变线上状态（published 不动），仅首发从 draft 进入 pending
+      // 已发布博客的改版申请不改变线上状态（published 不动），仅首发从 draft 进入 pending
       if (docRow.status === 'draft') {
         await tx
           .update(documents)
@@ -898,7 +898,7 @@ export async function requestPublish(
  * 在草稿分支上创建一个 kind='rollback' 新修订，其树 = 目标修订的树（内容被还原），
  * 旧修订与中间修订全部保留——这是「全历史可直观追溯」的一等操作，不是删除。
  * 同时把作者工作副本还原到该内容；鉴权同提交（can('doc.edit_direct')）。
- * 回退只动草稿：文章已发布的话线上版本不变，作者需在写作器重新发布才会让还原内容上线。
+ * 回退只动草稿：博客已发布的话线上版本不变，作者需在写作器重新发布才会让还原内容上线。
  */
 export async function restoreRevision(
   rawDocId: string,
@@ -916,7 +916,7 @@ export async function restoreRevision(
   }
   const docRow = await findDoc(rawDocId);
   if (!docRow) {
-    return fail('文章不存在');
+    return fail('博客不存在');
   }
   const decision = can(actor, 'doc.edit_direct', {
     sectionId: docRow.sectionId,
@@ -937,7 +937,7 @@ export async function restoreRevision(
         .limit(1);
       const target = targetRows[0];
       if (!target) {
-        throw new ActionError('目标修订不存在或不属于本文章');
+        throw new ActionError('目标修订不存在或不属于本博客');
       }
 
       // 目标修订的树（即将成为新修订的树，引用的 blocks/blobs 均已存在）
@@ -963,7 +963,7 @@ export async function restoreRevision(
         .limit(1);
       const expectedHead = refRows[0]?.revisionId ?? null;
       if (expectedHead === null) {
-        throw new ActionError('这篇文章还没有草稿修订，无法回退');
+        throw new ActionError('这篇博客还没有草稿修订，无法回退');
       }
       if (expectedHead === rawTargetRevisionId) {
         throw new ActionError('目标修订就是当前草稿，无需回退');
@@ -1080,8 +1080,8 @@ export async function restoreRevision(
 }
 
 /**
- * 协作直接编辑已发布文章（架构 §5 巡查梯度）：TL2 改 open 文档 / TL3 改 semi 文档即时生效，
- * 进 edit_patrol 巡查队列（事后巡查）。仅非作者走此路径；作者改自己文章仍用草稿+审批流。
+ * 协作直接编辑已发布博客（架构 §5 巡查梯度）：TL2 改 open 文档 / TL3 改 semi 文档即时生效，
+ * 进 edit_patrol 巡查队列（事后巡查）。仅非作者走此路径；作者改自己博客仍用草稿+审批流。
  * 单事务：建新修订（parent=当前发布修订）→ CAS 移 published ref → 重建快照 → 写 search outbox
  * （触发搜索同步 + 行内锚点重映射）→ 按义务入巡查队列 → 通知作者 → 审计。
  */
@@ -1105,13 +1105,13 @@ export async function directEditPublished(
 
   const docRow = await findDoc(rawDocId);
   if (!docRow) {
-    return fail('文章不存在');
+    return fail('博客不存在');
   }
   if (docRow.status !== 'published') {
-    return fail('只能协作编辑已发布的文章');
+    return fail('只能协作编辑已发布的博客');
   }
   if (docRow.ownerId === actor.id) {
-    return fail('作者请通过「写文章」的草稿与发布审批流程修改自己的文章');
+    return fail('作者请通过「写博客」的草稿与发布审批流程修改自己的博客');
   }
   const decision = can(actor, 'doc.edit_direct', {
     sectionId: docRow.sectionId,
@@ -1156,7 +1156,7 @@ export async function directEditPublished(
         .limit(1);
       const expectedHead = refRows[0]?.revisionId ?? null;
       if (expectedHead === null) {
-        throw new ActionError('文章没有发布修订，无法协作编辑');
+        throw new ActionError('博客没有发布修订，无法协作编辑');
       }
 
       const parentRows = await tx
@@ -1276,7 +1276,7 @@ export async function directEditPublished(
         )
         .returning({ documentId: documentRefs.documentId });
       if (moved.length === 0) {
-        throw new ActionError('编辑冲突：文章在你编辑期间已被更新，请刷新页面后重试');
+        throw new ActionError('编辑冲突：博客在你编辑期间已被更新，请刷新页面后重试');
       }
 
       // 重建发布快照（读路径 O(1)）
@@ -1333,7 +1333,7 @@ export async function directEditPublished(
     return { ok: true, data: { seq } };
   } catch (err) {
     if (isUniqueViolation(err)) {
-      return fail('编辑冲突：文章在你编辑期间已被更新，请刷新页面后重试');
+      return fail('编辑冲突：博客在你编辑期间已被更新，请刷新页面后重试');
     }
     return toFailure(err, '协作编辑失败，请稍后重试');
   }

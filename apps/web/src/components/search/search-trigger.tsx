@@ -21,7 +21,7 @@ export function SearchTrigger() {
         aria-hidden
         className="-translate-y-1/2 pointer-events-none absolute top-1/2 left-2.5 h-3.5 w-3.5 text-ink-400"
       />
-      <span className="flex-1 truncate text-ink-400 text-sm">搜索文章…</span>
+      <span className="flex-1 truncate text-ink-400 text-sm">搜索博客…</span>
       <kbd className="hidden shrink-0 rounded border border-ink-200 px-1.5 py-px font-sans text-[11px] text-ink-400 lg:inline">
         ⌘K
       </kbd>

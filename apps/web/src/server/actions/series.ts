@@ -1,8 +1,8 @@
 'use server';
 
-// 文章系列写路径（ADR-0014）：作者自归属编排——所有权直检（series.owner_id===actor.id），
+// 博客系列写路径（ADR-0014）：作者自归属编排——所有权直检（series.owner_id===actor.id），
 // 不走 can()（系列非治理对象，与 reactions/account 同风格）；停用账号一律拒绝。
-// 加入系列额外要求文档归属本人——只能编排自己的文章。
+// 加入系列额外要求文档归属本人——只能编排自己的博客。
 import { documents, getDb, series, seriesItems } from '@harublog/db';
 import { and, asc, eq, sql } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
@@ -131,12 +131,12 @@ export async function deleteSeries(rawSeriesId: string): Promise<ActionResult> {
   if ((await loadOwnedSeries(rawSeriesId, actor.id)) === null) {
     return fail('系列不存在或无权管理');
   }
-  // series_items 经外键级联随之删除（不删文章本身）
+  // series_items 经外键级联随之删除（不删博客本身）
   await getDb().delete(series).where(eq(series.id, rawSeriesId));
   return { ok: true, data: null };
 }
 
-/** 把文档加入 / 移动到某系列；seriesId=null 表示移出当前系列。只能编排自己的文章。 */
+/** 把文档加入 / 移动到某系列；seriesId=null 表示移出当前系列。只能编排自己的博客。 */
 export async function setDocumentSeries(
   rawDocId: string,
   rawSeriesId: string | null,
@@ -162,10 +162,10 @@ export async function setDocumentSeries(
     .limit(1);
   const doc = docRows[0];
   if (!doc) {
-    return fail('文章不存在');
+    return fail('博客不存在');
   }
   if (doc.ownerId !== actor.id) {
-    return fail('只能把自己的文章加入系列');
+    return fail('只能把自己的博客加入系列');
   }
 
   if (rawSeriesId === null) {
@@ -255,7 +255,7 @@ export async function reorderSeries(
   }
 }
 
-/** 在系列内新建文章：复用 createDocument（带 consent/can 闸）再加入系列。 */
+/** 在系列内新建博客：复用 createDocument（带 consent/can 闸）再加入系列。 */
 export async function createDocumentInSeries(
   rawTitle: string,
   rawSectionId: string,
