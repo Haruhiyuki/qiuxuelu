@@ -18,7 +18,7 @@ import type { ImageMetaMap, TocEntry } from '@harublog/renderer';
 import { ArticleRenderer, extractToc, mediaHashFromSrc } from '@harublog/renderer';
 import { Badge } from '@harublog/ui';
 import { and, asc, eq, inArray } from 'drizzle-orm';
-import { ClipboardList, History } from 'lucide-react';
+import { ClipboardList, History, Star } from 'lucide-react';
 import type { Metadata } from 'next';
 import { unstable_cache } from 'next/cache';
 import Link from 'next/link';
@@ -449,7 +449,7 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
                   )}
                   {/* 公共页保留并彰显原始作者身份（ADR-0007） */}
                   {isPublic ? <span className="text-ink-400 text-xs">原作者</span> : null}
-                  {article.featured ? <Badge variant="brand">精选</Badge> : null}
+                  {/* 精选不再用醒目徽标——收进下方元信息栏，低调标注 */}
                   {isPublic ? (
                     <Badge variant="accent" title="经社区认可、转为公共维护的页面">
                       公共页面
@@ -464,14 +464,19 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
                 ) : null}
               </div>
             </div>
-            {/* 次级元信息：发布 / 更新 / 阅读时长 */}
+            {/* 次级元信息：精选（低调）/ 更新 / 阅读时长。发布日期不再在此显示——移至修订历史。 */}
             <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-ink-400 text-xs">
-              <time dateTime={article.publishedAt.toISOString()}>
-                {formatDate(article.publishedAt)} 发布
-              </time>
-              <span aria-hidden className="text-ink-300">
-                ·
-              </span>
+              {article.featured ? (
+                <>
+                  <span className="inline-flex items-center gap-1 text-ochre-700">
+                    <Star className="h-3 w-3 fill-current" aria-hidden />
+                    精选
+                  </span>
+                  <span aria-hidden className="text-ink-300">
+                    ·
+                  </span>
+                </>
+              ) : null}
               <time dateTime={article.revisedAt.toISOString()}>
                 {formatDate(article.revisedAt)} 更新
               </time>

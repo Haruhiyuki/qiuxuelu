@@ -16,7 +16,7 @@ import { notFound } from 'next/navigation';
 import { Breadcrumb } from '@/components/breadcrumb';
 import { RestoreButton } from '@/components/restore-button';
 import { revisionKindLabel } from '@/lib/doc-labels';
-import { formatDateTime } from '@/lib/format';
+import { formatDate, formatDateTime } from '@/lib/format';
 import { getSession } from '@/lib/session';
 import { loadActor } from '@/server/actors';
 
@@ -120,6 +120,13 @@ export default async function HistoryPage({ params }: HistoryPageProps) {
     .where(and(eq(revisions.documentId, doc.id), isNull(revisions.suggestionId)))
     .orderBy(desc(revisions.seq));
 
+  // 初次发布日期：无独立首发时间戳，以最早一条主线修订（最小 seq = 内容初版）的创建时间为准；
+  // 仅对已发布文档展示（草稿历史尚谈不上「发布」）。
+  const firstPublishedAt =
+    publishedRevisionId !== null
+      ? (revisionRows[revisionRows.length - 1]?.createdAt ?? null)
+      : null;
+
   // 每个修订的「上一版」= seq 比它小的最近一个（草稿分支 seq 单调）
   const ascSeqs = revisionRows.map((r) => r.seq).sort((a, b) => a - b);
   const prevSeqOf = new Map<number, number>();
@@ -149,6 +156,11 @@ export default async function HistoryPage({ params }: HistoryPageProps) {
             <span className="text-ink-700">{doc.title}</span> · 共 {revisionRows.length} 次修订
             <span className="text-ink-400"> · 修订不可变，全谱系公开可追溯</span>
           </p>
+          {firstPublishedAt ? (
+            <p className="mt-1 text-ink-400 text-xs">
+              该内容于 {formatDate(firstPublishedAt)} 初次发布
+            </p>
+          ) : null}
         </div>
         <Link
           href={`/a/${doc.slug}/diff`}
