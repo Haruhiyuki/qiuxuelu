@@ -22,6 +22,8 @@ interface PayloadShape {
   reasonCode?: string;
   suggestionId?: string;
   status?: string;
+  /** review_pending：待审队列类型（new_document/first_post/suggestion/flag） */
+  queue?: string;
 }
 
 const FEEDBACK_STATUS_LABEL: Record<string, string> = {
@@ -93,6 +95,17 @@ function describe(kind: string, p: PayloadShape): { text: string; href: string }
         text: `🎉 恭喜！你的文章《${title}》已被认可有公共价值，升级为公共页面——你仍是它的原作者`,
         href: `/a/${p.slug ?? ''}`,
       };
+    case 'review_pending':
+      if (p.queue === 'suggestion') {
+        return {
+          text: `有一条修订申请待你审核${p.title ? `（《${p.title}》）` : ''}`,
+          href: '/admin/suggestions',
+        };
+      }
+      if (p.queue === 'flag') {
+        return { text: '有一条举报待你复核', href: '/admin/flags' };
+      }
+      return { text: `有新文章《${p.title ?? '某篇文章'}》待你审批`, href: '/admin/review' };
     default:
       return { text: '你有一条新通知', href: '/' };
   }

@@ -69,15 +69,18 @@ export function UserMenu({ userId, userName, userImage, unread }: UserMenuProps)
         aria-label="个人资料菜单"
         className="flex items-center gap-1.5 rounded-full py-0.5 pr-1.5 pl-0.5 text-ink-800 transition-colors hover:text-brand-700"
       >
-        <span className="relative flex h-7 w-7 items-center justify-center overflow-hidden rounded-full bg-brand-100 font-medium font-serif text-brand-700 text-sm ring-1 ring-ink-200">
-          {userImage !== null ? (
-            <img src={userImage} alt="" className="h-full w-full object-cover" />
-          ) : (
-            userName.slice(0, 1)
-          )}
-          {/* 未读红点：菜单收起时也能一眼看到 */}
+        {/* 头像外再套一层定位容器：红点作为头像的兄弟节点浮在外侧，不被头像的 overflow-hidden 裁切 */}
+        <span className="relative flex shrink-0">
+          <span className="flex h-7 w-7 items-center justify-center overflow-hidden rounded-full bg-brand-100 font-medium font-serif text-brand-700 text-sm ring-1 ring-ink-200">
+            {userImage !== null ? (
+              <img src={userImage} alt="" className="h-full w-full object-cover" />
+            ) : (
+              userName.slice(0, 1)
+            )}
+          </span>
+          {/* 未读红点：浮在头像右上角外侧，菜单收起时也一眼可见 */}
           {unread > 0 ? (
-            <span className="-top-0.5 -right-0.5 absolute h-2.5 w-2.5 rounded-full bg-danger-fill ring-2 ring-paper-100" />
+            <span className="-top-1 -right-1 absolute h-2.5 w-2.5 rounded-full bg-danger-fill ring-2 ring-paper-100" />
           ) : null}
         </span>
         <span className="max-w-[8rem] truncate font-medium text-sm">{userName}</span>
