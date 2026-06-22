@@ -14,7 +14,6 @@ const EMAIL_PATTERN = /^\S+@\S+\.\S+$/;
 
 export default function LoginPage() {
   const router = useRouter();
-  const { data: authSession } = authClient.useSession();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -22,10 +21,16 @@ export default function LoginPage() {
 
   // 已登录用户不应停留在登录页（被链接/书签带过来时弹回首页）
   useEffect(() => {
-    if (authSession?.user) {
-      router.replace('/');
-    }
-  }, [authSession, router]);
+    let cancelled = false;
+    void authClient.getSession().then(({ data }) => {
+      if (!cancelled && data?.user) {
+        router.replace('/');
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [router]);
 
   // 通行密钥条件式自动填充（Conditional UI）：支持的浏览器在聚焦邮箱框时
   // 于自动填充列表中直接列出本站通行密钥，选中即完成登录，无需点任何按钮。

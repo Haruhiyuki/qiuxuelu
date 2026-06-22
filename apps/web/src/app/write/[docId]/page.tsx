@@ -73,6 +73,9 @@ export default async function EditDocumentPage({ params }: EditPageProps) {
     );
   }
 
+  // 已发布博客继续编辑时，工作基线应取当前 published 头；修订提交后会直接生效。
+  // 未发布草稿仍取 draft 头，首发走发布申请/自助发布。
+  const headRefName = doc.status === 'published' ? 'published' : 'draft';
   const [wcRows, refRows] = await Promise.all([
     db
       .select({ content: workingCopies.content })
@@ -82,25 +85,25 @@ export default async function EditDocumentPage({ params }: EditPageProps) {
     db
       .select({ revisionId: documentRefs.revisionId })
       .from(documentRefs)
-      .where(and(eq(documentRefs.documentId, docId), eq(documentRefs.name, 'draft')))
+      .where(and(eq(documentRefs.documentId, docId), eq(documentRefs.name, headRefName)))
       .limit(1),
   ]);
-  const draftHead = refRows[0]?.revisionId ?? null;
+  const headRevisionId = refRows[0]?.revisionId ?? null;
 
   let headSeq: number | null = null;
-  if (draftHead !== null) {
+  if (headRevisionId !== null) {
     const seqRows = await db
       .select({ seq: revisions.seq })
       .from(revisions)
-      .where(eq(revisions.id, draftHead))
+      .where(eq(revisions.id, headRevisionId))
       .limit(1);
     headSeq = seqRows[0]?.seq ?? null;
   }
 
-  // 工作副本缺失时从 draft 头修订重建（块 id 为库内 uuid，提交侧原样沿用以保身份稳定）
+  // 工作副本缺失时从当前头修订重建（块 id 为库内 uuid，提交侧原样沿用以保身份稳定）
   let rawInitial: unknown = wcRows[0]?.content ?? null;
   if (rawInitial === null) {
-    rawInitial = draftHead !== null ? await loadRevisionDoc(db, draftHead) : EMPTY_DOC;
+    rawInitial = headRevisionId !== null ? await loadRevisionDoc(db, headRevisionId) : EMPTY_DOC;
   }
   let initialDoc: DocJson;
   try {
@@ -126,7 +129,7 @@ export default async function EditDocumentPage({ params }: EditPageProps) {
       initialTags={tags}
       initialDoc={initialDoc}
       status={doc.status}
-      hasRevisions={draftHead !== null}
+      hasRevisions={headRevisionId !== null}
       headSeq={headSeq}
       canSelfPublish={canSelfPublish}
       seriesOptions={seriesPicker.options}

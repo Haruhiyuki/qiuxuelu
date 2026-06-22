@@ -55,6 +55,7 @@ import {
 import { insertNotification } from '@/server/notifications';
 import { maybeAutoPromote } from '@/server/promote';
 import { publishRevisionTx } from '@/server/publish';
+import { recomputeReferences } from '@/server/references';
 import { notifyQueueReviewers } from '@/server/review-notify';
 import { loadRevisionDoc } from '@/server/revision-doc';
 
@@ -447,12 +448,108 @@ export async function commitRevision(
         dbEntries.push({ blockId: dbId, hash: entry.hash });
       });
 
+      const publishesImmediately = docRow.status === 'published';
+      const headRefName = publishesImmediately ? 'published' : 'draft';
       const refRows = await tx
         .select({ revisionId: documentRefs.revisionId })
         .from(documentRefs)
-        .where(and(eq(documentRefs.documentId, rawDocId), eq(documentRefs.name, 'draft')))
+        .where(and(eq(documentRefs.documentId, rawDocId), eq(documentRefs.name, headRefName)))
         .limit(1);
       const expectedHead = refRows[0]?.revisionId ?? null;
+      if (publishesImmediately && expectedHead === null) {
+        throw new ActionError('博客没有发布修订，无法提交修订');
+      }
+      const draftHeadRows = publishesImmediately
+        ? await tx
+            .select({ revisionId: documentRefs.revisionId })
+            .from(documentRefs)
+            .where(and(eq(documentRefs.documentId, rawDocId), eq(documentRefs.name, 'draft')))
+            .limit(1)
+        : [];
+      const draftHead = draftHeadRows[0]?.revisionId ?? null;
+
+      // 兼容旧行为留下的状态：已提交的修订只推进了 draft ref，published 仍停在父修订。
+      // 若工作副本内容正是这条 draft 头修订，直接把既有修订设为发布版，不重复制造新修订。
+      if (
+        publishesImmediately &&
+        expectedHead !== null &&
+        draftHead !== null &&
+        draftHead !== expectedHead
+      ) {
+        const candidateRows = await tx
+          .select({
+            seq: revisions.seq,
+            parentId: revisions.parentId,
+            manifestHash: revisions.manifestHash,
+          })
+          .from(revisions)
+          .where(and(eq(revisions.id, draftHead), eq(revisions.documentId, rawDocId)))
+          .limit(1);
+        const candidate = candidateRows[0];
+        if (
+          candidate?.parentId === expectedHead &&
+          candidate.manifestHash === hashManifest(dbEntries)
+        ) {
+          const now = new Date();
+          const moved = await tx
+            .update(documentRefs)
+            .set({ revisionId: draftHead, updatedAt: now })
+            .where(
+              and(
+                eq(documentRefs.documentId, rawDocId),
+                eq(documentRefs.name, 'published'),
+                eq(documentRefs.revisionId, expectedHead),
+              ),
+            )
+            .returning({ documentId: documentRefs.documentId });
+          if (moved.length === 0) {
+            throw new ActionError('提交冲突：博客在你编辑期间已被更新，请刷新页面后重试');
+          }
+
+          const snapshot = validateDoc(await loadRevisionDoc(tx, draftHead));
+          await tx
+            .insert(publishedSnapshots)
+            .values({
+              documentId: rawDocId,
+              revisionId: draftHead,
+              content: snapshot,
+              approvedBy: actor.id,
+              publishedAt: now,
+            })
+            .onConflictDoUpdate({
+              target: publishedSnapshots.documentId,
+              set: {
+                revisionId: draftHead,
+                content: snapshot,
+                approvedBy: actor.id,
+                publishedAt: now,
+              },
+            });
+          await recomputeReferences(tx, rawDocId, snapshot);
+          await tx
+            .insert(searchOutbox)
+            .values({ topic: 'doc.published', payload: { docId: rawDocId } });
+          await tx
+            .update(workingCopies)
+            .set({ baseRevisionId: draftHead })
+            .where(and(eq(workingCopies.documentId, rawDocId), eq(workingCopies.userId, actor.id)));
+          await tx.update(documents).set({ updatedAt: now }).where(eq(documents.id, rawDocId));
+          await tx.insert(auditLog).values({
+            actorId: actor.id,
+            action: 'doc.commit_revision',
+            subjectType: 'revision',
+            subjectId: draftHead,
+            sectionId: docRow.sectionId,
+            detail: {
+              documentId: rawDocId,
+              seq: candidate.seq,
+              promotedExisting: true,
+              published: true,
+            },
+          });
+          return { committed: true, seq: candidate.seq, merged: false };
+        }
+      }
 
       // 当前头（theirs）= 提交所基于的父；同时算旧字数与父哈希集
       let parentEntries: ManifestEntry[] = [];
@@ -621,9 +718,56 @@ export async function commitRevision(
 
       await tx.insert(revisionChanges).values(changes.map((c) => toChangeRow(revisionId, c)));
 
-      // CAS 移 draft ref：WHERE revision_id = expected，0 行即说明并发前移，整体回滚
+      // 已发布博客的「修订」语义是直接生效：提交成功即推进 published ref 并重建发布快照；
+      // 未发布草稿仍只推进 draft ref，首发继续走发布审批/自助发布。
       const now = new Date();
-      if (expectedHead !== null) {
+      if (publishesImmediately) {
+        const publishedHead = expectedHead;
+        if (publishedHead === null) {
+          throw new ActionError('博客没有发布修订，无法提交修订');
+        }
+        const moved = await tx
+          .update(documentRefs)
+          .set({ revisionId, updatedAt: now })
+          .where(
+            and(
+              eq(documentRefs.documentId, rawDocId),
+              eq(documentRefs.name, 'published'),
+              eq(documentRefs.revisionId, publishedHead),
+            ),
+          )
+          .returning({ documentId: documentRefs.documentId });
+        if (moved.length === 0) {
+          throw new ActionError('提交冲突：博客在你编辑期间已被更新，请刷新页面后重试');
+        }
+
+        const snapshot = validateDoc(await loadRevisionDoc(tx, revisionId));
+        await tx
+          .insert(publishedSnapshots)
+          .values({
+            documentId: rawDocId,
+            revisionId,
+            content: snapshot,
+            approvedBy: actor.id,
+            publishedAt: now,
+          })
+          .onConflictDoUpdate({
+            target: publishedSnapshots.documentId,
+            set: { revisionId, content: snapshot, approvedBy: actor.id, publishedAt: now },
+          });
+        await recomputeReferences(tx, rawDocId, snapshot);
+        await tx
+          .insert(searchOutbox)
+          .values({ topic: 'doc.published', payload: { docId: rawDocId } });
+
+        await tx
+          .insert(documentRefs)
+          .values({ documentId: rawDocId, name: 'draft', revisionId, updatedAt: now })
+          .onConflictDoUpdate({
+            target: [documentRefs.documentId, documentRefs.name],
+            set: { revisionId, updatedAt: now },
+          });
+      } else if (expectedHead !== null) {
         const moved = await tx
           .update(documentRefs)
           .set({ revisionId, updatedAt: now })
@@ -669,6 +813,7 @@ export async function commitRevision(
           seq: newSeq,
           blocksChanged: changes.length,
           merged,
+          published: publishesImmediately,
         },
       });
       return { committed: true, seq: newSeq, merged };
@@ -791,8 +936,11 @@ export async function requestPublish(
   if (!decision.allow) {
     return fail(explainDeny(decision.reason));
   }
-  // draft 首发与 published 改版走同一审批循环（架构 §5）；pending/archived 不可重复申请
-  if (docRow.status !== 'draft' && docRow.status !== 'published') {
+  // 「修订」有权限即直接生效；只有未发布草稿的首发才走发布申请/自助发布。
+  if (docRow.status === 'published') {
+    return fail('已发布博客请提交修订，修订会直接生效');
+  }
+  if (docRow.status !== 'draft') {
     return fail(`当前状态为「${docStatusLabel(docRow.status)}」，不能申请发布`);
   }
 
@@ -871,13 +1019,10 @@ export async function requestPublish(
         actorId: actor.id,
         payload: { queue: 'new_document', title: docRow.title },
       });
-      // 已发布博客的改版申请不改变线上状态（published 不动），仅首发从 draft 进入 pending
-      if (docRow.status === 'draft') {
-        await tx
-          .update(documents)
-          .set({ status: 'pending', updatedAt: new Date() })
-          .where(eq(documents.id, rawDocId));
-      }
+      await tx
+        .update(documents)
+        .set({ status: 'pending', updatedAt: new Date() })
+        .where(eq(documents.id, rawDocId));
       await tx.insert(auditLog).values({
         actorId: actor.id,
         action: 'doc.request_publish',
@@ -1286,6 +1431,7 @@ export async function directEditPublished(
         .update(publishedSnapshots)
         .set({ revisionId, content: snapshot, publishedAt: now })
         .where(eq(publishedSnapshots.documentId, rawDocId));
+      await recomputeReferences(tx, rawDocId, snapshot);
       await tx.update(documents).set({ updatedAt: now }).where(eq(documents.id, rawDocId));
 
       // 搜索同步 + 行内锚点重映射（worker 消费）

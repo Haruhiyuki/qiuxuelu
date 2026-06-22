@@ -320,7 +320,14 @@ export function ArticleComposer(props: ArticleComposerProps) {
     setHeadSeq(seq);
     setNotice({
       kind: 'info',
-      text: merged ? `已合并并发改动并提交第 ${seq} 号修订` : `已提交第 ${seq} 号修订`,
+      text:
+        docStatus === 'published'
+          ? merged
+            ? `已合并并发改动并提交第 ${seq} 号修订，线上版本已更新`
+            : `已提交第 ${seq} 号修订，线上版本已更新`
+          : merged
+            ? `已合并并发改动并提交第 ${seq} 号修订`
+            : `已提交第 ${seq} 号修订`,
     });
     if (merged) {
       window.location.reload();
@@ -575,7 +582,9 @@ export function ArticleComposer(props: ArticleComposerProps) {
         {!isDraft ? (
           <section className="mt-8 border-ink-200 border-t pt-8">
             <h2 className="font-medium font-serif text-ink-800 text-lg">提交修订</h2>
-            <p className="mt-1 text-ink-400 text-sm">把这次改动记入版本历史。</p>
+            <p className="mt-1 text-ink-400 text-sm">
+              把这次改动记入版本历史，并立即更新线上正文。
+            </p>
             <div className="mt-4 flex flex-col gap-3">
               <Label htmlFor="commit-message">修订说明（可选）</Label>
               <Textarea

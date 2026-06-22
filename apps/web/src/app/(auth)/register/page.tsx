@@ -16,7 +16,6 @@ const MIN_PASSWORD_LENGTH = 8;
 
 export default function RegisterPage() {
   const router = useRouter();
-  const { data: authSession } = authClient.useSession();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -30,10 +29,19 @@ export default function RegisterPage() {
 
   // 已登录用户不应停留在注册页（被链接/书签带过来时弹回首页）
   useEffect(() => {
-    if (authSession?.user && registeredEmail === null) {
-      router.replace('/');
+    if (registeredEmail !== null) {
+      return;
     }
-  }, [authSession, registeredEmail, router]);
+    let cancelled = false;
+    void authClient.getSession().then(({ data }) => {
+      if (!cancelled && data?.user) {
+        router.replace('/');
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [registeredEmail, router]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
