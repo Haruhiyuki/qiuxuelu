@@ -2,6 +2,7 @@
 // like 与 dislike 的互斥（一人一票）由投票动作在事务内保证，不靠约束。
 import { sql } from 'drizzle-orm';
 import {
+  bigint,
   check,
   index,
   pgTable,
@@ -34,6 +35,15 @@ export const docReactions = pgTable(
     check('doc_reactions_kind_check', sql`${t.kind} in ('like', 'dislike', 'bookmark')`),
   ],
 );
+
+// 文章聚合统计。阅读量按页面打开次数累加，不做登录要求，也不做访客去重。
+export const documentStats = pgTable('document_stats', {
+  documentId: uuid('document_id')
+    .primaryKey()
+    .references(() => documents.id, { onDelete: 'cascade' }),
+  viewCount: bigint('view_count', { mode: 'number' }).notNull().default(0),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+});
 
 // 评论赞/踩：(user, comment, kind) 唯一；like/dislike 互斥由投票动作事务内保证（同 doc_reactions）。
 export const commentReactions = pgTable(

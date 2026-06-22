@@ -13,6 +13,7 @@ import {
   documents,
   getDb,
   revisionBlocks,
+  user as userTable,
 } from '@harublog/db';
 import { can, explainDeny } from '@harublog/domain';
 import { and, eq } from 'drizzle-orm';
@@ -443,6 +444,7 @@ type HeldRow = {
   kind: string;
   status: string;
   authorId: string | null;
+  authorName: string | null;
   parentId: string | null;
   body: unknown;
   documentId: string;
@@ -474,6 +476,7 @@ async function loadHeldForModeration(rawCommentId: string): Promise<HeldCtx> {
       kind: comments.kind,
       status: comments.status,
       authorId: comments.authorId,
+      authorName: userTable.name,
       parentId: comments.parentId,
       body: comments.body,
       documentId: comments.documentId,
@@ -484,6 +487,7 @@ async function loadHeldForModeration(rawCommentId: string): Promise<HeldCtx> {
     })
     .from(comments)
     .innerJoin(documents, eq(documents.id, comments.documentId))
+    .leftJoin(userTable, eq(userTable.id, comments.authorId))
     .where(eq(comments.id, rawCommentId))
     .limit(1);
   const c = rows[0];
@@ -507,6 +511,8 @@ export async function releaseHeldComment(rawCommentId: string): Promise<ActionRe
     return fail(ctx.error);
   }
   const { actorId, byName, comment } = ctx;
+  const commenterId = comment.authorId ?? actorId;
+  const commenterName = comment.authorName ?? byName;
   const bodyText =
     typeof (comment.body as { text?: unknown })?.text === 'string'
       ? (comment.body as { text: string }).text
@@ -530,19 +536,19 @@ export async function releaseHeldComment(rawCommentId: string): Promise<ActionRe
           docId: comment.documentId,
           slug: comment.slug,
           title: comment.title,
-          byName,
+          byName: commenterName,
         };
         await insertNotification(tx, {
           recipientId: comment.ownerId,
-          actorId,
+          actorId: commenterId,
           kind: 'comment_on_doc',
           payload,
         });
-        await notifyMentions(tx, { text: bodyText, actorId, payload });
+        await notifyMentions(tx, { text: bodyText, actorId: commenterId, payload });
       } else {
         await commentSideEffects(tx, {
-          actorId,
-          byName,
+          actorId: commenterId,
+          byName: commenterName,
           commentId: comment.id,
           docId: comment.documentId,
           slug: comment.slug,
@@ -550,7 +556,7 @@ export async function releaseHeldComment(rawCommentId: string): Promise<ActionRe
           ownerId: comment.ownerId,
           parentAuthorId,
           bodyText,
-          withTrust: true,
+          withTrust: comment.authorId !== null,
         });
       }
       await tx.insert(auditLog).values({

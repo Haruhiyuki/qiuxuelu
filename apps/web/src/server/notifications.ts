@@ -6,6 +6,8 @@ import { extractMentionCandidates } from '@/lib/identity';
 import { resolveMentionCandidates } from '@/server/identity';
 
 export type NotificationKind =
+  | 'doc_liked'
+  | 'comment_liked'
   | 'comment_on_doc'
   | 'comment_reply'
   | 'mention'

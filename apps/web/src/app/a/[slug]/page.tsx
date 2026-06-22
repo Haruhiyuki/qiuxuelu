@@ -42,6 +42,7 @@ import { renderMath } from '@/lib/math';
 import { getSession } from '@/lib/session';
 import { SITE_URL } from '@/lib/site-url';
 import { loadActor } from '@/server/actors';
+import { getDocumentViewCount } from '@/server/document-stats';
 import { getReactionState } from '@/server/reactions';
 import { getDocGraphLayered } from '@/server/references';
 import { getDocSeriesNav } from '@/server/series';
@@ -264,9 +265,8 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
       reason: loginReason ?? (isPublic ? '需达到 T1（成员）' : '私有页需达到 T2（贡献者）'),
     },
   ];
-  // 行内批注、标签、点赞收藏态、知识图谱彼此独立（仅依赖 docId/session），并行取——
-  // 把 4 次串行 DB 往返压成 1 次（本页是最热路径）。
-  const [inlineRows, docTags, reactions, graph, seriesNav] = await Promise.all([
+  // 行内批注、标签、互动状态、阅读统计、知识图谱彼此独立（仅依赖 docId/session），并行取。
+  const [inlineRows, docTags, reactions, viewCount, graph, seriesNav] = await Promise.all([
     db
       .select({
         id: comments.id,
@@ -297,6 +297,7 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
       .innerJoin(tagsTable, eq(tagsTable.id, documentTags.tagId))
       .where(eq(documentTags.documentId, article.docId)),
     getReactionState(db, article.docId, session?.user.id ?? null),
+    getDocumentViewCount(db, article.docId),
     getDocGraphLayered(db, article.docId, 3),
     getDocSeriesNav(article.docId),
   ]);
@@ -550,10 +551,13 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
         <div className="flex justify-center py-6">
           <ReactionBar
             docId={article.docId}
+            initialViewCount={viewCount}
             initialLikeCount={reactions.likeCount}
             initialDislikeCount={reactions.dislikeCount}
             initialMyVote={reactions.myVote}
             initialBookmarked={reactions.bookmarked}
+            initialLikers={reactions.likers}
+            likerLimit={reactions.likerLimit}
             loggedIn={session !== null}
           />
         </div>

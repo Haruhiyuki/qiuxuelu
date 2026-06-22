@@ -41,6 +41,10 @@ function describe(kind: string, p: PayloadShape): { text: string; href: string }
   const title = p.title ?? '某篇博客';
   const by = p.byName ?? '有人';
   switch (kind) {
+    case 'doc_liked':
+      return { text: `${by} 赞同了你的博客《${title}》`, href: `/a/${p.slug ?? ''}#reactions` };
+    case 'comment_liked':
+      return { text: `${by} 赞同了你在《${title}》下的评论`, href: `/a/${p.slug ?? ''}#comments` };
     case 'comment_on_doc':
       return { text: `${by} 评论了你的博客《${title}》`, href: `/a/${p.slug ?? ''}#comments` };
     case 'comment_reply':

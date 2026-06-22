@@ -197,6 +197,13 @@
       "when": 1781707509062,
       "tag": "0027_clammy_mattie_franklin",
       "breakpoints": true
+    },
+    {
+      "idx": 28,
+      "version": "7",
+      "when": 1782138687584,
+      "tag": "0028_white_silver_centurion",
+      "breakpoints": true
     }
   ]
 }
