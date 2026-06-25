@@ -67,8 +67,8 @@ async function loadArticle(slug: string) {
       slug: documents.slug,
       title: documents.title,
       summary: documents.summary,
+      createdAt: documents.createdAt,
       revisionId: publishedSnapshots.revisionId,
-      publishedAt: publishedSnapshots.publishedAt,
       seq: revisions.seq,
       revisedAt: revisions.createdAt,
       sectionName: sections.name,
@@ -117,6 +117,10 @@ function buildDescription(summary: string | null, content: unknown): string {
   }
 }
 
+function maxDate(a: Date, b: Date): Date {
+  return a.getTime() >= b.getTime() ? a : b;
+}
+
 export async function generateMetadata({ params }: ArticlePageProps): Promise<Metadata> {
   const { slug } = await params;
   const article = await loadArticle(slug);
@@ -126,18 +130,22 @@ export async function generateMetadata({ params }: ArticlePageProps): Promise<Me
   }
   const content = await loadPublishedContent(article.revisionId);
   const description = buildDescription(article.summary, content);
+  const articleUrl = `${SITE_URL}/a/${article.slug}`;
+  const firstPublishedAt = article.createdAt;
+  const modifiedAt = maxDate(article.revisedAt, firstPublishedAt);
   return {
     title: article.title,
     description,
+    alternates: { canonical: articleUrl },
     openGraph: {
       title: article.title,
       description,
       type: 'article',
-      url: `${SITE_URL}/a/${article.slug}`,
-      publishedTime: article.publishedAt.toISOString(),
-      modifiedTime: article.revisedAt.toISOString(),
+      url: articleUrl,
+      publishedTime: firstPublishedAt.toISOString(),
+      modifiedTime: modifiedAt.toISOString(),
     },
-    twitter: { card: 'summary', title: article.title, description },
+    twitter: { card: 'summary_large_image', title: article.title, description },
   };
 }
 
@@ -326,6 +334,8 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
 
   const articleUrl = `${SITE_URL}/a/${article.slug}`;
   const description = buildDescription(article.summary, content);
+  const firstPublishedAt = article.createdAt;
+  const modifiedAt = maxDate(article.revisedAt, firstPublishedAt);
   const authorLd =
     article.ownerId !== null
       ? {
@@ -350,8 +360,8 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
           '@type': 'Article',
           headline: article.title,
           ...(description.length > 0 ? { description } : {}),
-          datePublished: article.publishedAt.toISOString(),
-          dateModified: article.revisedAt.toISOString(),
+          datePublished: firstPublishedAt.toISOString(),
+          dateModified: modifiedAt.toISOString(),
           author: authorLd,
           publisher: { '@type': 'Organization', name: SITE_NAME },
           mainEntityOfPage: articleUrl,
